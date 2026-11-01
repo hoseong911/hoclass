@@ -1320,6 +1320,58 @@ function wireDesignStage(){
   requestAnimationFrame(fit);   // 글꼴이 늦게 와도 한 번 더 맞춘다
 }
 
+/* ── 개념 노트·미션 페이지 화면 넘침 경고 (선생님 지시 2026-11-01) ───────────────
+   한 페이지가 16:9 한 쪽을 넘기면 교실 화면에서 아래가 잘린다(스크롤이 안 되니 안 보인다).
+   7줄쯤에서 넘치는데 교사가 일일이 보기 어렵고, 일괄로 쪽을 나누면 뜻이 흐트러진다. 그래서
+   나누지 않고 "이 페이지는 넘친다"고 알리기만 한다. 실제 슬라이드(buildSlides+renderSlide)를
+   눈에 안 보이는 1920×1080 틀에 그대로 그려 속(.s-body)이 넘치는지 잰다. 디자인 탭에서 키운
+   글자 크기(designCss)도 같이 걸어 교실 화면과 분량을 맞춘다. 저장할 때마다 render가 다시 불러 갱신된다. */
+let _ovFrame = null;
+function overflowFrame(){
+  if (_ovFrame && document.body.contains(_ovFrame)) return _ovFrame;
+  const wrap = document.createElement('div');
+  wrap.id = 'ov-frame';
+  wrap.setAttribute('aria-hidden', 'true');
+  wrap.style.cssText = 'position:absolute;left:-99999px;top:0;width:1920px;height:1080px;pointer-events:none;opacity:0';
+  wrap.innerHTML = `<style class="ov-design"></style><div class="deckframe"><div class="deckpage"></div></div>`;
+  document.body.appendChild(wrap);
+  return (_ovFrame = wrap);
+}
+function wirePageOverflow(){
+  const blocks = [...$main.querySelectorAll('.pgblock')];
+  if (!blocks.length) return;
+  const k = state.axisStep;
+  if (k !== 'concept' && k !== 'mission') return;
+  const l = M.getLesson(state.conceptLessonId);
+  if (!l) return;
+  const pageSlides = buildSlides(l, l.num).filter(s => s.step === k && s.type === 'page');
+  const wrap = overflowFrame();
+  // 디자인 탭 글자 크기를 측정 틀에만 건다(전역 .deckpage에 새면 디자인 미리보기와 충돌한다)
+  wrap.querySelector('.ov-design').textContent = M.designCss().replace(/\.deckpage/g, '#ov-frame .deckpage');
+  const page = wrap.querySelector('.deckpage');
+  const measure = () => {
+    let ptr = 0;   // 빈 페이지는 슬라이드가 안 생기므로 건너뛰며 쪽과 블록을 맞춘다
+    blocks.forEach(bl => {
+      const title = (bl.querySelector('.pgtitle')?.value || '').trim();
+      const filled = [...bl.querySelectorAll('.pglabel,.pgtext')].some(t => t.value.trim());
+      const old = bl.querySelector('.pg-over-warn'); if (old) old.remove();
+      if (!title && !filled) return;          // 빈 페이지: 슬라이드 없음
+      const s = pageSlides[ptr++]; if (!s) return;
+      page.innerHTML = renderSlide(s);
+      const sb = page.querySelector('.s-body');
+      if (!sb || sb.scrollHeight <= sb.clientHeight + 2) return;   // 안 넘침
+      const warn = document.createElement('span');
+      warn.className = 'pg-over-warn';
+      warn.title = '이 페이지는 한 화면(16:9)을 넘겨 교실 화면에서 아래가 잘립니다. 묶음을 나누거나 줄을 줄이세요.';
+      warn.innerHTML = `${icon('triangle-alert', 14)}<span>화면 넘침</span>`;
+      const numEl = bl.querySelector('.pghead .pgnum');
+      if (numEl) numEl.insertAdjacentElement('afterend', warn);
+    });
+  };
+  requestAnimationFrame(measure);
+  if (document.fonts?.ready) document.fonts.ready.then(() => requestAnimationFrame(measure));
+}
+
 
 /* ── 강의 슬라이드 축 편집기 (선생님 지시 2026-10-30, 요구사항 125) ─────────
    "표지 - 전시학습확인(퀴즈 등) - 학습 목표 - 동기 유발 내용(사진, 영상류) -
@@ -2534,6 +2586,7 @@ function render(){
   $main.innerHTML = p ? p() : '';
   wireFades();
   wireDesignStage();
+  wirePageOverflow();
 }
 
 // ── 이벤트 위임 ──

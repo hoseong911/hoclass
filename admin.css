@@ -731,6 +731,12 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .pgblock:first-child{border-top:0;padding-top:6px}
 .pghead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .pgtitle{flex:0 1 420px;min-width:0;font-weight:700}
+/* 화면 넘침 경고(선생님 지시 2026-11-01): 넘치는 페이지 번호 옆에 작은 칩으로만 알린다
+   (가장자리 강조 띠는 금지라 쓰지 않는다). 측정은 admin.js의 wirePageOverflow가 한다. */
+.pg-over-warn{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:6px;background:var(--red-100);color:var(--red-dark);
+  font-size:12px;font-weight:700;white-space:nowrap}
+.pg-over-warn svg{flex:0 0 auto}
 
 /* 묶음: 라벨이 위, 내용이 아래로 세로로 쌓인다(선생님 지시 2026-10-30).
    왼쪽 들여쓰기(옛 --pg-in)를 걷어 라벨과 내용이 페이지 번호와 같은 선에서 시작한다

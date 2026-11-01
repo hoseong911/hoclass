@@ -362,7 +362,7 @@
 .deckpage .src-quote::before{content:"\201C";left:0;top:0}
 .deckpage .src-quote::after{content:"\201D";right:0;bottom:calc(var(--px) * -90)}
 .deckpage .src-cite{margin-top:auto;padding-top:calc(var(--px) * 30);align-self:flex-end;
-  color:var(--sub);text-align:right}
+  color:var(--navy);text-align:right}
 
 /* ── 디자인 탭 자간·줄간격 후크 (선생님 지시 2026-10-31) ──────────────────────
    요소마다 자간(--ls-*)·줄간격(--lh-*)을 걸 자리를 둔다(값은 shared/slide-axis.js의 SLIDE_DESIGN이 정하고
