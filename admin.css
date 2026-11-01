@@ -198,7 +198,8 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 .prog th,.prog td{border:0;border-bottom:1px solid var(--line);padding:6px 10px;text-align:center;white-space:nowrap;background:transparent}
 .prog thead th{color:var(--sub);font-weight:600;font-size:var(--fs-meta);padding:10px;border-bottom-color:var(--line-strong)}
 .prog td.lname,.prog th.lname{text-align:left;position:sticky;left:0;background:var(--bg);font-weight:600;color:var(--ink);min-width:170px}
-.prog thead th.lname{color:var(--sub);font-weight:600}
+/* 진도표 '주제' 표제목은 가운데 정렬 + 본문 크기로 키운다(선생님 지시 2026-11-01). 열 내용(제목)은 그대로 왼쪽. */
+.prog thead th.lname{color:var(--ink);font-weight:700;font-size:var(--fs-body);text-align:center}
 .prog td.na{color:var(--sub)}
 .prog td .f{border-color:transparent;background:transparent}
 .prog td .f:hover{border-color:var(--line)}
