@@ -132,11 +132,12 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
   mask-image:linear-gradient(transparent,#000 var(--fade),#000 calc(100% - var(--fade)),transparent)}
 .split-list .row .t{font-weight:500}
 /* 강의실 관리는 목록이 '역사 301' 정도로 짧아 좁게 두고 상세 두 칸을 넓힌다(선생님 지시 2026-10-29) */
-.split.split-room{grid-template-columns:var(--w-list-room) minmax(0,1fr)}
+/* 강의실 목록은 이제 반 번호(301)만 떠서 좁아도 된다. 왼쪽을 줄여 중앙·오른쪽을 넓힌다(선생님 지시 2026-11-01). */
+.split.split-room{grid-template-columns:110px minmax(0,1fr)}
 /* 상세 두 칸: 학생 명단은 목록을 좁히기 전 폭(약 410px)으로 두고 남는 폭은 강의 진도가 받는다(선생님 지시 2026-10-29).
    화면이 좁으면 강의 진도는 360px까지만 줄고 그 밑으로는 학생 명단이 줄어든다 */
 .split-room .pane .dcol:first-child{flex:1 1 0;min-width:360px}
-.split-room .pane .dcol:last-child{flex:0 1 410px}
+.split-room .pane .dcol:last-child{flex:0 1 460px}
 /* 학생 관리 상세: 수강 과목은 강의실 이름 몇 줄뿐이라 좁게, 남는 폭은 과목별 성적이 받는다(선생님 지시 2026-10-29) */
 .split-stu .pane .dcol:first-child{flex:0 1 220px}
 .split-stu .pane .dcol:last-child{flex:1 1 0;min-width:320px}
@@ -165,7 +166,9 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 .plrow{gap:6px}
 /* 단추가 넷이라 제목 칸이 좁다. 길면 한 줄로 자르고 마우스를 올려도 줄이 늘지 않게 */
 .plrow .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.plnum{flex:0 0 auto;font-size:var(--fs-meta);font-weight:700;color:var(--navy);min-width:34px}
+/* 강 번호(29강)는 행의 식별자라 제목(.row .t, 16px)과 같은 본문 크기로. 전엔 보조 단계(13px)라
+   제목보다 작아 위계가 뒤집혔었다(선생님 지시 2026-11-01). 굵기·색으로 제목과 구분한다. */
+.plnum{flex:0 0 auto;font-size:var(--fs-body);font-weight:700;color:var(--navy);min-width:40px}
 .dateinput{width:64px;padding:0 8px;text-align:center;font-size:var(--fs-body)}
 .dateinput.ds-past{color:var(--sub)}
 .dateinput.ds-today{border-color:var(--accent);color:var(--accent);font-weight:700}
