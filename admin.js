@@ -2069,11 +2069,11 @@ function pageNotice(){
       <div class="grow rowlink" data-act="notice-sel" data-v="${esc(x.id)}"><div class="t">${x.pinned?`<span class="npin">${icon('pin',13)}</span>`:''}${esc(x.title)}</div></div>
       <span class="nlstat">${icon('eye',13)} ${st.reads} · ${icon('heart',13)} ${st.likes} · ${icon('message-circle',13)} ${st.comments}</span></div>`; };
   const more = list.length > MAX
-    ? (showAll ? `<button class="btn-link morebtn" data-act="notice-list-less">접기</button>`
-               : `<button class="btn-link morebtn" data-act="notice-list-more">더보기 (${list.length - MAX})</button>`)
+    ? (showAll ? `<button class="btn-link" data-act="notice-list-less">접기</button>`
+               : `<button class="btn-link" data-act="notice-list-more">더보기 (${list.length - MAX})</button>`)
     : '';
   const listSec = list.length
-    ? `<section class="notice-list">${shown.map(lrow).join('')}${more}</section>`
+    ? `<section class="notice-list"><div class="sectionlabel nl-head">목록</div>${shown.map(lrow).join('')}${more ? `<div class="nl-more">${more}</div>` : ''}</section>`
     : (isNew ? '' : `<div class="empty">공지사항이 없습니다. 오른쪽 위 추가로 글을 올리세요.</div>`);
 
   // 아래: 고른 글(또는 새 글)의 2단 — 왼쪽 제목·내용, 오른쪽 반응(조회·좋아요·댓글).
