@@ -41,6 +41,17 @@ export function inlineText(str){
   return s.replace(NUL_RE, (_, i) => `<span class="blank">${esc(blanks[+i])}</span>`);
 }
 
+/* 기호로 시작하는 줄(→ 같은 화살표·불릿)은 기호를 왼쪽으로 내어쓴다(선생님 지시 2026-11-01:
+   "기호로 시작하는 건 다 기호를 앞으로 내어쓰기"). 1. - · 수준 기호는 이미 .pm/.pt가 내어쓰므로
+   여기서는 수준이 아닌 기호만 본다(이어지는 줄 안에 흔하다). 기호를 제 칸(.hm)에 두고 나머지
+   글(.ht)이 남는 폭을 차지해, 줄이 넘어가면 기호 뒤 글 시작 자리에 맞춰 내려온다. */
+const LEAD_RE = /^([→⇒⟶⟹⇨▶▷►▸▹◦‣※☞☛➔➜➞➤➡✦✧∴∵]+)\s*(.+)$/s;
+function leafHTML(raw){
+  const m = String(raw ?? '').match(LEAD_RE);
+  if (!m) return inlineText(raw);
+  return `<span class="hang"><span class="hm">${esc(m[1])}</span><span class="ht">${inlineText(m[2])}</span></span>`;
+}
+
 /* 유튜브 주소에서 영상 id와 시작 시각(초)을 읽는다. watch?v=, youtu.be/, embed/, shorts/ 넷 다 받는다.
    시작 시각은 t=90, t=90s, t=1m30s, t=1h2m3s 모양을 초로 바꾼다. */
 export function youTube(url){
@@ -248,7 +259,7 @@ function itemHTML(it, dropNum){
   // 이어지는 줄도 "『소학』: 내용"처럼 제 소제목이 있으면 그 안에서 다시 가른다(단, -·레벨은 그대로)
   const contHTML = c => { const t = keepColon ? null : termOf(c);
     return t ? `<span class="pt"><span class="pk">${inlineText(t.term)}</span><span class="pv">${inlineText(t.text)}</span></span>`
-      : inlineText(c); };
+      : leafHTML(c); };
   // 이어지는 줄(.pc)은 내용칸(.pv) 안에 남겨 내어쓰기를 살리고, 한 수준 낮은 항목(kids)은 .pv 밖으로
   // 빼 .pkids 블록으로 내린다. 그래야 자식 기호가 부모 내용 시작선이 아니라 소제목 시작선 아래로 온다(안 A).
   const contPart = it.cont.map(c => `<span class="pc">${contHTML(c)}</span>`).join('');
@@ -259,10 +270,10 @@ function itemHTML(it, dropNum){
   /* heading: 쌍점 없는 소제목("1. 서적 편찬")에 한 수준 낮은 항목이 달린 것. 소제목을 제 줄에 세우고
      하위 항목은 그 아래로 내린다(pt-head). 쌍점이 있는 묶음("설립 : 내용")만 소제목과 내용이 한 줄이다. */
   const pt = t
-    ? `<span class="pk">${inlineText(t.term)}</span><span class="pv">${inlineText(t.text)}${contPart}</span>${kids}`
+    ? `<span class="pk">${inlineText(t.term)}</span><span class="pv">${leafHTML(t.text)}${contPart}</span>${kids}`
     : heading
       ? `<span class="pk pk-head">${inlineText(it.body)}</span>${contPart ? `<span class="pv pv-head">${contPart}</span>` : ''}${kids}`
-      : `<span class="pv">${inlineText(it.body)}${contPart}</span>${kids}`;
+      : `<span class="pv">${leafHTML(it.body)}${contPart}</span>${kids}`;
   const mark = it.lv && !(dropNum && it.lv === 1);
   // 번호를 뗀 lv1(.nomark)은 자식을 한 글자 들여 대시가 소제목 2번째 글자 아래로 오게 한다(slide-deck.css).
   return `<div class="pl lv${it.lv}${mark ? '' : ' nomark'}">${mark ? `<span class="pm">${esc(it.mark)}</span>` : ''}<span class="pt${heading ? ' pt-head' : ''}">${pt}</span></div>`;

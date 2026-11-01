@@ -173,6 +173,11 @@
 .deckpage .s-page{--pmw:calc(var(--px) * 56)}
 .deckpage .pl{display:flex;align-items:baseline}
 .deckpage .pm{flex:0 0 auto;width:var(--pmw);font-weight:400}
+/* 기호(→ 등)로 시작하는 줄의 내어쓰기(선생님 지시 2026-11-01). 1. - · 수준 기호는 .pm/.pt가 맡고,
+   그 밖의 기호는 slide-deck.js의 leafHTML이 .hang으로 싸서 기호 칸(.hm)과 글 칸(.ht)으로 가른다. */
+.deckpage .hang{display:flex;align-items:baseline}
+.deckpage .hang > .hm{flex:0 0 auto;padding-right:calc(var(--px) * 10)}
+.deckpage .hang > .ht{flex:1;min-width:0}
 /* 한 수준 낮은 항목(kids)은 .pv(내용칸) 밖, .pt(소제목 시작선) 아래에 블록으로 선다.
    그래서 자식 기호(- / ·)가 부모 소제목 글자 바로 아래에 가지런히 내려온다(선생님 지시 2026-10-31, 안 A).
    .pt가 wrap이라 소제목+내용은 1행, .pkids는 flex-basis:100%로 그 아래 2행에 .pt 왼쪽 끝부터 선다.

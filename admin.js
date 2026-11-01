@@ -8,7 +8,7 @@
 
 import * as M from './model.js?v=20261101f';
 import { icon } from './shared/icons.js?v=20261031e';
-import { buildSlides, renderSlide } from './slide-deck.js?v=20261101j';
+import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
 
 const YEAR = 2027;
@@ -3127,6 +3127,7 @@ document.getElementById('shell').addEventListener('change', e => {
     state.formativeResultId = el.value; render();
   } else if (el.dataset.act === 'pg-title'){   // 페이지 제목: 포커스 빠질 때 저장(다시 그리지 않아 커서 유지)
     editPages(el, (pages, p) => { if (pages[p]) pages[p].title = el.value.trim(); });
+    wirePageOverflow();   // 저장될 때마다 화면 넘침 경고를 다시 잰다(다시 그리지 않으므로 여기서 갱신)
   } else if (el.dataset.act === 'pg-row-type'){
     /* 묶음 유형(요구사항 139). 적은 글은 들고 모양만 바뀐다(M.convertRow).
        다시 그린다: 유형에 따라 칸이 둘(라벨, 내용)과 넷(왼쪽, 오른쪽)으로 갈린다. */
@@ -3145,6 +3146,7 @@ document.getElementById('shell').addEventListener('change', e => {
       const row = pages[p]?.rows[r]; const box = side ? row?.[side] : row;
       if (!box) return false; box[f] = v; });
     if (f === 'text'){ el.value = M.indentText(v); el.rows = Math.max(2, v.split('\n').length); }
+    wirePageOverflow();   // 저장될 때마다 화면 넘침 경고를 다시 잰다(다시 그리지 않으므로 여기서 갱신)
   } else if (el.dataset.act === 'lesson-num'){   // 강의 번호/라벨(머리줄 번호표가 바뀌게 다시 그린다)
     M.setLessonNum(el.dataset.id, el.value); render();
   } else if (el.dataset.act === 'axis-question'){   // 슬라이드 오늘의 질문 편집(질문, 설명문)
