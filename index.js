@@ -12,7 +12,7 @@
 // 지금은 데모 데이터로 돈다(model.js). 로그인도 데모: 학번만 맞으면 입장.
 // 규칙: 인라인 onclick/window 노출 없이 data-act + 이벤트 위임. 상태는 state 하나.
 
-import * as M from './model.js?v=20261101b';
+import * as M from './model.js?v=20261101f';
 import { icon } from './shared/icons.js?v=20261031e';
 
 const YEAR = 2027;

@@ -125,7 +125,10 @@
    그 밖에는 투사 화면이라 줄과 줄 사이에 선을 긋지 않는다(선이 많으면 글자가 묻힌다). 묶음 사이만 띄운다. */
 .deckpage .s-page{font-size:var(--sfs);
   display:flex;flex-direction:column;gap:calc(var(--px) * 44)}
+/* 설명글 제목(구분선 위 라벨): 본문과 따로 조절한다(선생님 지시 2026-11-01, --fs-plabel).
+   기본값은 전과 같은 56px이되 본문(--fs-body)을 바꿔도 따라 커지지 않게 제 값을 둔다 */
 .deckpage .plabel{width:fit-content;max-width:100%;font-family:var(--title-font);font-weight:900;color:var(--navy);
+  font-size:var(--fs-plabel, calc(var(--px) * 56));
   border-bottom:calc(var(--px) * 5) solid var(--red);padding-bottom:calc(var(--px) * 6);
   margin-bottom:calc(var(--px) * 18)}
 .deckpage .plines{display:flex;flex-direction:column;gap:calc(var(--px) * 4);min-width:0}
@@ -137,11 +140,15 @@
 .deckpage .cmp-col{flex:1;min-width:0;display:flex;flex-direction:column;border-radius:calc(var(--px) * 14);
   overflow:hidden;box-shadow:0 calc(var(--px) * 2) calc(var(--px) * 6) rgba(4,30,66,.08),
     0 calc(var(--px) * 10) calc(var(--px) * 26) rgba(4,30,66,.10)}
+/* 비교표는 머리와 내용을 가운데 정렬한다(선생님 지시 2026-11-01) */
 .deckpage .cmp-head{background:var(--navy);color:#fff;font-family:var(--title-font);font-weight:700;
-  font-size:var(--fs-cmp-head, var(--tfs));padding:calc(var(--px) * 16) calc(var(--px) * 26);word-break:keep-all}
+  font-size:var(--fs-cmp-head, var(--tfs));padding:calc(var(--px) * 16) calc(var(--px) * 26);
+  word-break:keep-all;text-align:center}
 .deckpage .cmp-body{flex:1;background:var(--navy-050, #f3f5f9);color:var(--navy);
   font-size:var(--fs-cmp-body, var(--sfs));padding:calc(var(--px) * 26) calc(var(--px) * 30);
-  display:flex;flex-direction:column;gap:calc(var(--px) * 8);justify-content:flex-start}
+  display:flex;flex-direction:column;gap:calc(var(--px) * 8);justify-content:flex-start;
+  align-items:center;text-align:center}
+.deckpage .cmp-body .pl{justify-content:center}
 
 /* 사료 인용 묶음(요구사항 139). 사료 쪽(.s-src)과 같은 모양을 쪽 안의 묶음 하나로 줄인 것이다:
    세리프체, 양쪽 정렬, 큰따옴표, 오른쪽 아래 출전. 제목은 묶음 라벨(.plabel) 그대로라
@@ -150,8 +157,9 @@
 .deckpage .psrc{font-family:var(--serif);font-size:var(--srcfs)}
 /* 사료 인용은 제목을 가운데로, 라벨 밑 레드 구분선은 뺀다(선생님 지시 2026-10-31) */
 .deckpage .psrc .plabel{width:100%;text-align:center;border-bottom:none;padding-bottom:0;
-  margin-bottom:calc(var(--px) * 24)}
-.deckpage .psrc .src-quote{padding:calc(var(--px) * 24) calc(var(--px) * 76)}
+  font-size:var(--fs-src-title, calc(var(--px) * 56));margin-bottom:calc(var(--px) * 24)}
+/* 양옆 여백을 줄여 사료 글상자를 더 넓게(선생님 지시 2026-11-01) */
+.deckpage .psrc .src-quote{padding:calc(var(--px) * 24) calc(var(--px) * 40)}
 .deckpage .psrc .src-quote::before, .deckpage .psrc .src-quote::after{font-size:calc(var(--px) * 140)}
 .deckpage .psrc .src-quote::after{bottom:0}
 .deckpage .psrc .src-cite{margin-top:0;padding-top:calc(var(--px) * 16)}
@@ -298,10 +306,10 @@
    배경은 사진/영상 동기 유발과 같은 다크 톤(.s-preview)이라 글자만 밝게 둔다. */
 .deckpage .s-preview-text{justify-content:center;padding:calc(var(--px) * 90) calc(var(--px) * 120)}
 .deckpage .pv-text{z-index:3;width:100%;max-width:calc(var(--px) * 1500);
-  font-family:var(--serif);font-size:var(--srcfs);color:#f4f1e8;
+  font-family:var(--serif);font-size:var(--fs-hook-text, calc(var(--px) * 50));color:#f4f1e8;
   display:flex;flex-direction:column;gap:calc(var(--px) * 18)}
 .deckpage .pv-text p{margin:0;text-align:justify;word-break:normal;overflow-wrap:anywhere;
-  letter-spacing:var(--ls-src, inherit);line-height:var(--lh-src, 1.6)}
+  letter-spacing:var(--ls-hook-text, inherit);line-height:var(--lh-hook-text, 1.6)}
 /* 가운데 정렬(어드민에서 고름). 글상자도 가운데로 모은다 */
 .deckpage .pv-text.pv-center{align-self:center;text-align:center}
 .deckpage .pv-text.pv-center p{text-align:center}
@@ -313,10 +321,10 @@
 .deckpage .s-q{display:flex;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;gap:calc(var(--px) * 40)}
 .deckpage .qbig{font-family:var(--title-font);font-size:var(--fs-question, calc(var(--px) * 66));font-weight:900;
-  line-height:1.4;letter-spacing:-.03em;word-break:keep-all;max-width:90%}
+  line-height:1.4;letter-spacing:-.03em;word-break:keep-all;max-width:96%}
 .deckpage .qbig strong, .deckpage .qbig .blank{color:var(--red)}
 .deckpage .qguide{font-family:var(--cover-serif);font-size:var(--fs-think-guide, var(--sfs));color:var(--navy);
-  line-height:1.6;text-align:justify;max-width:82%;
+  line-height:1.6;text-align:justify;max-width:92%;
   border:calc(var(--px) * 2) solid color-mix(in srgb, var(--red) 55%, transparent);
   background:color-mix(in srgb, var(--red) 6%, #fff);border-radius:calc(var(--px) * 16);
   padding:calc(var(--px) * 24) calc(var(--px) * 34);
@@ -332,9 +340,9 @@
 .deckpage .close-fg{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;
   gap:calc(var(--px) * 20);padding:0 calc(var(--px) * 96)}
 .deckpage .close-next{font-family:'Great Vibes', var(--cover-serif);font-weight:400;color:var(--red);
-  font-size:calc(var(--px) * 150);line-height:1;letter-spacing:.02em}
-.deckpage .close-topic{font-family:var(--title-font);font-weight:700;font-size:calc(var(--px) * 64);
-  line-height:1.3;word-break:keep-all}
+  font-size:var(--fs-close-next, calc(var(--px) * 150));line-height:1;letter-spacing:.02em}
+.deckpage .close-topic{font-family:var(--title-font);font-weight:700;
+  font-size:var(--fs-close-topic, calc(var(--px) * 64));line-height:1.3;word-break:keep-all}
 
 /* ── 사료, 글자료 쪽 (선생님 지시 2026-10-30) ──
    "제목 내용만 중앙정렬로 위에 띄운 다음 내용이 나오면 되고, 세리프체로 하고 좌측 상단 우측 하단에
@@ -343,8 +351,9 @@
    출전은 글 상자 밖, 쪽 오른쪽 아래에 붙는다(속이 짧아도 맨 아래로 내려가게 margin-top:auto). */
 .deckpage .s-src{display:flex;flex-direction:column;font-family:var(--serif);font-size:var(--srcfs)}
 .deckpage .src-title{margin:0 0 calc(var(--px) * 36);text-align:center;font-family:var(--font);
-  font-size:var(--sfs);font-weight:800;line-height:1.4;letter-spacing:-.03em}
-.deckpage .src-quote{position:relative;padding:calc(var(--px) * 40) calc(var(--px) * 90)}
+  font-size:var(--fs-src-title, calc(var(--px) * 56));font-weight:800;line-height:1.4;letter-spacing:-.03em}
+/* 양옆 여백을 줄여 사료 글상자를 더 넓게(선생님 지시 2026-11-01) */
+.deckpage .src-quote{position:relative;padding:calc(var(--px) * 40) calc(var(--px) * 48)}
 /* 양쪽 정렬은 낱말 단위로 줄을 끊으면(keep-all) 줄마다 빈칸이 크게 벌어진다. 사료는 글자 단위로
    끊게(normal) 두어 줄 끝이 고르게 맞는다. 다른 쪽은 낱말이 안 쪼개지게 keep-all 그대로다 */
 .deckpage .src-quote p{margin:0;text-align:justify;word-break:normal;overflow-wrap:anywhere}
@@ -367,9 +376,13 @@
 .deckpage .obj-num{letter-spacing:var(--ls-objnum, inherit);line-height:var(--lh-objnum, .82)}
 .deckpage .s-head{letter-spacing:var(--ls-title, -.03em);line-height:var(--lh-title, 1.2)}
 .deckpage .s-badge{letter-spacing:var(--ls-title, -.02em);line-height:var(--lh-title, 1.2)}
+.deckpage .plabel{letter-spacing:var(--ls-plabel, inherit);line-height:var(--lh-plabel, inherit)}
 .deckpage .plines{letter-spacing:var(--ls-body, inherit);line-height:var(--lh-body, inherit)}
 .deckpage .cmp-head{letter-spacing:var(--ls-cmphead, inherit);line-height:var(--lh-cmphead, inherit)}
 .deckpage .cmp-body{letter-spacing:var(--ls-cmpbody, inherit);line-height:var(--lh-cmpbody, inherit)}
+.deckpage .src-title, .deckpage .psrc .plabel{letter-spacing:var(--ls-src-title, -.03em);line-height:var(--lh-src-title, 1.4)}
 .deckpage .src-quote p{letter-spacing:var(--ls-src, inherit);line-height:var(--lh-src, inherit)}
 .deckpage .qbig{letter-spacing:var(--ls-question, -.03em);line-height:var(--lh-question, 1.4)}
 .deckpage .qguide{letter-spacing:var(--ls-guide, inherit);line-height:var(--lh-guide, 1.6)}
+.deckpage .close-topic{letter-spacing:var(--ls-close-topic, inherit);line-height:var(--lh-close-topic, 1.3)}
+.deckpage .close-next{letter-spacing:var(--ls-close-next, .02em);line-height:var(--lh-close-next, 1)}

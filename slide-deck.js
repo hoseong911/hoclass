@@ -15,7 +15,7 @@
    2026의 글꼴 슬라이더, 장평, 디자인 설정 50여 칸은 가져오지 않았다. 아직 시킨 것이 아니다.
    ════════════════════════════════════════════════════════════════════════ */
 // Firebase를 끌어오지 않는 축 파일만 쓴다: 혼자 도는 미리보기 문서도 이 엔진을 그대로 쓴다
-import { SLIDE_AXIS, normalizeDeck, toPages, lineLevel, stripStepPrefix, SOURCE_RE, rowFilled, rowKind, lessonBadge } from './shared/slide-axis.js?v=20261101b';
+import { SLIDE_AXIS, normalizeDeck, toPages, lineLevel, stripStepPrefix, SOURCE_RE, rowFilled, rowKind, lessonBadge } from './shared/slide-axis.js?v=20261101f';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -140,7 +140,8 @@ export function buildSlides(lesson, no){
 
     } else if (ax.key === 'question'){
       const q = String(lesson.parts?.question?.question || '').trim();
-      if (q) push('question', { type:'question', question:q,
+      // no(강 번호)를 같이 넘긴다: 오늘의 질문 배지 옆에 강 번호를 띄운다(선생님 지시 2026-11-01)
+      if (q) push('question', { type:'question', no, question:q,
         guide:String(lesson.parts?.question?.guide || '').trim() });
 
     } else if (ax.key === 'closing'){
@@ -191,6 +192,9 @@ const CITE_RE = /^(?:[『「《〈<(\[].{0,30}[』」》〉>)\]]|출처\s*[:：]
 
 // 축 단계 이름(쪽 맨 위 배지). 표지에는 달지 않는다
 const stepName = key => (SLIDE_AXIS.find(a => a.key === key) || {}).name || '';
+/* 슬라이드 배지 이름. 미션 활동은 교실 화면 배지에 'H.C.A'(History Creative Activity)로 띄운다
+   (선생님 지시 2026-11-01). 어드민 메뉴 이름은 '미션 활동' 그대로다(이름 통일 규칙은 슬라이드 배지 밖). */
+const badgeName = key => key === 'mission' ? 'H.C.A' : stepName(key);
 
 /* 항목 글 "설립 : 16C 이후 ..." 를 소제목(설립)과 내용으로 가른다(선생님 지시 2026-10-30:
    "1. 설립 : ~ 이렇게 되어 있으면 굵은 글씨로 설립 하고 그 내용 사이에 여백을 만들어줘.
@@ -282,7 +286,7 @@ export function renderSlide(s){
      2027 화면 규칙에 맞춰 알약 모양과 테두리 없이 연한 레드 바탕만 깐다(배지 규칙).
      페이지 제목이 있는 쪽(개념 노트, 미션 활동)은 배지 옆에 제목이 같은 줄로 선다. */
   const top = title => s.type === 'cover' ? ''
-    : `<div class="s-top"><span class="s-badge">${esc(stepName(s.step))}</span>${
+    : `<div class="s-top"><span class="s-badge">${esc(badgeName(s.step))}</span>${
         title ? `<h2 class="s-head">${inlineText(title)}</h2>` : ''}</div>`;
   const mark = top('');
 
@@ -422,10 +426,14 @@ export function renderSlide(s){
         <div class="plines">${linesHTML(r.lines, s.step === 'concept')}</div></div>`;
     }).join('')}</div>`;
 
-  if (s.type === 'question')
-    return `${mark}<div class="s-body s-q">
+  if (s.type === 'question'){
+    // 배지 '오늘의 질문' 옆에 강 번호를 늘 띄운다(선생님 지시 2026-11-01: "29강이면 29강").
+    // lessonBadge가 "29강" 또는 "[OT]"를 만든다. 강 번호가 없으면(연결 전 강의) 제목 없이 배지만.
+    const noBadge = s.no != null && String(s.no).trim() !== '' ? lessonBadge(s.no) : '';
+    return `${top(noBadge)}<div class="s-body s-q">
       <div class="qbig">${inlineText(s.question)}</div>
       ${s.guide ? `<div class="qguide">${inlineText(s.guide)}</div>` : ''}</div>`;
+  }
 
   /* 맺음말: 표지·학습목표처럼 다크 자립 블록, 배지 없음(선생님 지시 2026-10-31).
      'NEXT CLASS'는 필기체로 고정, 그 아래에 다음 학습 주제(어드민에서 고친 nextTopic)가 선다. */

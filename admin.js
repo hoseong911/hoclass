@@ -6,9 +6,9 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261101b';
+import * as M from './model.js?v=20261101f';
 import { icon } from './shared/icons.js?v=20261031e';
-import { buildSlides, renderSlide } from './slide-deck.js?v=20261101b';
+import { buildSlides, renderSlide } from './slide-deck.js?v=20261101f';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
 
 const YEAR = 2027;
@@ -1213,6 +1213,8 @@ function realDesignSlide(grp){
   if (grp.step === 'cover')      return slides.find(s => s.step === 'cover');
   if (grp.step === 'objective')  return slides.find(s => s.type === 'numbered');
   if (grp.step === 'question')   return slides.find(s => s.type === 'question');
+  if (grp.step === 'hook')       return slides.find(s => s.type === 'preview' && s.kind === 'text') || slides.find(s => s.type === 'preview');
+  if (grp.step === 'closing')    return slides.find(s => s.type === 'closing');
   if (grp.group === '비교표')     return slides.find(isCompare);
   if (grp.group === '사료 인용')  return slides.find(isSource);
   // 공통(쪽 제목·본문): 비교표도 사료도 아닌 보통 개념/미션 쪽
@@ -1223,7 +1225,9 @@ function designSampleSlide(g){
   switch (g.step){
     case 'cover': return { type:'cover', num:'29', title:'사림의 성장과 붕당', topic:'조선 전기의 정치 변화', unit:'Ⅱ-2 사림의 대두', pages:'72~79' };
     case 'objective': return { type:'numbered', step:'objective', items:['사림의 성장 과정을 설명할 수 있다.','4대 사화의 원인과 결과를 비교할 수 있다.','붕당 형성의 배경을 파악할 수 있다.'] };
-    case 'question': return { type:'question', step:'question', question:'사림과 훈구의 대립은 오늘날 정치에 어떤 교훈을 줄까?', guide:'두 세력의 가치관 차이를 근거로 들어 서술해 보자.' };
+    case 'hook': return { type:'preview', step:'hook', kind:'text', align:'justify', text:'사림은 조선 중기에 지방 사족을 기반으로 성장한 **새로운 정치 세력**이었다.\n이들은 성리학적 명분을 앞세워 중앙 정계에 진출하였고, 훈구 세력과 대립하였다.' };
+    case 'question': return { type:'question', step:'question', no:'29', question:'사림과 훈구의 대립은 오늘날 정치에 어떤 교훈을 줄까?', guide:'두 세력의 가치관 차이를 근거로 들어 서술해 보자.' };
+    case 'closing': return { type:'closing', step:'closing', nextTopic:'붕당 정치의 전개' };
   }
   if (g.group === '비교표') return { type:'page', step:'concept', title:'훈구와 사림', rows:[{ kind:'compare',
     left:{ label:'훈구', lines:['중앙 집권 강조','부국강병'] }, right:{ label:'사림', lines:['향촌 자치','왕도 정치'] } }] };

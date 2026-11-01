@@ -80,20 +80,35 @@ export const SLIDE_DESIGN = [
     E('obj',    '--fs-obj',     '항목',    30, 12, 55, '--ls-obj',    '--lh-obj'),
     E('objNum', '--fs-obj-num', '큰 번호', 65, 20,120, '--ls-objnum', '--lh-objnum'),
   ]},
+  // 동기 유발: 글(사진·영상은 조절할 글자가 없다). 글은 사료와 따로 조절한다(선생님 지시 2026-11-01)
+  { group:'동기 유발', step:'hook', rows:[
+    E('hookText', '--fs-hook-text', '글', 25, 12, 50, '--ls-hook-text', '--lh-hook-text'),
+  ]},
+  /* 공통(개념 노트, 미션 활동 공용): 쪽 제목·설명글 제목·본문을 따로 조절한다(선생님 지시 2026-11-01).
+     전에는 설명글 제목(.plabel)이 본문(--fs-body)을 따라 같이 커졌다. 셋으로 갈랐다.
+     '쪽 제목'은 선생님 지시로 '개념 주제'라 부른다(배지 옆 제목). */
   { group:'공통(쪽 제목·본문)', step:'concept', rows:[
-    E('slideTitle', '--fs-slide-title', '쪽 제목·배지', 22, 10, 45, '--ls-title', '--lh-title'),
-    E('body',       '--fs-body',        '본문',         28, 12, 50, '--ls-body',  '--lh-body'),
+    E('slideTitle', '--fs-slide-title', '개념 주제',   22, 10, 45, '--ls-title',  '--lh-title'),
+    E('plabel',     '--fs-plabel',      '설명글 제목', 28, 12, 55, '--ls-plabel', '--lh-plabel'),
+    E('body',       '--fs-body',        '본문',        28, 12, 50, '--ls-body',   '--lh-body'),
   ]},
   { group:'비교표', step:null, rows:[
     E('cmpHead', '--fs-cmp-head', '머리', 22, 10, 45, '--ls-cmphead', '--lh-cmphead'),
     E('cmpBody', '--fs-cmp-body', '내용', 28, 12, 50, '--ls-cmpbody', '--lh-cmpbody'),
   ]},
+  // 사료 인용: 제목과 본문을 따로 조절한다(선생님 지시 2026-11-01)
   { group:'사료 인용', step:null, rows:[
-    E('src', '--fs-src', '본문', 25, 12, 50, '--ls-src', '--lh-src'),
+    E('srcTitle', '--fs-src-title', '제목', 28, 12, 55, '--ls-src-title', '--lh-src-title'),
+    E('src',      '--fs-src',       '본문', 25, 12, 50, '--ls-src',       '--lh-src'),
   ]},
   { group:'오늘의 질문', step:'question', rows:[
     E('question',   '--fs-question',    '질문',   33, 14, 60, '--ls-question', '--lh-question'),
     E('thinkGuide', '--fs-think-guide', '안내문', 28, 12, 50, '--ls-guide',    '--lh-guide'),
+  ]},
+  // 맺음말: 다음 학습 주제와 NEXT CLASS(필기체) 크기(선생님 지시 2026-11-01)
+  { group:'맺음말', step:'closing', rows:[
+    E('closeTopic', '--fs-close-topic', '다음 학습 주제', 32, 15,  90, '--ls-close-topic', '--lh-close-topic'),
+    E('closeNext',  '--fs-close-next',  'NEXT CLASS',    75, 30, 110, '--ls-close-next',  '--lh-close-next'),
   ]},
 ];
 export const SLIDE_DESIGN_ROWS = SLIDE_DESIGN.flatMap(g => g.rows);
@@ -370,8 +385,18 @@ export function stripIndent(text){
  * "사료 : ..."의 사료는 단계 이름이 아니라 쪽의 종류라 여기서 떼지 않는다(slide-deck.js가 사료 쪽으로 그린다).
  * 활동지 변환(worksheet-pdf.js)이 가져올 때 떼고, 슬라이드(slide-deck.js)도 그릴 때 한 번 더 뗀다
  * (손으로 적은 제목이나 예전에 가져온 제목에 머리가 남아 있어도 쪽에는 서지 않게). */
-export const STEP_PREFIX_RE = /^(?:개념\s*노트|개념\s*Check|미션\s*활동|미션\s*Check)\s*(?:#\s*\d+)?\s*:\s*/i;
-export const stripStepPrefix = t => String(t ?? '').trim().replace(STEP_PREFIX_RE, '').trim();
+export const STEP_PREFIX_RE = /^(?:개념\s*노트|개념\s*Check|미션\s*활동|미션\s*Check)\s*(#\s*\d+)?\s*:\s*/i;
+/* 단계 이름 머리는 떼되 #번호는 남긴다(선생님 지시 2026-11-01: "개념 노트 #1 : 성리학적 질서의 확산"을
+   "#1 성리학적 질서의 확산"으로). 배지가 단계 이름을 말하므로 단계 이름만 떼고 번호는 제목에 붙여 둔다.
+   번호가 없으면 머리만 뗀다. 활동지 변환이 저장할 때와 슬라이드가 그릴 때 같은 함수를 쓴다(idempotent). */
+export const stripStepPrefix = t => {
+  const s = String(t ?? '').trim();
+  const m = s.match(STEP_PREFIX_RE);
+  if (!m) return s;
+  const num = (m[1] || '').replace(/\s+/g, '');   // "#1"
+  const rest = s.slice(m[0].length).trim();
+  return num ? (rest ? `${num} ${rest}` : num) : rest;
+};
 
 /* 사료 쪽인가: 제목이 "사료", "글자료", "읽기 자료"로 시작하면 사료 쪽이다.
    슬라이드(slide-deck.js)가 사료 모양으로 그리고, 활동지 변환(worksheet-pdf.js)이 그 쪽을
