@@ -2059,23 +2059,31 @@ function pageNotice(){
 
   const list = M.getNotices(state.year, state.subject);
   const isNew = state.noticeSel === 'new';
-  if (!list.length && !isNew) return `${head}${tabs}<div class="empty">공지사항이 없습니다.</div>`;
-  if (!isNew && !list.some(n => n.id === state.noticeSel)) state.noticeSel = WIDE.matches ? list[0].id : null;
+  if (!isNew && !list.some(n => n.id === state.noticeSel)) state.noticeSel = list[0]?.id ?? null;
 
-  const row = n => `<div class="row ${n.id===state.noticeSel?'on':''}">
-      <div class="grow rowlink" data-act="notice-sel" data-v="${esc(n.id)}"><div class="t">${esc(n.title)}</div></div></div>`;
+  // 상단: 글 목록(최근 5개, 더 있으면 더보기). 제목 옆에 조회·좋아요·댓글 수(선생님 지시 2026-11-01).
+  const MAX = 5, showAll = state.noticeListAll;
+  const shown = showAll ? list : list.slice(0, MAX);
+  const lrow = x => { const st = M.noticeStats(x.id); const on = !isNew && x.id === state.noticeSel;
+    return `<div class="row nlrow ${on?'on':''}">
+      <div class="grow rowlink" data-act="notice-sel" data-v="${esc(x.id)}"><div class="t">${x.pinned?`<span class="npin">${icon('pin',13)}</span>`:''}${esc(x.title)}</div></div>
+      <span class="nlstat">${icon('eye',13)} ${st.reads} · ${icon('heart',13)} ${st.likes} · ${icon('message-circle',13)} ${st.comments}</span></div>`; };
+  const more = list.length > MAX
+    ? (showAll ? `<button class="btn-link morebtn" data-act="notice-list-less">접기</button>`
+               : `<button class="btn-link morebtn" data-act="notice-list-more">더보기 (${list.length - MAX})</button>`)
+    : '';
+  const listSec = list.length
+    ? `<section class="notice-list">${shown.map(lrow).join('')}${more}</section>`
+    : (isNew ? '' : `<div class="empty">공지사항이 없습니다. 오른쪽 위 추가로 글을 올리세요.</div>`);
+
+  // 아래: 고른 글(또는 새 글)의 2단 — 왼쪽 제목·내용, 오른쪽 반응(조회·좋아요·댓글).
   const n = isNew ? null : M.getNotice(state.noticeSel);
-  const newRow = isNew ? `<div class="row on"><div class="grow"><div class="t">새 글</div></div></div>` : '';
+  const detail = (isNew || n) ? `<div class="notice-detail">
+      <div class="dcol"><div class="pane-head"><h3>${esc(n ? n.title : '새 글')}</h3>${noticeTools(n)}</div>${noticeForm(n)}</div>
+      <div class="dcol">${n ? noticeSocial(n) : '<div class="sectionlabel">반응</div><div class="empty">글을 저장하면 조회·좋아요·댓글이 여기 보입니다.</div>'}</div>
+    </div>` : '';
 
-  if (!WIDE.matches){
-    const rows = list.map(x => x.id === state.noticeSel
-      ? row(x) + `<div class="detail">${noticeTools(n)}${noticeForm(n)}</div>` : row(x)).join('');
-    return head + tabs + (isNew ? newRow + `<div class="detail">${noticeTools(null)}${noticeForm(null)}</div>` : '') + rows;
-  }
-  return `${head}${tabs}<div class="split split-notice">
-      <div class="split-list">${newRow}${list.map(row).join('')}</div>
-      <div class="pane"><div class="pane-head"><h3>${esc(n ? n.title : '새 글')}</h3>${noticeTools(n)}</div>
-        <div class="dscroll">${noticeForm(n)}</div></div></div>`;
+  return head + tabs + listSec + detail;
 }
 function noticeTools(n){
   if (!n) return `<div class="tools">
@@ -2088,13 +2096,12 @@ function noticeTools(n){
       <button class="ib ib-primary" data-act="notice-save" data-v="${esc(n.id)}" title="저장" aria-label="저장">${icon('check',16)}</button>
       <button class="ib ib-danger" data-act="notice-del" data-v="${esc(n.id)}" title="삭제" aria-label="삭제">${icon('trash-2',16)}</button></div>`;
 }
-// 이름표 + 칸 한 줄씩(미션 활동 세부 칸과 같은 모양). 저장된 글이면 아래에 반응(조회·좋아요·댓글) 관리를 붙인다.
+// 제목·내용 칸(왼쪽 단). 반응은 오른쪽 단(noticeSocial)이 따로 맡는다.
 function noticeForm(n){
   return `<div class="row"><div class="t gen-label">제목</div>
       <input class="f grow" id="nt-title" value="${esc(n?.title || '')}" aria-label="제목"></div>
     <div class="row row-top"><div class="t gen-label">내용</div>
-      <textarea class="f grow ta" id="nt-body" rows="10" aria-label="내용">${esc(n?.body || '')}</textarea></div>
-    ${n ? noticeSocial(n) : ''}`;
+      <textarea class="f grow ta" id="nt-body" rows="12" aria-label="내용">${esc(n?.body || '')}</textarea></div>`;
 }
 // 공지 반응 관리(선생님 지시 2026-11-01): 조회·좋아요·댓글 수 + 댓글 목록(삭제·학생 차단).
 function noticeSocial(n){
@@ -2966,7 +2973,9 @@ document.getElementById('shell').addEventListener('click', e => {
 
     // 공지사항: 미션 활동과 같은 길(고르기, 새 글, 저장, 삭제)
     case 'notice-subject': state.subject = v; state.noticeSel = null; render(); break;
-    case 'notice-sel': state.noticeSel = (!WIDE.matches && state.noticeSel === v) ? null : v; render(); break;
+    case 'notice-sel': state.noticeSel = v; render(); break;
+    case 'notice-list-more': state.noticeListAll = true; render(); break;
+    case 'notice-list-less': state.noticeListAll = false; render(); break;
     case 'notice-add-open': state.noticeSel = 'new'; render(); document.getElementById('nt-title')?.focus(); break;
     case 'notice-new-cancel': state.noticeSel = null; render(); break;
     case 'notice-save': saveNotice(v); break;

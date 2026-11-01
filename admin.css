@@ -581,8 +581,23 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .m-form .f{width:100%;margin:0}
 .modal .m-sub{margin:0 0 12px;color:var(--sub);font-size:var(--fs-body)}
 
+/* 공지 글 목록(상단, 선생님 지시 2026-11-01): 제목 + 조회·좋아요·댓글 수. 클릭하면 아래 2단이 뜬다. */
+.notice-list{margin-bottom:6px}
+.nlrow{cursor:pointer;border-top:1px solid var(--line)}
+.nlrow:first-child{border-top:0}
+.nlrow.on{background:var(--accent-fade)}
+.nlrow .t{display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.npin{display:inline-grid;color:var(--accent);flex:0 0 auto}
+.nlstat{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;color:var(--sub);font-size:var(--fs-meta);white-space:nowrap}
+.nlstat svg{vertical-align:-2px}
+/* 글을 고르면 아래 2단: 왼쪽 제목·내용, 오른쪽 반응 */
+.notice-detail{display:flex;gap:24px;align-items:flex-start;margin-top:14px;
+  border-top:1px solid var(--line-strong);padding-top:14px}
+.notice-detail > .dcol{flex:1;min-width:0}
+@media (max-width:860px){ .notice-detail{flex-direction:column} }
+
 /* 공지 반응 관리(선생님 지시 2026-11-01): 통계 줄 + 댓글 목록 */
-.notice-social{margin-top:14px;border-top:1px solid var(--line);padding-top:6px}
+.notice-social{padding-top:2px}
 .notice-social .sectionlabel .unit{display:inline-flex;align-items:center;gap:4px}
 .notice-social .sectionlabel .unit svg{vertical-align:-2px}
 .ncm-list{display:flex;flex-direction:column}
