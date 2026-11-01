@@ -147,7 +147,7 @@ export function blankDeck(){
     cover:     { topic:'', unit:'', pages:'' },   // 학습 주제, 단원, 교과서 쪽수
     review:    { items:[] },            // [{ q, a }]
     objective: { items:[] },            // ['목표 한 줄', ...]
-    hook:      { items:[] },            // [{ kind:'image'|'video', url, caption }]
+    hook:      { items:[] },            // [{ kind:'image'|'video', url, caption } 또는 { kind:'text', text }]
     mission:   { content:[] },          // 개념 노트와 같은 페이지 모양(아래 toPages)
     closing:   { items:[], nextTopic:'' },  // 맺음말: 'NEXT CLASS'(필기체 고정) + 다음 학습 주제(nextTopic)
   };
@@ -228,7 +228,8 @@ export const blankCompare = () => ({ kind:'compare', label:'', text:'', left: si
  *  (페이지 내에서 다른 걸 적용 해야 하기도 함) 만들어줘"
  *
  * 유형은 페이지가 아니라 묶음마다 고른다. 한 페이지 안에서 묶음마다 다를 수 있다.
- *   rows     행 나열     라벨 + 내용 줄 (지금까지의 보통 묶음)
+ *   rows     설명글      설명글 제목 + 내용 줄 (지금까지의 보통 묶음. 선생님 지시 2026-11-01에
+ *                        화면 이름을 '행 나열'에서 '설명글', '라벨'에서 '설명글 제목'으로 바꿨다)
  *   compare  좌우 비교   왼쪽과 오른쪽이 각각 라벨과 내용 (서인과 동인)
  *   source   사료 인용   라벨이 사료 제목, 내용이 원문. 세리프체 양쪽 정렬에 큰따옴표
  * 저장 모양에서 유형은 type('row' / 'compare' / 'source')이고, 페이지로 펴면 kind다.
@@ -238,7 +239,7 @@ export const blankCompare = () => ({ kind:'compare', label:'', text:'', left: si
  * 통째로 사료인 것이고, 이 유형은 쪽 안의 묶음 하나가 사료인 것이다. 활동지 변환은 여전히
  * 제목으로 사료 쪽을 가린다(쪽 하나를 통째로 떼는 편이 활동지 모양에 맞다). */
 export const ROW_TYPES = [
-  { key:'rows',    name:'행 나열' },
+  { key:'rows',    name:'설명글' },
   { key:'compare', name:'좌우 비교' },
   { key:'source',  name:'사료 인용' },
 ];

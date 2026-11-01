@@ -15,7 +15,7 @@
    2026의 글꼴 슬라이더, 장평, 디자인 설정 50여 칸은 가져오지 않았다. 아직 시킨 것이 아니다.
    ════════════════════════════════════════════════════════════════════════ */
 // Firebase를 끌어오지 않는 축 파일만 쓴다: 혼자 도는 미리보기 문서도 이 엔진을 그대로 쓴다
-import { SLIDE_AXIS, normalizeDeck, toPages, lineLevel, stripStepPrefix, SOURCE_RE, rowFilled, rowKind, lessonBadge } from './shared/slide-axis.js?v=20261031l';
+import { SLIDE_AXIS, normalizeDeck, toPages, lineLevel, stripStepPrefix, SOURCE_RE, rowFilled, rowKind, lessonBadge } from './shared/slide-axis.js?v=20261101a';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -113,9 +113,13 @@ export function buildSlides(lesson, no){
       if (items.length) push('objective', { type:'numbered', items });
 
     } else if (ax.key === 'hook'){
-      // 사진과 영상은 한 쪽에 하나다: 교실 화면에 띄우는 것이라 크게 봐야 한다
+      // 사진, 영상, 글은 한 쪽에 하나다: 교실 화면에 띄우는 것이라 크게 봐야 한다.
+      // 글(선생님 지시 2026-11-01)은 사료와 같은 세리프 양쪽정렬이되 따옴표가 없다
       (deck.hook?.items || []).forEach(it => {
-        if (String(it?.url || '').trim())
+        if (it?.kind === 'text'){
+          const t = String(it.text || '').trim();
+          if (t) push('hook', { type:'preview', kind:'text', text:t });
+        } else if (String(it?.url || '').trim())
           push('hook', { type:'preview', kind:it.kind === 'video' ? 'video' : 'image',
             url:it.url, caption:it.caption || '' });
       });
@@ -355,6 +359,14 @@ export function renderSlide(s){
   /* 동기 유발(사진, 영상): 표지·학습목표·전시학습확인과 같은 다크 톤의 자립 블록이다
      (선생님 지시 2026-10-31: 다크로, 레터박스까지, 배지는 없앤다). 배지 없이 사진/영상만 크게 띄운다. */
   if (s.type === 'preview'){
+    /* 글(선생님 지시 2026-11-01): 사료 인용과 같은 세리프 양쪽정렬이되 따옴표는 없다.
+       배경은 사진/영상 동기 유발과 같은 다크 톤으로 통일한다. 줄 하나가 한 문단이다. */
+    if (s.kind === 'text'){
+      const lines = String(s.text).split('\n').map(t => t.trim()).filter(Boolean);
+      return `<div class="s-preview s-preview-text">
+        <div class="intro-sweep"></div>
+        <div class="pv-text">${lines.map(t => `<p>${inlineText(t)}</p>`).join('')}</div></div>`;
+    }
     const yt = s.kind === 'video' ? youTube(s.url) : null;
     const frame = yt
       ? `<iframe src="https://www.youtube-nocookie.com/embed/${esc(yt.id)}?rel=0${yt.start ? '&start=' + yt.start : ''}"

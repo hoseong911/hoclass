@@ -16,7 +16,7 @@
 import { db, collection, getDocs, doc, getDoc, setDoc, deleteDoc } from './shared/fb.js?v=20261028a';
 import { CLAUDE_PROXY_URL } from './shared/util.js?v=20261028f';
 // 슬라이드 축과 덱 모양은 shared/slide-axis.js 한 곳에서. 아래에서 그대로 다시 내보낸다
-import { normalizeDeck, toPages, fromPages, blankDeck, AXIS_ORDER, pagesFilled } from './shared/slide-axis.js?v=20261031l';
+import { normalizeDeck, toPages, fromPages, blankDeck, AXIS_ORDER, pagesFilled } from './shared/slide-axis.js?v=20261101a';
 
 /* 컬렉션 설계: 제로베이스 재합의 (2026-10-27, 선생님 Q&A)
  * 규칙:
@@ -981,9 +981,9 @@ export function setPages(lessonId, key, pages){
 export { SLIDE_AXIS, AXIS_ORDER, axisStep, REVIEW_TYPES, reviewTypeDef,
   lineLevel, indentText, stripIndent, blankCompare, rowFilled, pagesFilled,
   ROW_TYPES, rowKind, convertRow, lessonBadge,
-  SLIDE_DESIGN, SLIDE_DESIGN_ROWS, SLIDE_DESIGN_GLOBAL, slideDesignDefault, designVarsCss } from './shared/slide-axis.js?v=20261031l';
+  SLIDE_DESIGN, SLIDE_DESIGN_ROWS, SLIDE_DESIGN_GLOBAL, slideDesignDefault, designVarsCss } from './shared/slide-axis.js?v=20261101a';
 import { slideDesignDefault as _sdDef, designVarsCss as _sdCss,
-  SLIDE_DESIGN_ROWS as _sdRows, SLIDE_DESIGN_GLOBAL as _sdG } from './shared/slide-axis.js?v=20261031l';
+  SLIDE_DESIGN_ROWS as _sdRows, SLIDE_DESIGN_GLOBAL as _sdG } from './shared/slide-axis.js?v=20261101a';
 
 /* 슬라이드 글자 크기 설정(디자인 탭, 전체 공통). 기본값 위에 관리자가 고친 값을 얹어 돌려준다.
    슬라이드에 걸 CSS는 designCss()가 만든다(슬라이드 문서가 <style>로 끼운다). */
@@ -1104,7 +1104,7 @@ export function deckStepFilled(lessonId, key){
   if (key === 'closing') return !!String(d.closing?.nextTopic || '').trim();   // 맺음말 = 다음 학습 주제
   const arr = d[key]?.items || [];
   if (key === 'review') return arr.some(it => String(it?.q || '').trim());
-  if (key === 'hook')   return arr.some(it => String(it?.url || '').trim());
+  if (key === 'hook')   return arr.some(it => String((it?.kind === 'text' ? it?.text : it?.url) || '').trim());  // 종류가 글이면 글 칸을 본다(2026-11-01)
   return arr.some(t => String(t).trim());
 }
 
@@ -1141,7 +1141,7 @@ function stepHasContent(lessonId, key){
   if (key === 'closing')  return !!String(d.closing?.nextTopic || '').trim();   // 맺음말 = 다음 학습 주제
   const arr = d[key]?.items || [];
   if (key === 'review') return arr.some(it => String(it?.q || '').trim());
-  if (key === 'hook')   return arr.some(it => String(it?.url || '').trim());
+  if (key === 'hook')   return arr.some(it => String((it?.kind === 'text' ? it?.text : it?.url) || '').trim());  // 종류가 글이면 글 칸을 본다(2026-11-01)
   return arr.some(t => String(t).trim());
 }
 // 비울 내용이 있는 단계들(축 순서). 어드민이 확인 창에 "무엇을 지우는지" 적는 데 쓴다

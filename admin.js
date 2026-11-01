@@ -6,9 +6,9 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261031o';
+import * as M from './model.js?v=20261101a';
 import { icon } from './shared/icons.js?v=20261031e';
-import { buildSlides, renderSlide } from './slide-deck.js?v=20261031p';
+import { buildSlides, renderSlide } from './slide-deck.js?v=20261101a';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
 
 const YEAR = 2027;
@@ -456,7 +456,7 @@ function pageProgress(){
   if (!subjects.includes(state.progSubject)) state.progSubject = subjects[0];
   // hoistory의 [+ 강의 추가]는 과목 탭 줄 오른쪽 끝에 둔다(선생님 지시 2026-10-29).
   // 누르면 줄 아래에 제목 입력 줄이 열린다(요구사항 66 인라인).
-  const addBtn = `<span class="line-end"><button class="btn-chip" data-act="prog-add-open">${icon('plus',13)}강의 추가</button></span>`;
+  const addBtn = `<span class="line-end"><button class="btn-chip" data-act="prog-add-open">${icon('plus',13)}강의</button></span>`;
   const tabs = catline(subjects.map(s => ({ v:s, label:s })), state.progSubject, 'prog-subject', '', addBtn);
 
   const rooms = all.filter(c => c.subject === state.progSubject)
@@ -1356,11 +1356,27 @@ function pageAxis(){
   return picker + `<div class="axwrap">
     <nav class="axrail">${axisRail(l)}</nav>
     <div class="axpane">
-      <div class="axpane-head"><h3>${esc(ax.name)}</h3>${ax.key === 'review'
-        ? `<button class="btn-chip" data-act="deck-add-break" data-id="${l.id}">${icon('plus',13)}페이지 추가</button>`
-        : ''}</div>
+      <div class="axpane-head"><h3>${esc(ax.name)}</h3>${axisAddBtn(l, ax)}</div>
       <div class="axpane-body">${axisEditor(l, ax)}</div>
     </div></div>`;
+}
+
+/* 단계마다 제목 머리줄 오른쪽 끝에 서는 '추가' 단추(선생님 지시 2026-11-01: 추가 단추를 전부
+   제목 우측 끝으로 통일). 버튼 이름은 '+'가 곧 '추가'라는 뜻이라 명사만 둔다(페이지, 문제, 줄).
+     전시학습확인  → 페이지(마커를 넣어 새 페이지. deck-add-break)
+     개념 노트/미션 → 페이지(pg-add. 전에는 편집창 맨 위에 있던 것을 머리줄로 옮겼다)
+     동기 유발      → 페이지(항목 하나가 한 쪽이다. deck-add)
+     학습 목표      → 줄(deck-add. 전에는 편집창 맨 아래에 있던 것을 머리줄로 옮겼다) */
+function axisAddBtn(l, ax){
+  if (ax.key === 'review')
+    return `<button class="btn-chip" data-act="deck-add-break" data-id="${l.id}">${icon('plus',13)}페이지</button>`;
+  if (ax.edit === 'pages')
+    return `<button class="btn-chip" data-act="pg-add" data-id="${l.id}" data-k="${ax.key}">${icon('plus',13)}페이지</button>`;
+  if (ax.edit === 'preview')
+    return `<button class="btn-chip" data-act="deck-add" data-id="${l.id}" data-k="${ax.key}">${icon('plus',13)}페이지</button>`;
+  if (ax.edit === 'lines')
+    return `<button class="btn-chip" data-act="deck-add" data-id="${l.id}" data-k="${ax.key}">${icon('plus',13)}줄</button>`;
+  return '';
 }
 
 /* 왼쪽 줄자: 축 여덟 단계. 단계 이름만 둔다.
@@ -1483,24 +1499,35 @@ function axisEditor(l, ax){
       return `<div class="rvpage">
         <div class="rvpage-head"><span class="rvpage-title">페이지 ${p + 1}</span>
           <span class="axitem-sp"></span>
-          <button class="btn-chip" data-act="deck-add-q" data-id="${l.id}" data-at="${insertAt}">${icon('plus',13)}문제 추가</button>
-          ${pg.bi >= 0 ? `<button class="ib ib-sm ib-danger" data-act="deck-del-page" data-id="${l.id}"
-            data-bi="${pg.bi}" data-cnt="${pg.items.length}" title="페이지 삭제" aria-label="페이지 삭제">${icon('trash-2',14)}</button>` : ''}
+          <button class="btn-chip" data-act="deck-add-q" data-id="${l.id}" data-at="${insertAt}">${icon('plus',13)}문제</button>
+          <button class="ib ib-sm ib-danger" data-act="deck-del-page" data-id="${l.id}"
+            data-bi="${pg.bi}" data-cnt="${pg.items.length}" title="페이지 삭제" aria-label="페이지 삭제">${icon('trash-2',14)}</button>
         </div>
         ${qCards}</div>`;
     }).join('');
 
   } else if (ax.edit === 'preview'){
-    // 동기 유발: 사진이면 그림 주소, 영상이면 유튜브 주소. 한 쪽에 하나씩 뜬다
-    rows = items.map((it, i) => {
+    /* 동기 유발(선생님 지시 2026-11-01): 전시학습확인처럼 항목마다 '페이지 N'으로 표시한다
+       (항목 하나가 한 쪽이다). 종류 셋: 사진, 영상, 글. 사진/영상은 주소와 설명, 글은 글 칸이다.
+       글은 사료 인용과 같은 세리프 양쪽정렬이되 따옴표는 없다(슬라이드 slide-deck.js 참고). */
+    if (!items.length)
+      return `<div class="placeholder">아직 페이지가 없습니다. 오른쪽 위 ‘페이지’를 눌러 추가하세요.</div>`;
+    return items.map((it, i) => {
       const set = f => `data-act="deck-set" data-id="${l.id}" data-k="${k}" data-i="${i}" data-f="${f}"`;
-      return card(i,
-        fld('종류', `<div class="grow"><select class="f axtype" ${set('kind')} aria-label="종류">
-            <option value="image" ${it.kind!=='video'?'selected':''}>사진</option>
-            <option value="video" ${it.kind==='video'?'selected':''}>영상</option></select></div>`)
-        + fld(it.kind === 'video' ? '유튜브 주소' : '그림 주소',
-            `<input class="f grow" ${set('url')} value="${esc(it.url)}" aria-label="주소">`)
-        + fld('설명', `<input class="f grow" ${set('caption')} value="${esc(it.caption)}" aria-label="설명">`));
+      const kind = it.kind || 'image';
+      const kindSel = fld('종류', `<div class="grow"><select class="f axtype" ${set('kind')} aria-label="종류">
+          <option value="image" ${kind==='image'?'selected':''}>사진</option>
+          <option value="video" ${kind==='video'?'selected':''}>영상</option>
+          <option value="text" ${kind==='text'?'selected':''}>글</option></select></div>`);
+      const bodyFields = kind === 'text'
+        ? fld('글', `<textarea class="f grow ta pgtext" rows="5" ${set('text')} aria-label="글">${esc(it.text || '')}</textarea>`)
+        : fld(kind === 'video' ? '유튜브 주소' : '그림 주소',
+              `<input class="f grow" ${set('url')} value="${esc(it.url || '')}" aria-label="주소">`)
+          + fld('설명', `<input class="f grow" ${set('caption')} value="${esc(it.caption || '')}" aria-label="설명">`);
+      return `<div class="rvpage">
+        <div class="rvpage-head"><span class="rvpage-title">페이지 ${i + 1}</span>
+          <span class="axitem-sp"></span>${tools(i)}</div>
+        ${kindSel}${bodyFields}</div>`;
     }).join('');
 
   } else {
@@ -1512,9 +1539,8 @@ function axisEditor(l, ax){
         data-i="${i}" aria-label="${esc(ax.name)} ${i + 1}번">${esc(it)}</textarea>${tools(i)}</div>`).join('');
   }
 
-  return (rows || `<div class="placeholder">내용이 없습니다.</div>`)
-    + `<div class="ce-add"><button class="btn-chip" data-act="deck-add" data-id="${l.id}" data-k="${k}">
-        ${icon('plus',13)}줄 추가</button></div>`;
+  // 줄 추가 단추는 제목 머리줄 오른쪽으로 옮겼다(axisAddBtn, 선생님 지시 2026-11-01).
+  return rows || `<div class="placeholder">내용이 없습니다.</div>`;
 }
 
 /* ── 개념 노트와 미션 활동의 페이지 편집기 (선생님 지시 2026-10-30) ──
@@ -1576,7 +1602,7 @@ function pageEditor(l, k){
       return `<div class="pgrow">
         <div class="pgrow-top">
           <textarea class="f grow pglabel" rows="1" ${at('pg-set', p, ri)} data-f="label"
-            placeholder="${src ? '사료 제목' : '라벨'}" aria-label="라벨">${esc(r.label)}</textarea>
+            placeholder="${src ? '사료 제목' : '설명글 제목'}" aria-label="설명글 제목">${esc(r.label)}</textarea>
           <div class="tools">${typeSel(r, p, ri)}
             ${btn('pg-row-cut', p, ri, 'scissors', '커서를 둔 줄부터 새 페이지로')}
             ${btn('pg-row-del', p, ri, 'trash-2', '묶음 삭제', { danger:true })}</div>
@@ -1611,10 +1637,9 @@ function pageEditor(l, k){
     </section>`;
   }).join('');
 
-  // 페이지 추가는 맨 위다(선생님 지시 2026-10-30: "페이지 추가하는 버튼을 위로 올려줘").
-  // 페이지가 쌓이면 아래 끝이 멀어 누르러 내려가야 했다. 아래로 되돌리지 않는다
-  return `<div class="ce-add pgadd"><button class="btn-chip" ${at('pg-add')}>${icon('plus',13)}페이지</button></div>`
-    + (body || `<div class="placeholder">내용이 없습니다.</div>`);
+  // 페이지 추가 단추는 제목 머리줄 오른쪽 끝으로 옮겼다(axisAddBtn, 선생님 지시 2026-11-01:
+  // 전시학습확인처럼 제목 우측 끝으로 통일). 전에는 편집창 맨 위 안쪽(.ce-add.pgadd)에 있었다.
+  return body || `<div class="placeholder">내용이 없습니다.</div>`;
 }
 
 /* 페이지 편집기의 단추와 칸이 부르는 길. 페이지 배열을 받아 고치고 통째로 저장한다(M.setPages).

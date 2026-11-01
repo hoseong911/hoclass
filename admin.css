@@ -733,8 +733,9 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .pgrow-top{display:flex;align-items:flex-start;gap:8px}
 .pgrow textarea.f{resize:vertical;font:inherit;line-height:1.6;field-sizing:content;min-height:var(--h-ctl)}
 .pgrow .pglabel{font-weight:700}
-/* 내용 칸: 단계 들여쓰기를 빈칸으로 보여 주므로(indentText) 빈칸 폭이 고른 편이 단계가 가지런하다 */
-.pgtext{white-space:pre-wrap;tab-size:4;width:100%}
+/* 내용 칸: 단계 들여쓰기를 빈칸으로 보여 주므로(indentText) 빈칸 폭이 고른 편이 단계가 가지런하다.
+   글은 양쪽정렬로 보여 준다(선생님 지시 2026-11-01: 개념 노트 편집기 글칸에 실리는 글은 다 양쪽정렬) */
+.pgtext{white-space:pre-wrap;tab-size:4;width:100%;text-align:justify}
 .pgrow .tools{padding-top:3px}
 /* 묶음 유형 고르개(요구사항 139)는 묶음 머리줄 오른쪽, 단추들 앞에 선다. 라벨 칸 왼쪽에 두지
    않는 까닭: 라벨과 내용은 페이지 번호와 같은 선에서 시작해야 한다(선생님 지시 2026-10-30).
