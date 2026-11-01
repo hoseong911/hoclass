@@ -327,7 +327,7 @@ function roomDetailCols(c){
   const moreBtn = (!state.roomLessonsMore && lessons.length > MAX_LESSONS)
     ? `<button class="btn-link morebtn" data-act="room-lessons-more">더보기 (${lessons.length - MAX_LESSONS}강)</button>` : '';
   const left = `<div class="dcol">
-    <div class="sectionlabel between">강의 진도<button class="btn-link" data-act="go-progress" data-id="${c.id}">진도 관리</button></div>
+    <div class="sectionlabel between">강의 진도<button class="btn-chip" data-act="go-progress" data-id="${c.id}">진도 관리</button></div>
     <div class="dscroll">${lessonRows}${moreBtn}</div></div>`;
 
   // ── 오른쪽: 학생 명단 ──
@@ -346,24 +346,24 @@ function roomDetailCols(c){
       return `<div class="row compact selrow ${on?'':'off'}">
         <input type="checkbox" data-act="enroll" data-id="${c.id}" data-no="${no}" ${on?'checked':''}
           aria-label="${esc(name)} ${on?'등록됨':'등록 안 됨'}">
-        <span class="grow"><span class="t"><span class="mono">${esc(no)}</span> &nbsp;${esc(name)}</span></span></div>`;
+        <span class="grow"><span class="t"><span class="mono">${esc(no)}</span>&nbsp;${esc(name)}</span></span></div>`;
     }).join('') || `<div class="empty">학생이 없습니다.</div>`;
     return left + `<div class="dcol"><div class="sectionlabel between">학생 명단
-      <button class="btn-link" data-act="stu-edit-done">완료</button></div>
+      <button class="btn-chip" data-act="stu-edit-done">완료</button></div>
       <div class="dscroll">${rows}</div></div>`;
   }
 
   const stuRows = students.length ? students.map(s => {
     const open = state.openScore === `${c.id}_${s.studentNo}`;
     const row = `<div class="row compact rowlink" data-act="stu-score" data-no="${s.studentNo}" data-id="${c.id}">
-      <div class="grow"><div class="t"><span class="chev">${icon(open?'chevron-down':'chevron-right',14)}</span><span class="mono">${esc(s.studentNo)}</span> &nbsp;${esc(s.name)}</div></div></div>`;
+      <div class="grow"><div class="t"><span class="chev">${icon(open?'chevron-down':'chevron-right',14)}</span><span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name)}</div></div></div>`;
     return open ? row + studentCard(c.id, s.studentNo) : row;
   }).join('') : `<div class="empty">학생이 없습니다.</div>`;
 
   const stuHead = `<div class="sectionlabel between">학생 명단
          <span class="sec-acts">
-           <button class="btn-link" data-act="stu-edit-mode">편집</button>
-           <button class="btn-link" data-act="go-students" data-id="${c.id}">학생 관리</button>
+           <button class="btn-chip" data-act="stu-edit-mode">편집</button>
+           <button class="btn-chip" data-act="go-students" data-id="${c.id}">학생 관리</button>
          </span></div>`;
 
   const right = `<div class="dcol">${stuHead}<div class="dscroll">${stuRows}</div></div>`;
@@ -446,9 +446,8 @@ function pageProgress(){
   if (!subjects.includes(state.subject)) state.subject = subjects[0];
   // hoistory의 [+ 강의 추가]는 과목 탭 줄 오른쪽 끝에 둔다(선생님 지시 2026-10-29).
   // 누르면 줄 아래에 제목 입력 줄이 열린다(요구사항 66 인라인).
-  const addBtn = `<span class="line-end"><button class="btn-chip" data-act="prog-add-open">${icon('plus',13)}강의</button></span>`;
-  // 과목은 머리줄 드롭다운으로 옮겼다(전역 state.subject). 이 줄에는 '+ 강의' 단추만 남긴다.
-  const tabs = catline([], null, 'prog-subject', '', addBtn);
+  // 강의 추가는 강의 라이브러리에서만 한다(선생님 지시 2026-11-01). 진도 관리에선 추가 단추를 없앴다.
+  const tabs = '';
 
   const rooms = all.filter(c => c.subject === state.subject)
     .slice().sort((a,b) => a.grade - b.grade || a.classNo - b.classNo);
@@ -745,7 +744,7 @@ function scoreViewPanel(c){
     }).join('');
     const row = `<tr class="scrow ${open?'on':''}" data-act="sc-open" data-no="${s.studentNo}">
       <td class="lname">${WIDE.matches ? '' : `<span class="chev">${icon(open?'chevron-down':'chevron-right',14)}</span>`}
-        <span class="mono">${esc(s.studentNo)}</span> &nbsp;${esc(s.name)}</td>
+        <span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name)}</td>
       ${cells}<td class="num tot"><span class="scnum">${g.total}</span><span class="gsub blk">/ ${g.maxScore}</span></td></tr>`;
     // 좁은 화면만 줄 아래로 펼친다(넓은 화면은 오른쪽 칸이 받는다)
     return (open && !WIDE.matches) ? row + `<tr class="sc-lines"><td colspan="${M.GRADE_AREAS.length + 2}">
@@ -928,7 +927,7 @@ function pageStudents(){
       const open = state.studentDetailNo === sno;
       const row = `<div class="row ${open?'on':''}">
         <div class="grow rowlink" data-act="stu-open" data-no="${sno}">
-          <div class="t"><span class="chev">${icon(open?'chevron-down':'chevron-right',16)}</span><span class="mono">${esc(sno)}</span> &nbsp;${esc(nameOf(sno))}</div></div>
+          <div class="t"><span class="chev">${icon(open?'chevron-down':'chevron-right',16)}</span><span class="mono">${esc(sno)}</span>&nbsp;${esc(nameOf(sno))}</div></div>
         ${stuTools(sno)}</div>`;
       return open ? row + `<div class="detail two">${studentDetailCols(sno)}</div>` : row;
     }).join('');
@@ -939,7 +938,7 @@ function pageStudents(){
   if (!snos.includes(state.studentDetailNo)) state.studentDetailNo = snos[0];
   const sel = state.studentDetailNo;
   const left = snos.map(sno => `<div class="row ${sno===sel?'on':''}">
-      <div class="grow rowlink" data-act="stu-open" data-no="${sno}"><div class="t"><span class="mono">${esc(sno)}</span> &nbsp;${esc(nameOf(sno))}</div></div></div>`).join('');
+      <div class="grow rowlink" data-act="stu-open" data-no="${sno}"><div class="t"><span class="mono">${esc(sno)}</span>&nbsp;${esc(nameOf(sno))}</div></div></div>`).join('');
   return `${head}${filterLine}<div class="split split-stu"><div class="split-list">${left}</div>
     <div class="pane"><div class="pane-head"><h3><span class="mono">${esc(sel)}</span> ${esc(nameOf(sel))}</h3>${stuTools(sel)}</div>
       <div class="two">${studentDetailCols(sel)}</div></div></div>`;
@@ -949,10 +948,14 @@ function pageStudents(){
    오른쪽: 과목(강의실)별 레벨, 경험치, 포트폴리오 성적. 한 학번이 여러 과목에 들 수 있어서 과목별로 본다. */
 function studentDetailCols(sno){
   const grade = +sno.slice(0,1), classNo = +sno.slice(1,3);
+  // 머리줄에서 고른 과목(전역 state.subject)만 본다: 상세엔 과목명을 빼고 반 번호(301)만 쓴다
+  // (선생님 지시 2026-11-01). 다른 과목은 머리줄 드롭다운으로 바꿔 본다.
   const classCourses = M.getCourses(state.year)
-    .filter(c => c.grade === grade && c.classNo === classNo)
+    .filter(c => c.grade === grade && c.classNo === classNo && (!state.subject || c.subject === state.subject))
     .sort((a,b) => a.subject.localeCompare(b.subject,'ko'));
-  const mine = M.getCoursesOfStudent(state.year, sno).sort((a,b) => a.subject.localeCompare(b.subject,'ko'));
+  const mine = M.getCoursesOfStudent(state.year, sno)
+    .filter(c => !state.subject || c.subject === state.subject)
+    .sort((a,b) => a.subject.localeCompare(b.subject,'ko'));
   const enrolled = new Set(mine.map(c => c.id));
 
   // 성적을 볼 과목: 과목명 단추로 고른다(선생님 지시 2026-10-29). 고른 것이 없거나 빠졌으면 첫 수강 과목.
@@ -965,7 +968,7 @@ function studentDetailCols(sno){
     return `<div class="checkline ${on?'':'off'}">
     <input type="checkbox" data-act="enroll" data-id="${c.id}" data-no="${sno}" ${on?'checked':''} aria-label="${esc(M.roomName(c))} 수강">
     <button class="cl-name ${picked?'on':''}" data-act="stu-score-course" data-id="${c.id}" ${on?'':'disabled'}
-      title="${on?'이 과목 성적 보기':'수강하지 않는 과목입니다.'}">${esc(M.roomName(c))}</button></div>`;
+      title="${on?'이 과목 성적 보기':'수강하지 않는 과목입니다.'}">${esc(M.roomNo(c))}</button></div>`;
   }).join('')
     : `<div class="empty">${grade}${String(classNo).padStart(2,'0')} 반으로 만든 강의실이 없습니다.</div>`;
 
@@ -979,7 +982,7 @@ function studentDetailCols(sno){
   // 강의실 이름 줄 아래에 레벨, 경험치, 포인트 칸과 영역별 포트폴리오 성적, 총점.
   const sc = mine.find(c => c.id === state.stuScoreCourseId);
   const scoreRows = sc ? `<div class="row compact">
-      <div class="grow"><div class="t">${esc(M.roomName(sc))}</div></div></div>${studentCard(sc.id, sno, false)}`
+      <div class="grow"><div class="t">${esc(M.roomNo(sc))}</div></div></div>${studentCard(sc.id, sno, false)}`
     : `<div class="empty">수강 중인 과목이 없습니다.</div>`;
   const right = `<div class="dcol">
     <div class="sectionlabel">과목별 성적</div>
@@ -2167,7 +2170,7 @@ function questionAnswers(rooms, placed, lessons){
   if (state.questionTab === 'pick'){
     const picked = subs.filter(s => s.shared).sort(byNo);
     const body = picked.length ? picked.map(s => `<div class="row">
-      <div class="grow"><div class="t"><span class="mono">${esc(s.studentNo)}</span> &nbsp;${esc(s.name)}</div>
+      <div class="grow"><div class="t"><span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name)}</div>
         <div class="s ans">${esc(s.answer)}</div></div>
       <div class="tools">
         <button class="ib ib-sm ib-primary" data-act="q-share" data-id="${s.id}" title="PICK에서 내리기" aria-label="PICK에서 내리기">${icon('star',14)}</button>
@@ -2190,7 +2193,7 @@ function answerRow(s, v){
     ? `<span class="gnote ${verdictCls(s.aiVerdict)}">${esc(s.aiVerdict || '')} / ${s.aiPt ?? 0}pt</span>`
     : `<span class="gnote muted">미채점</span>`;
   return `<div class="row">
-    <div class="grow"><div class="t"><span class="mono">${esc(s.studentNo)}</span> &nbsp;${esc(s.name)}${res}
+    <div class="grow"><div class="t"><span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name)}${res}
         <span class="gsub">${v.length}자</span></div>
       <div class="s ans">${esc(s.answer)}</div></div>
     <div class="tools">
@@ -2210,7 +2213,7 @@ function verdictCls(text){
 // 미제출 학생 줄: 답변이 없어 통과, 미흡 버튼도 달지 않는다. 미제출도 미흡 사유라 빨강이다.
 function absentRow(st){
   return `<div class="row">
-    <div class="grow"><div class="t"><span class="mono">${esc(st.studentNo)}</span> &nbsp;${esc(st.name)}
+    <div class="grow"><div class="t"><span class="mono">${esc(st.studentNo)}</span>&nbsp;${esc(st.name)}
       <span class="gnote bad">미제출</span></div></div></div>`;
 }
 function questionGrade(targets, subs, one){
@@ -2488,7 +2491,7 @@ function formativeResultPanel(rooms, placed, lessons){
   if (!rows.length) return pickers + `<div class="empty">학생이 없습니다.</div>`;
 
   const body = rows.map(r => {
-    const name = `<td class="lname"><span class="mono">${esc(r.no)}</span> &nbsp;${esc(r.name)}</td>`;
+    const name = `<td class="lname"><span class="mono">${esc(r.no)}</span>&nbsp;${esc(r.name)}</td>`;
     const taken = cum ? `<td class="num">${r.done} / ${r.taken}</td>` : '';
     if (!r.done) return `<tr>${name}${taken}<td class="num"><span class="gnote muted">미제출</span></td><td class="num"></td><td class="num"></td></tr>`;
     return `<tr>${name}${taken}

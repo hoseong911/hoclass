@@ -138,6 +138,8 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
    화면이 좁으면 강의 진도는 360px까지만 줄고 그 밑으로는 학생 명단이 줄어든다 */
 .split-room .pane .dcol:first-child{flex:1 1 0;min-width:360px}
 .split-room .pane .dcol:last-child{flex:0 1 460px}
+/* 학생 명단(왼쪽)은 학번+이름뿐이라 좁혀 상세를 넓힌다(선생님 지시 2026-11-01). */
+.split.split-stu{grid-template-columns:210px minmax(0,1fr)}
 /* 학생 관리 상세: 수강 과목은 강의실 이름 몇 줄뿐이라 좁게, 남는 폭은 과목별 성적이 받는다(선생님 지시 2026-10-29) */
 .split-stu .pane .dcol:first-child{flex:0 1 220px}
 .split-stu .pane .dcol:last-child{flex:1 1 0;min-width:320px}
