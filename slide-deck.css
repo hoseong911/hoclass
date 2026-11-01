@@ -123,7 +123,7 @@
    위치해주고 그 아래 빨간색 구분선을 넣어줘. 구분선 길이는 행라벨 글씨까지만").
    라벨을 글자 폭만큼만 차지하게(width:fit-content) 두고 밑줄을 테두리로 그으면 선 길이가 글씨에 꼭 맞는다.
    그 밖에는 투사 화면이라 줄과 줄 사이에 선을 긋지 않는다(선이 많으면 글자가 묻힌다). 묶음 사이만 띄운다. */
-.deckpage .s-page{font-size:var(--sfs);
+.deckpage .s-page{font-size:var(--sfs);font-weight:600;
   display:flex;flex-direction:column;gap:calc(var(--px) * 44)}
 /* 설명글 제목(구분선 위 라벨): 본문과 따로 조절한다(선생님 지시 2026-11-01, --fs-plabel).
    기본값은 전과 같은 56px이되 본문(--fs-body)을 바꿔도 따라 커지지 않게 제 값을 둔다 */
@@ -141,7 +141,7 @@
   overflow:hidden;box-shadow:0 calc(var(--px) * 2) calc(var(--px) * 6) rgba(4,30,66,.08),
     0 calc(var(--px) * 10) calc(var(--px) * 26) rgba(4,30,66,.10)}
 /* 비교표는 머리와 내용을 가운데 정렬한다(선생님 지시 2026-11-01) */
-.deckpage .cmp-head{background:var(--navy);color:#fff;font-family:var(--title-font);font-weight:700;
+.deckpage .cmp-head{background:var(--navy);color:#fff;font-family:var(--title-font);font-weight:900;
   font-size:var(--fs-cmp-head, var(--tfs));padding:calc(var(--px) * 16) calc(var(--px) * 26);
   word-break:keep-all;text-align:center}
 .deckpage .cmp-body{flex:1;background:var(--navy-050, #f3f5f9);color:var(--navy);
@@ -154,7 +154,7 @@
    세리프체, 양쪽 정렬, 큰따옴표, 오른쪽 아래 출전. 제목은 묶음 라벨(.plabel) 그대로라
    보통 묶음과 같은 자리에 선다. 쪽 전체가 아니라 묶음이므로 여백과 큰따옴표를 줄인다
    (사료 쪽의 ::after는 글 상자 밖 아래로 90 내려가 있어 묶음에서는 다음 묶음을 밟는다). */
-.deckpage .psrc{font-family:var(--serif);font-size:var(--srcfs)}
+.deckpage .psrc{font-family:var(--serif);font-size:var(--srcfs);font-weight:400}
 /* 사료 인용은 제목을 가운데로, 라벨 밑 레드 구분선은 뺀다(선생님 지시 2026-10-31) */
 .deckpage .psrc .plabel{width:100%;text-align:center;border-bottom:none;padding-bottom:0;
   font-size:var(--fs-src-title, calc(var(--px) * 56));margin-bottom:calc(var(--px) * 24)}
@@ -172,7 +172,7 @@
    개념 노트는 1단계 번호(1. 2.)를 그리지 않는다(dropNum). 그때는 기호 칸이 아예 없다. */
 .deckpage .s-page{--pmw:calc(var(--px) * 56)}
 .deckpage .pl{display:flex;align-items:baseline}
-.deckpage .pm{flex:0 0 auto;width:var(--pmw);font-weight:800}
+.deckpage .pm{flex:0 0 auto;width:var(--pmw);font-weight:600}
 /* 한 수준 낮은 항목(kids)은 .pv(내용칸) 밖, .pt(소제목 시작선) 아래에 블록으로 선다.
    그래서 자식 기호(- / ·)가 부모 소제목 글자 바로 아래에 가지런히 내려온다(선생님 지시 2026-10-31, 안 A).
    .pt가 wrap이라 소제목+내용은 1행, .pkids는 flex-basis:100%로 그 아래 2행에 .pt 왼쪽 끝부터 선다.
@@ -185,7 +185,7 @@
 /* 항목 글(.pt) = 소제목(.pk, 굵게) + 내용(.pv). "1. 설립 : ~"의 쌍점은 지우고 그 자리를 여백으로 둔다.
    내용 칸이 남는 폭을 따로 차지하므로 줄이 넘어가면 내용 시작 자리에 맞춰 내려온다(내어쓰기). */
 .deckpage .pt{flex:1;min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;column-gap:calc(var(--px) * 30);row-gap:0}
-.deckpage .pk{flex:0 0 auto;max-width:40%;font-family:var(--title-font);font-weight:800;color:var(--navy);word-break:keep-all}
+.deckpage .pk{flex:0 0 auto;max-width:40%;font-family:var(--title-font);font-weight:900;color:var(--navy);word-break:keep-all}
 /* heading(쌍점 없는 소제목 + 하위 항목): 소제목을 제 줄에 블록으로, 하위 항목을 그 아래로 들여쓴다 (#7) */
 .deckpage .pt.pt-head{display:block}
 .deckpage .pt.pt-head > .pk-head{display:block;max-width:none;margin-bottom:calc(var(--px) * 10)}
@@ -206,7 +206,7 @@
 .deckpage .s-objectives::after{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;
   background:radial-gradient(130% 130% at 50% 50%, transparent 60%, rgba(0,0,0,.4) 100%)}
 .deckpage .s-objectives .obj-badge{position:absolute;top:calc(var(--px) * 56);left:calc(var(--px) * 80);z-index:3;
-  font-family:var(--title-font);font-weight:500;font-size:var(--tfs);color:var(--red);letter-spacing:-.02em;line-height:1.2;
+  font-family:var(--title-font);font-weight:600;font-size:var(--tfs);color:var(--red);letter-spacing:-.02em;line-height:1.2;
   background:color-mix(in srgb, var(--red) 16%, transparent);border:1px solid color-mix(in srgb, var(--red) 35%, transparent);
   border-radius:999px;padding:calc(var(--px) * 2) calc(var(--px) * 22)}
 .deckpage .obj-list{position:absolute;top:calc(var(--px) * 150);bottom:calc(var(--px) * 60);
@@ -235,10 +235,10 @@
 .deckpage .s-qa .qa-top{position:absolute;top:calc(var(--px) * 56);left:calc(var(--px) * 80);right:calc(var(--px) * 80);z-index:3;
   display:flex;align-items:baseline;gap:calc(var(--px) * 24)}
 .deckpage .s-qa .qa-badge{flex:0 0 auto;
-  font-family:var(--title-font);font-weight:500;font-size:var(--tfs);color:var(--red);letter-spacing:-.02em;line-height:1.2;
+  font-family:var(--title-font);font-weight:600;font-size:var(--tfs);color:var(--red);letter-spacing:-.02em;line-height:1.2;
   background:color-mix(in srgb, var(--red) 16%, transparent);border:1px solid color-mix(in srgb, var(--red) 35%, transparent);
   border-radius:999px;padding:calc(var(--px) * 2) calc(var(--px) * 22)}
-.deckpage .s-qa .qa-title{flex:1;min-width:0;margin:0;font-family:var(--title-font);font-weight:700;
+.deckpage .s-qa .qa-title{flex:1;min-width:0;margin:0;font-family:var(--title-font);font-weight:600;
   font-size:var(--tfs);color:#F4F1E8;letter-spacing:-.02em}
 .deckpage .qa-list{position:absolute;top:calc(var(--px) * 150);bottom:calc(var(--px) * 60);
   left:calc(var(--px) * 96);right:calc(var(--px) * 96);z-index:3;
@@ -255,7 +255,7 @@
 .deckpage .qa-slot{flex:0 0 auto;align-self:center;display:flex;align-items:center;justify-content:flex-end}
 /* 단답형 답 알약: 눌러야 나온다(아래에서 떠오른다). 다크 톤이라 꽉 찬 레드에 흰 글씨 */
 .deckpage .qa-a{display:inline-block;border-radius:var(--r);white-space:nowrap;
-  background:var(--red);color:#fff;font-weight:800;
+  background:var(--red);color:#fff;font-weight:900;
   padding:calc(var(--px) * 6) calc(var(--px) * 26);font-size:var(--sfs)}
 .deckpage .qa-a[data-step]{opacity:0;transform:translateY(calc(var(--px) * 12));
   transition:opacity .35s ease, transform .35s ease}
@@ -265,7 +265,7 @@
 .deckpage .qa-ox{display:flex;gap:calc(var(--px) * 14)}
 .deckpage .qa-oxb{display:block;min-width:calc(var(--px) * 104);border:2px solid rgba(244,241,232,.4);border-radius:var(--r);
   background:transparent;color:#F4F1E8;text-align:center;
-  font-size:var(--sfs);font-weight:800;padding:calc(var(--px) * 6) calc(var(--px) * 16);line-height:1.2;
+  font-size:var(--sfs);font-weight:900;padding:calc(var(--px) * 6) calc(var(--px) * 16);line-height:1.2;
   transition:color .35s ease, border-color .35s ease, background-color .35s ease, opacity .35s ease}
 .deckpage .qa-ox.shown .qa-oxb{opacity:.3}
 .deckpage .qa-ox.shown .qa-oxb.is{opacity:1;border-color:var(--red);color:#fff;background:var(--red)}
@@ -273,11 +273,11 @@
    초성 자리를 relative로 두고 답을 absolute로 포개(글자 크기는 물음과 같게 상속), 답이 뜨면 초성은
    흐려진다(크로스페이드). 오른쪽 별도 답 알약은 없다. */
 .deckpage .qa-ini{position:relative;display:inline-block;vertical-align:baseline}
-.deckpage .qa-ini-hint{display:inline-block;letter-spacing:.15em;color:rgba(244,241,232,.65);font-weight:800;
+.deckpage .qa-ini-hint{display:inline-block;letter-spacing:.15em;color:rgba(244,241,232,.65);font-weight:600;
   padding:0 calc(var(--px) * 4);transition:opacity .35s ease}
 .deckpage .qa-ini-ans{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   min-width:100%;text-align:center;white-space:nowrap;border-radius:var(--r);
-  background:var(--red);color:#fff;font-weight:800;padding:calc(var(--px) * 2) calc(var(--px) * 16)}
+  background:var(--red);color:#fff;font-weight:900;padding:calc(var(--px) * 2) calc(var(--px) * 16)}
 .deckpage .qa-ini-ans[data-step]{opacity:0;transition:opacity .35s ease}
 .deckpage .qa-ini-ans[data-step].shown{opacity:1}
 .deckpage .qa-ini:has(.qa-ini-ans.shown) .qa-ini-hint{opacity:0}
@@ -287,8 +287,8 @@
 /* ── 빈칸 {정답}과 강조 **굵게** ── (선생님 지시 2026-10-30: "빈칸은 레드, 강조할 건 네이비")
    빈칸은 레드 굵은 글씨로 늘 보인다. 가렸다가 눌러서 여는 것은 걷었다
    (선생님 지시 2026-10-30: "지금 빈칸들이 다 가려져 있는데 다 걷어내줘"). 강조는 네이비 굵은 글씨다. */
-.deckpage .blank{color:var(--red);font-weight:800}
-.deckpage strong{color:var(--navy);font-weight:800}
+.deckpage .blank{color:var(--red);font-weight:900}
+.deckpage strong{color:var(--navy);font-weight:900}
 
 /* ── 동기 유발(사진, 영상) ── 한 쪽에 하나. 표지·학습목표·전시학습확인과 같은 다크 톤의 자립 블록이고
    배지는 없다(선생님 지시 2026-10-31). 쪽 전체를 덮고(레터박스까지 이어지게 slide.html이 처리) 사진/영상만 크게. */
@@ -301,7 +301,7 @@
 /* 영상은 16:9를 지키면서 쪽 안에 들어가게. 높이가 모자라면 높이에 맞춰 폭이 줄어든다 */
 .deckpage .pvframe.vid iframe{border:0;display:block;
   width:min(100%, calc(100cqh * 16 / 9));aspect-ratio:16 / 9;max-height:100%}
-.deckpage .pvcap{flex:0 0 auto;z-index:3;font-size:var(--sfs);color:rgba(244,241,232,.75);text-align:center}
+.deckpage .pvcap{flex:0 0 auto;z-index:3;font-size:var(--sfs);font-weight:600;color:rgba(244,241,232,.75);text-align:center}
 /* 동기 유발 '글'(선생님 지시 2026-11-01): 사료 인용과 같은 세리프 양쪽정렬이되 따옴표는 없다.
    배경은 사진/영상 동기 유발과 같은 다크 톤(.s-preview)이라 글자만 밝게 둔다. */
 .deckpage .s-preview-text{justify-content:center;padding:calc(var(--px) * 90) calc(var(--px) * 120)}
@@ -341,7 +341,7 @@
   gap:calc(var(--px) * 20);padding:0 calc(var(--px) * 96)}
 .deckpage .close-next{font-family:'Great Vibes', var(--cover-serif);font-weight:400;color:var(--red);
   font-size:var(--fs-close-next, calc(var(--px) * 150));line-height:1;letter-spacing:.02em}
-.deckpage .close-topic{font-family:var(--title-font);font-weight:700;
+.deckpage .close-topic{font-family:var(--title-font);font-weight:900;
   font-size:var(--fs-close-topic, calc(var(--px) * 64));line-height:1.3;word-break:keep-all}
 
 /* ── 사료, 글자료 쪽 (선생님 지시 2026-10-30) ──
@@ -351,7 +351,7 @@
    출전은 글 상자 밖, 쪽 오른쪽 아래에 붙는다(속이 짧아도 맨 아래로 내려가게 margin-top:auto). */
 .deckpage .s-src{display:flex;flex-direction:column;font-family:var(--serif);font-size:var(--srcfs)}
 .deckpage .src-title{margin:0 0 calc(var(--px) * 36);text-align:center;font-family:var(--font);
-  font-size:var(--fs-src-title, calc(var(--px) * 56));font-weight:800;line-height:1.4;letter-spacing:-.03em}
+  font-size:var(--fs-src-title, calc(var(--px) * 56));font-weight:900;line-height:1.4;letter-spacing:-.03em}
 /* 양옆 여백을 줄여 사료 글상자를 더 넓게(선생님 지시 2026-11-01) */
 .deckpage .src-quote{position:relative;padding:calc(var(--px) * 40) calc(var(--px) * 48)}
 /* 양쪽 정렬은 낱말 단위로 줄을 끊으면(keep-all) 줄마다 빈칸이 크게 벌어진다. 사료는 글자 단위로
