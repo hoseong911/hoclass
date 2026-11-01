@@ -2621,16 +2621,14 @@ function pageGeneral(){
   }).join('');
 
   // 서브 메뉴 둘(선생님 지시 2026-11-01): 학년도·과목(학사) 설정과 화면·문구(브라우저) 설정을 나눈다.
+  // 다른 메뉴처럼 제목 아래 구분선 탭(catline)으로 띄운다.
   const gtab = state.genTab || 'school';
-  const seg = `<span class="seg seg-inline">
-    <button class="seg-b ${gtab==='school'?'on':''}" data-act="gen-tab" data-v="school">학년도·과목</button>
-    <button class="seg-b ${gtab==='site'?'on':''}" data-act="gen-tab" data-v="site">화면·문구</button>
-  </span>`;
+  const tabs = catline([{ v:'school', label:'학년도·과목' }, { v:'site', label:'화면·문구' }], gtab, 'gen-tab');
   if (gtab === 'school')
-    return `<div class="pagehead"><h2>${esc(M.menuName('general'))}</h2>${seg}</div>
+    return `<div class="pagehead"><h2>${esc(M.menuName('general'))}</h2></div>${tabs}
       <div class="gen-cols">${yearCol}${subjectCol}</div>`;
-  return `<div class="pagehead"><h2>${esc(M.menuName('general'))}</h2>${seg}
-      <button class="btn-add" data-act="general-save" title="저장" aria-label="저장">${icon('check',16)}<span>저장</span></button></div>
+  return `<div class="pagehead"><h2>${esc(M.menuName('general'))}</h2>
+      <button class="btn-add" data-act="general-save" title="저장" aria-label="저장">${icon('check',16)}<span>저장</span></button></div>${tabs}
     <div class="gen-cols">${groups}
       <div class="gen-col"><div class="sectionlabel">어드민 메뉴</div>${menuRows}</div></div>`;
 }
