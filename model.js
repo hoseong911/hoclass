@@ -35,6 +35,7 @@ import { normalizeDeck, toPages, fromPages, blankDeck, AXIS_ORDER, pagesFilled }
 export const COLLECTIONS = {
   // ── 지금 쓰는 7개 ──
   schoolYears:        'hoclass_school_years',   // { year, status }  문서 id = '2027'
+  subjects:           'hoclass_subjects',       // 과목 목록 { year, name } (전역 과목 드롭다운이 쓴다, 일반설정에서 관리)
   courses:            'hoclass_courses',        // 강의실 { year, subject, grade, classNo, status }
   courseStudents:     'hoclass_course_students',// 명단 { courseId, studentNo, name }  id = 강의실id_학번
   courseRoster:       'hoclass_course_roster',  // 학년도 학생 명부 { year, studentNo, name }  id = 학년도_학번
@@ -230,6 +231,7 @@ export function dateStatus(mmdd, today = new Date()){
 // ───────────────────────────────────────────────────────────────────────────
 const DEMO = {
   years:        [],   // school_years   { id:'2027', year:2027, status:'active' }
+  subjects:     [],   // subjects       { id, year, name }
   courses:      [],   // courses        { id, year, subject, grade, classNo, status }
   students:     [],   // course_students{ id:'강의실id_학번', courseId, studentNo, name }
   roster:       [],   // course_roster  { id:'학년도_학번', year, studentNo, name }
@@ -272,7 +274,7 @@ function del(coll, id){ deleteDoc(doc(db, coll, id)).catch(e => console.error('d
 
 export async function loadCore(){
   const C = COLLECTIONS;
-  const [ys, cs, ss, rs, cls, ls, subs, grs, mas, nts, gen, grc] = await Promise.all([
+  const [ys, cs, ss, rs, cls, ls, subs, grs, mas, nts, gen, grc, sjs] = await Promise.all([
     getDocs(collection(db, C.schoolYears)),
     getDocs(collection(db, C.courses)),
     getDocs(collection(db, C.courseStudents)),
@@ -285,6 +287,8 @@ export async function loadCore(){
     getDocs(collection(db, C.notices)),
     getDoc(doc(db, 'hoclass_settings', 'general')),
     getDoc(doc(db, 'hoclass_settings', 'grade')),
+    // 과목 목록은 못 읽어도(규칙 미배포/학생 권한) 전체 로드를 깨지 않는다. 학생은 강의실에서 과목을 얻는다.
+    getDocs(collection(db, C.subjects)).catch(() => ({ docs: [] })),
   ]);
   const rows = snap => snap.docs.map(d => ({ ...d.data(), id:d.id }));
   DEMO.years       = rows(ys).sort((a,b) => b.year - a.year);
@@ -297,6 +301,7 @@ export async function loadCore(){
   DEMO.grades      = rows(grs);
   DEMO.missionApps = rows(mas);
   DEMO.notices     = rows(nts);
+  DEMO.subjects    = rows(sjs);
   siteTexts       = gen.exists() ? (gen.data().texts || {}) : {};
   menuOrder        = gen.exists() ? (gen.data().menuOrder || null) : null;
   slideDesign      = gen.exists() ? (gen.data().slideDesign || {}) : {};
@@ -443,7 +448,55 @@ export function addCourse({ year, subject, grade, classNo }){
   if (!(c.grade >= 1 && c.grade <= 6)) throw new Error('학년을 확인해 주세요.');
   if (!(c.classNo >= 1 && c.classNo <= 99)) throw new Error('반을 확인해 주세요.');
   if (sameRoomExists(c)) throw new Error(`${roomName(c)} 강의실이 이미 있습니다.`);
-  DEMO.courses.push(c); put(COLLECTIONS.courses, c); return c;
+  DEMO.courses.push(c); put(COLLECTIONS.courses, c);
+  ensureSubject(c.year, c.subject);   // 과목 목록에도 반영(새 과목이면 추가)
+  return c;
+}
+
+/* 과목 목록(선생님 지시 2026-11-01): 전역 과목 드롭다운이 쓰는 과목을 일반 설정에서 관리한다.
+   연도별 { id, year, name }. 강의실을 만들면 그 과목도 여기 들어간다(ensureSubject). */
+// 과목 목록 = 관리 목록(hoclass_subjects) ∪ 지금 강의실이 쓰는 과목. 합집합이라 기존 강의실의
+// 과목도 바로 보이고(마이그레이션 쓰기 없음), 학생앱 loadCore가 아무것도 쓰지 않는다.
+export function getSubjectRows(year){
+  const y = +year;
+  const managed = DEMO.subjects.filter(s => s.year === y);
+  const names = new Set(managed.map(s => s.name));
+  const rows = managed.slice();
+  [...new Set(DEMO.courses.filter(c => c.year === y).map(c => c.subject))].forEach(nm => {
+    if (nm && !names.has(nm)){ names.add(nm); rows.push({ id:null, year:y, name:nm }); }   // id 없음 = 강의실이 쓰는 중(삭제 불가)
+  });
+  return rows.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
+export function getSubjects(year){ return getSubjectRows(year).map(s => s.name); }
+function ensureSubject(year, name){
+  const nm = String(name || '').trim(); if (!nm) return;
+  if (DEMO.subjects.some(s => s.year === +year && s.name === nm)) return;
+  const row = { id: nid('sub_'), year: +year, name: nm };
+  DEMO.subjects.push(row); put(COLLECTIONS.subjects, row);
+}
+export function addSubject(year, name){
+  const nm = String(name || '').trim();
+  if (!nm) throw new Error('과목 이름을 적어 주세요.');
+  if (DEMO.subjects.some(s => s.year === +year && s.name === nm)) throw new Error(`${nm} 과목이 이미 있습니다.`);
+  const row = { id: nid('sub_'), year: +year, name: nm };
+  DEMO.subjects.push(row); put(COLLECTIONS.subjects, row); return row;
+}
+export function subjectInUse(year, name){
+  return DEMO.courses.some(c => c.year === +year && c.subject === name);
+}
+export function removeSubject(id){
+  const s = DEMO.subjects.find(x => x.id === id); if (!s) return;
+  if (subjectInUse(s.year, s.name)) throw new Error(`${s.name} 과목의 강의실이 있어 지울 수 없습니다. 강의실을 먼저 지우세요.`);
+  DEMO.subjects = DEMO.subjects.filter(x => x.id !== id); del(COLLECTIONS.subjects, id);
+}
+/* 학년도 삭제: 강의실이나 학생이 있으면 막는다(실수 방지). 과목 목록은 같이 정리한다. */
+export function removeYear(year){
+  const y = +year;
+  if (DEMO.courses.some(c => c.year === y)) throw new Error('이 학년도에 강의실이 있어 지울 수 없습니다.');
+  if (DEMO.roster.some(r => r.year === y)) throw new Error('이 학년도에 학생이 있어 지울 수 없습니다.');
+  DEMO.years = DEMO.years.filter(x => x.year !== y); del(COLLECTIONS.schoolYears, String(y));
+  DEMO.subjects.filter(s => s.year === y).forEach(s => del(COLLECTIONS.subjects, s.id));
+  DEMO.subjects = DEMO.subjects.filter(s => s.year !== y);
 }
 
 // 같은 학년도에 과목과 학년과 반이 똑같은 강의실이 또 있는가(자기 자신은 뺀다)

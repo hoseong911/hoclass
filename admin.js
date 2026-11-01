@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261101f';
+import * as M from './model.js?v=20261101g';
 import { icon } from './shared/icons.js?v=20261031e';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -209,7 +209,7 @@ function catline(items, active, act, allLabel, extra = '', cls = ''){
 
 // ── 머리줄 공통 고르개: 학년도 + 과목(선생님 지시 2026-11-01) ──
 // 과목은 성적처럼 학년도 옆 드롭다운 하나로 전 메뉴가 같이 쓴다(state.subject). 한 과목만 고른다.
-function subjectsOfYear(){ return [...new Set(M.getCourses(state.year).map(c => c.subject))].sort((a, b) => a.localeCompare(b, 'ko')); }
+function subjectsOfYear(){ return M.getSubjects(state.year); }   // 과목은 일반 설정에서 관리하는 목록
 function curSubject(){ const subs = subjectsOfYear(); if (!subs.includes(state.subject)) state.subject = subs[0] ?? null; return state.subject; }
 function yearSelHtml(){ const years = M.getYears();
   return `<select class="sel" id="year-sel" data-act="year-pick" aria-label="학년도">${
@@ -237,18 +237,18 @@ function roomEditRow(c){
 
 function pageRooms(){
   const years = M.getYears();
-  const addBtn = `<button class="btn-add" data-act="add-open" title="추가" aria-label="추가">${icon('plus',16)}<span>추가</span></button>`;
 
+  // 학년도·과목 추가는 일반 설정으로 옮겼다(선생님 지시 2026-11-01). 강의실 추가는 아래 상세의 추가 단추.
   if (!years.length)
-    return `<div class="pagehead"><h2>${esc(M.menuName('rooms'))}</h2>${addBtn}</div>
-      <div class="empty">학년도가 없습니다.</div>`;
+    return `<div class="pagehead"><h2>${esc(M.menuName('rooms'))}</h2></div>
+      <div class="empty">학년도가 없습니다. 일반 설정에서 학년도를 먼저 만드세요.</div>`;
 
   const courses = M.getCourses(state.year);
 
   const yearSel = `<select class="sel" id="year-sel" data-act="year-pick" aria-label="학년도">
     ${years.map(y => `<option value="${y.year}" ${y.year===state.year?'selected':''}>${y.year}학년도</option>`).join('')}
   </select>`;
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('rooms'))}</h2>${yearSel}${subjectSel()}${addBtn}</div>`;
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('rooms'))}</h2>${yearSel}${subjectSel()}</div>`;
 
   // 과목은 머리줄 드롭다운(전역 state.subject)으로 고른다. 과목별/반별 토글과 과목·반 필터 줄은 없앴다
   // (선생님 지시 2026-11-01): 고른 과목의 강의실만 반 번호 순으로 보이고, 라벨도 과목을 뗀 반 번호(301)다.
@@ -263,13 +263,15 @@ function pageRooms(){
       <div class="grow rowlink" data-act="room-open" data-id="${c.id}">
         <div class="t"><span class="chev">${icon(open?'chevron-down':'chevron-right',16)}</span>${esc(M.roomNo(c))}</div></div>
       <div class="tools">
+        <button class="ib ib-primary" data-act="room-add-open" title="강의실 추가" aria-label="강의실 추가">${icon('plus',16)}</button>
         <button class="ib" data-act="room-edit" data-id="${c.id}" title="수정" aria-label="수정">${icon('pencil',16)}</button>
         <button class="ib ib-danger" data-act="room-del" data-id="${c.id}" title="삭제" aria-label="삭제">${icon('trash-2',16)}</button>
       </div></div>`;
     return open ? row + roomDetailPanel(c) : row;
   };
 
-  if (!list.length) return `${head}<div class="empty">강의실이 없습니다.</div>`;
+  if (!list.length) return `${head}<div class="empty">강의실이 없습니다.
+    <button class="btn-chip" data-act="room-add-open">${icon('plus',13)}강의실 추가</button></div>`;
 
   if (!WIDE.matches)
     return `${head}${list.map(c => c.id === state.editRoomId ? roomEditRow(c) : showRow(c)).join('')}`;
@@ -281,6 +283,7 @@ function pageRooms(){
   const c = M.getCourse(state.roomDetailId);
   const paneHead = c.id === state.editRoomId ? roomEditRow(c)
     : `<div class="pane-head"><h3>${esc(M.roomNo(c))}</h3><div class="tools">
+        <button class="ib ib-primary" data-act="room-add-open" title="강의실 추가" aria-label="강의실 추가">${icon('plus',16)}</button>
         <button class="ib" data-act="room-edit" data-id="${c.id}" title="수정" aria-label="수정">${icon('pencil',16)}</button>
         <button class="ib ib-danger" data-act="room-del" data-id="${c.id}" title="삭제" aria-label="삭제">${icon('trash-2',16)}</button>
       </div></div>`;
@@ -882,6 +885,46 @@ function openAddModal(initial){
     const ni = modal.querySelector('#a-subject-new');
     const on = e.target.value === '__new__';
     if (ni){ ni.hidden = !on; if (on) ni.focus(); }
+  });
+  document.addEventListener('keydown', onKey);
+}
+
+/* 강의실 추가(선생님 지시 2026-11-01): 학년도·과목은 머리줄에서 고른 것을 쓰고 학년/반만 받는다.
+   학년도·과목 자체의 생성은 일반 설정에서 한다. */
+function openRoomModal(){
+  if (!state.year){ toast('먼저 일반 설정에서 학년도를 만드세요.'); return; }
+  const subject = curSubject();
+  if (!subject){ toast('먼저 일반 설정에서 과목을 추가하세요.'); return; }
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="강의실 추가">
+    <h3>강의실 추가</h3>
+    <p class="m-sub"><b>${esc(state.year)}학년도 · ${esc(subject)}</b></p>
+    <div class="m-form"><div class="m-two">
+      <div><label class="m-label">학년</label><input class="f" id="r-grade" inputmode="numeric"></div>
+      <div><label class="m-label">반</label><input class="f" id="r-class" inputmode="numeric"></div>
+    </div></div>
+    <div class="m-err" id="r-err"></div>
+    <div class="m-acts"><button class="btn-ghost" data-m="cancel">닫기</button>
+      <button class="btn-text" data-m="ok">만들기</button></div></div>`;
+  document.body.appendChild(back);
+  const modal = back.querySelector('.modal');
+  modal.querySelector('#r-grade')?.focus();
+  const close = () => { document.removeEventListener('keydown', onKey); back.remove(); };
+  const err = m => { const e = modal.querySelector('#r-err'); if (e) e.textContent = m; };
+  const submit = () => {
+    const grade = (modal.querySelector('#r-grade')?.value || '').trim();
+    const classNo = (modal.querySelector('#r-class')?.value || '').trim();
+    if (!grade || !classNo){ err('학년과 반을 적어 주세요.'); return; }
+    try { const c = M.addCourse({ year:state.year, subject, grade, classNo });
+      state.roomDetailId = c.id; toast(`${M.roomNo(c)} 강의실을 만들었습니다.`); close(); render(); }
+    catch(e){ err(e.message); }
+  };
+  const onKey = e => { if (e.key === 'Escape') close(); else if (e.key === 'Enter'){ e.preventDefault(); submit(); } };
+  back.addEventListener('click', e => {
+    if (e.target === back){ close(); return; }
+    const m = e.target.closest('[data-m]'); if (!m) return;
+    if (m.dataset.m === 'ok') submit(); else close();
   });
   document.addEventListener('keydown', onKey);
 }
@@ -2510,8 +2553,26 @@ function formativeResultPanel(rooms, placed, lessons){
    화면 문구를 코드에 박지 않고 여기서 직접 심고 바꾼다(model.js의 TEXT_FIELDS 규칙 참고).
    비워 두면 기본값이 그대로 쓰인다. 칸마다 따로 저장하지 않고 저장 버튼 하나로 한 번에 쓴다. */
 function pageGeneral(){
+  if (!state.year && M.getYears().length) state.year = M.getYears()[0].year;
   const draft = state.genDraft || {};
   const textVal = key => draft[key] ?? M.getText(key);
+
+  // 학년도·과목 관리(선생님 지시 2026-11-01): 추가/삭제는 바로 저장된다. 다른 메뉴의 머리줄 드롭다운이 이걸 쓴다.
+  const yearCol = `<div class="gen-col"><div class="sectionlabel">학년도 관리</div>
+    <div class="row"><input class="f grow" id="gen-year-new" inputmode="numeric" placeholder="예: 2027" aria-label="새 학년도">
+      <button class="btn-chip" data-act="gen-year-add">${icon('plus',13)}추가</button></div>
+    ${M.getYears().map(y => `<div class="row"><div class="grow"><span class="mono">${y.year}</span> 학년도</div>
+      <button class="ib ib-sm ib-danger" data-act="gen-year-del" data-y="${y.year}" title="삭제" aria-label="삭제">${icon('trash-2',14)}</button></div>`).join('')
+      || '<div class="empty">학년도가 없습니다.</div>'}</div>`;
+  const subjRows = state.year ? M.getSubjectRows(state.year) : [];
+  const subjectCol = `<div class="gen-col"><div class="sectionlabel">과목 관리${state.year ? ` <span class="unit">${esc(state.year)}학년도</span>` : ''}</div>
+    ${state.year ? `<div class="row"><input class="f grow" id="gen-subject-new" placeholder="예: 역사" aria-label="새 과목">
+        <button class="btn-chip" data-act="gen-subject-add">${icon('plus',13)}추가</button></div>
+      ${subjRows.map(s => `<div class="row"><div class="grow">${esc(s.name)}</div>
+        ${s.id ? `<button class="ib ib-sm ib-danger" data-act="gen-subject-del" data-id="${s.id}" title="삭제" aria-label="삭제">${icon('trash-2',14)}</button>`
+          : '<span class="unit">사용 중</span>'}</div>`).join('')
+        || '<div class="empty">과목이 없습니다. 위에서 추가하세요.</div>'}`
+      : '<div class="empty">먼저 학년도를 만드세요.</div>'}</div>`;
   const groups = M.TEXT_FIELDS.map(g => `<div class="gen-col">
     <div class="sectionlabel">${esc(g.group)}</div>
     ${g.items.map(f => `<div class="row">
@@ -2538,7 +2599,7 @@ function pageGeneral(){
 
   return `<div class="pagehead"><h2>${esc(M.menuName('general'))}</h2>
       <button class="btn-add" data-act="general-save" title="저장" aria-label="저장">${icon('check',16)}<span>저장</span></button></div>
-    <div class="gen-cols">${groups}
+    <div class="gen-cols">${yearCol}${subjectCol}${groups}
       <div class="gen-col"><div class="sectionlabel">어드민 메뉴</div>${menuRows}</div></div>`;
 }
 // 다시 그리기 전에 일반 설정 칸에 적던 글을 붙잡아 둔다(메뉴를 옮기면 화면을 다시 그리므로).
@@ -2599,6 +2660,7 @@ document.getElementById('shell').addEventListener('click', e => {
     case 'set-sclass': state.studentClass = v; render(); break;
 
     case 'add-open': openAddModal(); break;
+    case 'room-add-open': openRoomModal(); break;   // 강의실 추가(학년도·과목은 머리줄에서 고른 것)
 
     // 강의실 상세(요구사항 6): 줄 아래로 펼침/접음. 같은 줄을 다시 누르면 닫는다.
     case 'room-open':
@@ -3051,6 +3113,32 @@ document.getElementById('shell').addEventListener('click', e => {
       if (j < 0 || j >= order.length) break;
       [order[i], order[j]] = [order[j], order[i]];
       keepGeneralDraft(); state.menuDraft = order; render(); break;
+    }
+    // 일반 설정: 학년도·과목 관리(선생님 지시 2026-11-01). 바로 저장되고 다시 그린다(텍스트 초안은 지킨다).
+    case 'gen-year-add': {
+      const v2 = (document.getElementById('gen-year-new')?.value || '').trim();
+      try { const row = M.addYear(v2); state.year = row.year; keepGeneralDraft(); toast(`${row.year}학년도를 만들었습니다.`); render(); }
+      catch(e){ toast(e.message); }
+      break;
+    }
+    case 'gen-year-del': {
+      const y = +el.dataset.y;
+      confirmDelete({ title:`${y}학년도 삭제`, okText:'삭제', bodyHtml:`<p><b>${y}학년도</b>를 지웁니다. 강의실·학생이 있으면 지워지지 않습니다.</p>` })
+        .then(ok => { if (!ok) return;
+          try { M.removeYear(y); if (state.year === y) state.year = M.getYears()[0]?.year ?? null; toast('삭제했습니다.'); render(); }
+          catch(e){ toast(e.message); } });
+      break;
+    }
+    case 'gen-subject-add': {
+      const nm = (document.getElementById('gen-subject-new')?.value || '').trim();
+      try { M.addSubject(state.year, nm); state.subject = nm; keepGeneralDraft(); toast(`${nm} 과목을 추가했습니다.`); render(); }
+      catch(e){ toast(e.message); }
+      break;
+    }
+    case 'gen-subject-del': {
+      try { M.removeSubject(el.dataset.id); toast('삭제했습니다.'); render(); }
+      catch(e){ toast(e.message); }
+      break;
     }
 
     case 'logout': signOut(auth); break;   // onAuthStateChanged가 로그인 화면으로 되돌린다

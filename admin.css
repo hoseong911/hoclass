@@ -579,6 +579,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 
 .m-form{display:flex;flex-direction:column;gap:6px}
 .m-form .f{width:100%;margin:0}
+.modal .m-sub{margin:0 0 12px;color:var(--sub);font-size:var(--fs-body)}
 .sel-full{width:100%}
 .m-label{font-size:var(--fs-meta);color:var(--sub);font-weight:700;margin-top:6px}
 .m-two{display:flex;gap:10px}
