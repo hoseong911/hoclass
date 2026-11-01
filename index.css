@@ -56,6 +56,31 @@ html:not(.lms-ready) #app{display:none}
 .notice .nbody{font-size:var(--fs-body);line-height:1.7;white-space:pre-wrap;
   border-top:1px solid var(--line);padding-top:14px}
 
+/* 공지 좋아요·댓글(학생, 선생님 지시 2026-11-01) */
+.nlike-row{display:flex;align-items:center;gap:12px;margin-top:14px}
+.nlike{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;
+  color:var(--sub);border-radius:999px;padding:6px 14px;cursor:pointer;font-family:inherit;font-size:var(--fs-meta)}
+.nlike:hover{border-color:var(--accent)}
+.nlike.on{border-color:var(--accent);color:var(--accent);background:var(--accent-fade)}
+.nlike.on svg{fill:var(--accent)}
+.nstat{display:inline-flex;align-items:center;gap:5px;color:var(--sub);font-size:var(--fs-meta)}
+.ncm-wrap{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.ncm-head{font-size:var(--fs-meta);color:var(--sub);font-weight:700;margin-bottom:8px}
+.ncm-list{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.ncm{position:relative;padding:2px 2px}
+.ncm-who{font-size:var(--fs-meta);color:var(--sub);font-weight:700}
+.ncm-text{font-size:var(--fs-body);white-space:pre-wrap;word-break:break-word;margin-top:1px}
+.ncm-del{position:absolute;top:0;right:0;border:0;background:transparent;color:var(--sub);cursor:pointer;padding:2px;display:grid}
+.ncm-del:hover{color:var(--accent)}
+.ncm-empty,.ncm-off{color:var(--sub);font-size:var(--fs-meta);padding:4px 2px}
+.ncm-form{display:flex;gap:8px;align-items:center}
+.ncm-input{flex:1;min-width:0;border:1px solid var(--line);border-radius:var(--r-btn);background:transparent;
+  color:var(--ink);font-family:inherit;font-size:var(--fs-body);padding:9px 12px}
+.ncm-input:focus{outline:none;border-color:var(--accent)}
+.ncm-send{flex:0 0 auto;border:0;background:var(--accent);color:#fff;border-radius:var(--r-btn);
+  width:40px;height:40px;display:grid;place-items:center;cursor:pointer}
+.ncm-send:hover{filter:brightness(1.05)}
+
 /* ── 묶음 사이 구분선 (선생님 지시 2026-10-30) ──
    강의실 안의 세 묶음은 공지사항, 강의 보기와 성적, 나머지 메뉴다.
    묶음끼리 진한 1px 선(--line-strong)으로 가른다. 공지 글 줄에 쓰는 --line보다 진해서

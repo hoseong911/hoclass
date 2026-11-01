@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261101g';
+import * as M from './model.js?v=20261101h';
 import { icon } from './shared/icons.js?v=20261031e';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -2081,16 +2081,38 @@ function noticeTools(n){
   if (!n) return `<div class="tools">
       <button class="ib ib-primary" data-act="notice-save" title="추가" aria-label="추가">${icon('check',16)}</button>
       <button class="ib" data-act="notice-new-cancel" title="취소" aria-label="취소">${icon('x',16)}</button></div>`;
+  // 상단 고정 / 댓글 막기 토글 + 저장 / 삭제(선생님 지시 2026-11-01).
   return `<div class="tools">
+      <button class="ib ${n.pinned?'ib-primary':''}" data-act="notice-pin" data-v="${esc(n.id)}" title="${n.pinned?'상단 고정 해제':'상단 고정'}" aria-label="상단 고정">${icon('pin',16)}</button>
+      <button class="ib ${n.commentsOff?'ib-danger':''}" data-act="notice-comments-off" data-v="${esc(n.id)}" title="${n.commentsOff?'댓글 받기':'댓글 막기'}" aria-label="댓글 막기">${icon(n.commentsOff?'lock':'message-square',16)}</button>
       <button class="ib ib-primary" data-act="notice-save" data-v="${esc(n.id)}" title="저장" aria-label="저장">${icon('check',16)}</button>
       <button class="ib ib-danger" data-act="notice-del" data-v="${esc(n.id)}" title="삭제" aria-label="삭제">${icon('trash-2',16)}</button></div>`;
 }
-// 이름표 + 칸 한 줄씩(미션 활동 세부 칸과 같은 모양)
+// 이름표 + 칸 한 줄씩(미션 활동 세부 칸과 같은 모양). 저장된 글이면 아래에 반응(조회·좋아요·댓글) 관리를 붙인다.
 function noticeForm(n){
   return `<div class="row"><div class="t gen-label">제목</div>
       <input class="f grow" id="nt-title" value="${esc(n?.title || '')}" aria-label="제목"></div>
     <div class="row row-top"><div class="t gen-label">내용</div>
-      <textarea class="f grow ta" id="nt-body" rows="12" aria-label="내용">${esc(n?.body || '')}</textarea></div>`;
+      <textarea class="f grow ta" id="nt-body" rows="10" aria-label="내용">${esc(n?.body || '')}</textarea></div>
+    ${n ? noticeSocial(n) : ''}`;
+}
+// 공지 반응 관리(선생님 지시 2026-11-01): 조회·좋아요·댓글 수 + 댓글 목록(삭제·학생 차단).
+function noticeSocial(n){
+  const st = M.noticeStats(n.id);
+  const comments = M.getNoticeComments(n.id);
+  const cm = c => { const banned = M.isCommentBanned(c.studentNo);
+    return `<div class="ncm">
+      <div class="grow"><div class="ncm-who"><span class="mono">${esc(c.studentNo)}</span> ${esc(c.name)}${banned?' <span class="unit">차단됨</span>':''}</div>
+        <div class="ncm-text">${esc(c.text)}</div></div>
+      <div class="tools">
+        <button class="ib ib-sm" data-act="cm-ban" data-no="${esc(c.studentNo)}" data-on="${banned?'0':'1'}" title="${banned?'댓글 차단 해제':'이 학생 댓글 차단'}" aria-label="댓글 차단">${icon(banned?'rotate-ccw':'ban',14)}</button>
+        <button class="ib ib-sm ib-danger" data-act="cm-del" data-id="${esc(c.id)}" title="댓글 삭제" aria-label="댓글 삭제">${icon('trash-2',14)}</button>
+      </div></div>`; };
+  return `<div class="notice-social">
+    <div class="sectionlabel between">반응<span class="unit">${icon('eye',13)} ${st.reads} · ${icon('heart',13)} ${st.likes} · ${icon('message-circle',13)} ${st.comments}</span></div>
+    ${n.commentsOff ? '<div class="unit" style="margin:0 2px 8px">댓글을 받지 않는 글입니다(이미 달린 댓글은 보입니다).</div>' : ''}
+    <div class="ncm-list">${comments.map(cm).join('') || '<div class="empty">아직 댓글이 없습니다.</div>'}</div>
+  </div>`;
 }
 function saveNotice(id){
   const payload = { title: val('nt-title'), body: document.getElementById('nt-body')?.value ?? '' };
@@ -2948,6 +2970,16 @@ document.getElementById('shell').addEventListener('click', e => {
           toast('삭제했습니다.'); render(); });
       break;
     }
+    // 공지 소셜 관리(선생님 지시 2026-11-01)
+    case 'notice-pin': { const n = M.getNotice(v); M.setNoticePinned(v, !n?.pinned); render(); break; }
+    case 'notice-comments-off': { const n = M.getNotice(v); M.setNoticeCommentsOff(v, !n?.commentsOff);
+      toast(n?.commentsOff ? '댓글을 다시 받습니다.' : '댓글을 막았습니다.'); render(); break; }
+    case 'cm-del':
+      confirmDelete({ title:'댓글 삭제', bodyHtml:'이 댓글을 지웁니다.' })
+        .then(ok => { if (!ok) return; M.deleteNoticeComment(el.dataset.id); render(); });
+      break;
+    case 'cm-ban': M.setCommentBan(el.dataset.no, el.dataset.on === '1');
+      toast(el.dataset.on === '1' ? '이 학생의 댓글을 차단했습니다.' : '차단을 해제했습니다.'); render(); break;
 
     // 오늘의 질문
     case 'question-tab': state.questionTab = v; render(); break;

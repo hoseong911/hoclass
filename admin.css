@@ -580,6 +580,16 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .m-form{display:flex;flex-direction:column;gap:6px}
 .m-form .f{width:100%;margin:0}
 .modal .m-sub{margin:0 0 12px;color:var(--sub);font-size:var(--fs-body)}
+
+/* 공지 반응 관리(선생님 지시 2026-11-01): 통계 줄 + 댓글 목록 */
+.notice-social{margin-top:14px;border-top:1px solid var(--line);padding-top:6px}
+.notice-social .sectionlabel .unit{display:inline-flex;align-items:center;gap:4px}
+.notice-social .sectionlabel .unit svg{vertical-align:-2px}
+.ncm-list{display:flex;flex-direction:column}
+.ncm{display:flex;align-items:flex-start;gap:8px;padding:8px 2px;border-top:1px solid var(--line)}
+.ncm:first-child{border-top:0}
+.ncm-who{font-size:var(--fs-meta);color:var(--sub);font-weight:600}
+.ncm-text{font-size:var(--fs-body);color:var(--ink);word-break:break-word;margin-top:2px}
 .sel-full{width:100%}
 .m-label{font-size:var(--fs-meta);color:var(--sub);font-weight:700;margin-top:6px}
 .m-two{display:flex;gap:10px}

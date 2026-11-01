@@ -12,7 +12,7 @@
 // 지금은 데모 데이터로 돈다(model.js). 로그인도 데모: 학번만 맞으면 입장.
 // 규칙: 인라인 onclick/window 노출 없이 data-act + 이벤트 위임. 상태는 state 하나.
 
-import * as M from './model.js?v=20261101g';
+import * as M from './model.js?v=20261101h';
 import { icon } from './shared/icons.js?v=20261031e';
 
 const YEAR = 2027;
@@ -274,11 +274,40 @@ function noticeList(c){
 function noticeModal(){
   const n = state.noticeId && M.getNotice(state.noticeId);
   if (!n) return '';
+  const liked = M.isNoticeLiked(n.id, state.sno);
+  const st = M.noticeStats(n.id);
+  const comments = M.getNoticeComments(n.id);
+  const banned = M.isCommentBanned(state.sno);
+  const cm = c => `<div class="ncm">
+      <div class="ncm-who">${esc(c.name || c.studentNo)}</div>
+      <div class="ncm-text">${esc(c.text)}</div>
+      ${c.studentNo === state.sno ? `<button class="ncm-del" data-act="notice-comment-del" data-id="${esc(c.id)}" aria-label="댓글 삭제">${icon('trash-2',14)}</button>` : ''}</div>`;
   return `<div class="modal-back" data-act="close-notice">
     <div class="modal notice" role="dialog" aria-modal="true" aria-label="${esc(n.title)}">
       <div class="mhead"><h2>${esc(n.title)}</h2>
         <button class="iconbtn" data-act="close-notice" aria-label="닫기" title="닫기">${icon('x',18)}</button></div>
-      <div class="nbody">${esc(n.body)}</div></div></div>`;
+      <div class="nbody">${esc(n.body)}</div>
+      <div class="nlike-row">
+        <button class="nlike ${liked?'on':''}" data-act="notice-like" data-id="${esc(n.id)}" aria-pressed="${liked}">
+          ${icon('heart',18)}<span>좋아요 ${st.likes}</span></button>
+        <span class="nstat">${icon('eye',15)} ${st.reads}</span>
+      </div>
+      <div class="ncm-wrap">
+        <div class="ncm-head">댓글 ${st.comments}</div>
+        <div class="ncm-list">${comments.map(cm).join('') || '<div class="ncm-empty">첫 댓글을 남겨 보세요.</div>'}</div>
+        ${n.commentsOff ? '<div class="ncm-off">댓글을 받지 않는 글입니다.</div>'
+          : banned ? '<div class="ncm-off">댓글 작성이 제한되어 있습니다.</div>'
+          : `<div class="ncm-form">
+              <input class="ncm-input" id="ncm-input" maxlength="300" placeholder="댓글 달기" aria-label="댓글">
+              <button class="ncm-send" data-act="notice-comment-submit" data-id="${esc(n.id)}" aria-label="등록">${icon('message-circle',18)}</button>
+            </div>`}
+      </div>
+    </div></div>`;
+}
+// 모달을 그대로 두고 안쪽만 새로 그린다(좋아요·댓글 갱신). 덮개 요소를 통째로 바꾼다.
+function refreshNoticeModal(){
+  const back = $app.querySelector('.modal-back');
+  if (back) back.outerHTML = noticeModal();
 }
 
 /* 메뉴 카드 묶음 하나. 묶음 이름을 격자에 클래스로 달아 둔다(menus-main / menus-part):
@@ -535,8 +564,19 @@ function closeNoticeModal(){
   state.noticeId = null;
   $app.querySelector('.modal-back')?.remove();
 }
-// Esc로 공지 모달을 닫는다
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.noticeId) closeNoticeModal(); });
+// 댓글 달기(학생). 차단·댓글막기면 모델이 막고 안내한다.
+function submitNoticeComment(noticeId){
+  const inp = document.getElementById('ncm-input');
+  const text = (inp?.value || '').trim();
+  if (!text) return;
+  try { M.addNoticeComment(noticeId, state.sno, state.name, text); refreshNoticeModal(); }
+  catch(e){ alertBox(e.message); }
+}
+// Esc로 공지 모달을 닫는다. 댓글칸에서 Enter면 등록한다.
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.noticeId) closeNoticeModal();
+  else if (e.key === 'Enter' && e.target.id === 'ncm-input'){ e.preventDefault(); submitNoticeComment(state.noticeId); }
+});
 
 // ── 이벤트 위임 ──
 $app.addEventListener('click', e => {
@@ -639,12 +679,21 @@ $app.addEventListener('click', e => {
     // 공지 글은 모달로. 화면은 그대로 두고 위에 얹었다가 닫으면 걷는다(요구사항 118)
     case 'open-notice':
       state.noticeId = el.dataset.id;
+      // 글을 열면 열람 기록을 남긴다(조회수). 실패해도 보기는 그대로(규칙 미배포 등).
+      try { M.markNoticeRead(state.noticeId, state.sno, state.name); } catch(_){}
       $app.insertAdjacentHTML('beforeend', noticeModal());
       break;
     case 'close-notice':
       // 덮개 안(모달 본문)을 누른 것은 닫지 않는다. 덮개 자체나 X 단추만 닫는다
       if (el.classList.contains('modal-back') && e.target !== el) break;
       closeNoticeModal(); break;
+    case 'notice-like':   // 좋아요 토글(학생)
+      try { M.toggleNoticeLike(el.dataset.id, state.sno, state.name); } catch(_){}
+      refreshNoticeModal(); break;
+    case 'notice-comment-submit': submitNoticeComment(el.dataset.id); break;
+    case 'notice-comment-del':
+      try { M.deleteNoticeComment(el.dataset.id); } catch(_){}
+      refreshNoticeModal(); break;
 
     case 'open-lesson': state.lessonId = el.dataset.lid; state.partKey = null; state.fm = null; state.view = 'lesson'; render(); break;
     case 'open-menu': state.menuKey = el.dataset.k; state.fm = null; state.view = 'menu'; render(); break;

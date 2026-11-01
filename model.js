@@ -56,7 +56,10 @@ export const COLLECTIONS = {
   courseXp:           'hoclass_course_xp',       // 경험치/포인트            (6단계 게임 요소)
 
   // 공지사항 (선생님 지시 2026-10-30). 학년도와 과목에 매인 글이다. 강의실(반)마다 따로 쓰지는 않는다
-  notices:            'hoclass_notices',        // { year, subject, title, body, createdAt }  과목마다 따로
+  notices:            'hoclass_notices',        // { year, subject, title, body, createdAt, pinned, commentsOff }  과목마다 따로
+  noticeReads:        'hoclass_notice_reads',    // 공지 열람+좋아요 { noticeId, studentNo, name, liked }  id = 공지id_학번
+  noticeComments:     'hoclass_notice_comments', // 공지 댓글 { noticeId, studentNo, name, text, createdAt }
+  noticeBans:         'hoclass_notice_bans',     // 댓글 작성 차단 { }  id = 학번(있으면 차단). 교사만 건다
 };
 
 // 강의 안 네 칸: 각 강의에 최대 1개, 순서 자유.
@@ -240,7 +243,10 @@ const DEMO = {
   submissions:  [],   // course_submissions { id:'연결강의id_칸_학번', clId, part, courseId, studentNo, name, answer, score, at, shared }
   grades:       [],   // course_grades   { id:'연결강의id_학번', clId, studentNo, concept:{achievedN,onTimeN}, mission, question, absent, feedback, manual }
   gradeConf:    { bands:null, lessons:[], feedbackTemplates:[] },  // settings/grade  급간 표 + 반영 강의 + 피드백 템플릿
-  notices:      [],   // notices        { id, year, subject, title, body, createdAt }
+  notices:      [],   // notices        { id, year, subject, title, body, createdAt, pinned, commentsOff }
+  noticeReads:  [],   // notice_reads   { id:'공지id_학번', noticeId, studentNo, name, liked }
+  noticeComments: [], // notice_comments{ id, noticeId, studentNo, name, text, createdAt }
+  noticeBans:   [],   // notice_bans    { id:'학번' }
 
   // ── 나중 단계에서 채운다(지금은 비움) ──
   quizzes:       [],  // quizzes        { id, title, source, items:[] }
@@ -274,7 +280,7 @@ function del(coll, id){ deleteDoc(doc(db, coll, id)).catch(e => console.error('d
 
 export async function loadCore(){
   const C = COLLECTIONS;
-  const [ys, cs, ss, rs, cls, ls, subs, grs, mas, nts, gen, grc, sjs] = await Promise.all([
+  const [ys, cs, ss, rs, cls, ls, subs, grs, mas, nts, gen, grc, sjs, nrd, ncm, nbn] = await Promise.all([
     getDocs(collection(db, C.schoolYears)),
     getDocs(collection(db, C.courses)),
     getDocs(collection(db, C.courseStudents)),
@@ -289,6 +295,10 @@ export async function loadCore(){
     getDoc(doc(db, 'hoclass_settings', 'grade')),
     // 과목 목록은 못 읽어도(규칙 미배포/학생 권한) 전체 로드를 깨지 않는다. 학생은 강의실에서 과목을 얻는다.
     getDocs(collection(db, C.subjects)).catch(() => ({ docs: [] })),
+    // 공지 소셜(열람·좋아요·댓글·차단). 규칙 미배포여도 로드를 깨지 않게 각각 catch.
+    getDocs(collection(db, C.noticeReads)).catch(() => ({ docs: [] })),
+    getDocs(collection(db, C.noticeComments)).catch(() => ({ docs: [] })),
+    getDocs(collection(db, C.noticeBans)).catch(() => ({ docs: [] })),
   ]);
   const rows = snap => snap.docs.map(d => ({ ...d.data(), id:d.id }));
   DEMO.years       = rows(ys).sort((a,b) => b.year - a.year);
@@ -302,6 +312,9 @@ export async function loadCore(){
   DEMO.missionApps = rows(mas);
   DEMO.notices     = rows(nts);
   DEMO.subjects    = rows(sjs);
+  DEMO.noticeReads = rows(nrd);
+  DEMO.noticeComments = rows(ncm);
+  DEMO.noticeBans  = rows(nbn);
   siteTexts       = gen.exists() ? (gen.data().texts || {}) : {};
   menuOrder        = gen.exists() ? (gen.data().menuOrder || null) : null;
   slideDesign      = gen.exists() ? (gen.data().slideDesign || {}) : {};
@@ -1528,7 +1541,9 @@ export function setMissionAppKey(oldId, newKey){
    **과목마다 따로다**(115): 학년도와 과목에 매인 글이라 그 과목 강의실(반) 전부에 같은 글이 뜬다.
    강의실마다 따로 쓰지는 않는다. 늘 최신순(createdAt 큰 것이 위). */
 export function getNotices(year, subject){
-  return newestFirst(DEMO.notices.filter(n => n.year === +year && n.subject === subject));
+  // 상단 고정(pinned)이 맨 위, 그 안에서 최신순(선생님 지시 2026-11-01).
+  return DEMO.notices.filter(n => n.year === +year && n.subject === subject)
+    .slice().sort((a, b) => (b.pinned === true) - (a.pinned === true) || (b.createdAt || 0) - (a.createdAt || 0));
 }
 export function getNotice(id){ return DEMO.notices.find(n => n.id === id) || null; }
 export function addNotice(year, subject, { title, body }){
@@ -1548,6 +1563,76 @@ export function updateNotice(id, { title, body }){
 export function deleteNotice(id){
   DEMO.notices = DEMO.notices.filter(n => n.id !== id);
   del(COLLECTIONS.notices, id);
+  // 딸린 열람·좋아요·댓글도 같이 지운다(교사만 부른다)
+  DEMO.noticeReads.filter(r => r.noticeId === id).forEach(r => del(COLLECTIONS.noticeReads, r.id));
+  DEMO.noticeReads = DEMO.noticeReads.filter(r => r.noticeId !== id);
+  DEMO.noticeComments.filter(c => c.noticeId === id).forEach(c => del(COLLECTIONS.noticeComments, c.id));
+  DEMO.noticeComments = DEMO.noticeComments.filter(c => c.noticeId !== id);
+}
+
+/* ── 공지 소셜(선생님 지시 2026-11-01, 기존 lms 이식): 상단고정·좋아요·댓글·댓글막기·작성차단·조회수 ──
+   학생은 Firebase Auth가 아니라서(커스텀 로그인) 좋아요/댓글은 비인증 쓰기다. 규칙이 필드를 검증한다.
+   열람/좋아요 문서 id = 공지id_학번(한 학생당 하나). 댓글은 문서 하나가 한 건. */
+const readId = (noticeId, studentNo) => `${noticeId}_${studentNo}`;
+export function noticeStats(noticeId){
+  const rs = DEMO.noticeReads.filter(r => r.noticeId === noticeId);
+  return { reads: rs.length, likes: rs.filter(r => r.liked === true).length,
+    comments: DEMO.noticeComments.filter(c => c.noticeId === noticeId).length };
+}
+export function getNoticeComments(noticeId){
+  return DEMO.noticeComments.filter(c => c.noticeId === noticeId)
+    .slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+export function isCommentBanned(studentNo){ return DEMO.noticeBans.some(b => b.id === String(studentNo)); }
+export function isNoticeLiked(noticeId, studentNo){
+  const r = DEMO.noticeReads.find(x => x.id === readId(noticeId, studentNo));
+  return r ? r.liked === true : false;
+}
+// 학생: 글을 열면 열람 기록을 남긴다(이미 있으면 좋아요는 그대로 두고 readAt만 갱신)
+export function markNoticeRead(noticeId, studentNo, name){
+  const id = readId(noticeId, studentNo);
+  let r = DEMO.noticeReads.find(x => x.id === id);
+  if (!r){ r = { id, noticeId, studentNo:String(studentNo), name:String(name || ''), liked:false }; DEMO.noticeReads.push(r); }
+  r.name = String(name || ''); r.readAt = Date.now();
+  put(COLLECTIONS.noticeReads, r); return r;
+}
+// 학생: 좋아요 토글. 새 상태를 돌려준다
+export function toggleNoticeLike(noticeId, studentNo, name){
+  const id = readId(noticeId, studentNo);
+  let r = DEMO.noticeReads.find(x => x.id === id);
+  if (!r){ r = { id, noticeId, studentNo:String(studentNo), name:String(name || ''), liked:false }; DEMO.noticeReads.push(r); }
+  r.liked = !r.liked; r.name = String(name || ''); r.likedAt = Date.now(); r.readAt = r.readAt || Date.now();
+  put(COLLECTIONS.noticeReads, r); return r.liked;
+}
+// 학생: 댓글 달기(차단/댓글막기면 막는다)
+export function addNoticeComment(noticeId, studentNo, name, text){
+  const t = String(text ?? '').trim();
+  if (!t) throw new Error('댓글을 입력해 주세요.');
+  if (t.length > 300) throw new Error('댓글은 300자까지 쓸 수 있습니다.');
+  if (isCommentBanned(studentNo)) throw new Error('댓글 작성이 제한된 학생입니다.');
+  const n = getNotice(noticeId);
+  if (n?.commentsOff) throw new Error('댓글을 받지 않는 글입니다.');
+  const c = { id:nid('nc_'), noticeId, studentNo:String(studentNo), name:String(name || ''), text:t, createdAt:Date.now() };
+  DEMO.noticeComments.push(c); put(COLLECTIONS.noticeComments, c); return c;
+}
+// 댓글 삭제(교사, 또는 글쓴이 본인)
+export function deleteNoticeComment(id){
+  DEMO.noticeComments = DEMO.noticeComments.filter(c => c.id !== id);
+  del(COLLECTIONS.noticeComments, id);
+}
+// 교사: 상단 고정 토글
+export function setNoticePinned(id, on){
+  const n = getNotice(id); if (!n) return; n.pinned = !!on; put(COLLECTIONS.notices, n); return n;
+}
+// 교사: 댓글 막기 토글
+export function setNoticeCommentsOff(id, on){
+  const n = getNotice(id); if (!n) return; n.commentsOff = !!on; put(COLLECTIONS.notices, n); return n;
+}
+// 교사: 댓글 작성 차단 걸고/풀기
+export function setCommentBan(studentNo, on){
+  const id = String(studentNo);
+  if (on){ if (!DEMO.noticeBans.some(b => b.id === id)){ const b = { id }; DEMO.noticeBans.push(b); put(COLLECTIONS.noticeBans, b); } }
+  else { DEMO.noticeBans = DEMO.noticeBans.filter(b => b.id !== id); del(COLLECTIONS.noticeBans, id); }
 }
 
 /* ── 학생 로그인: 학번, 이름, 비밀번호 (선생님 지시 2026-10-28) ──────────────────
