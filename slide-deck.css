@@ -273,7 +273,7 @@
    초성 자리를 relative로 두고 답을 absolute로 포개(글자 크기는 물음과 같게 상속), 답이 뜨면 초성은
    흐려진다(크로스페이드). 오른쪽 별도 답 알약은 없다. */
 .deckpage .qa-ini{position:relative;display:inline-block;vertical-align:baseline}
-.deckpage .qa-ini-hint{display:inline-block;letter-spacing:.15em;color:rgba(244,241,232,.65);font-weight:600;
+.deckpage .qa-ini-hint{display:inline-block;color:rgba(244,241,232,.65);font-weight:600;
   padding:0 calc(var(--px) * 4);transition:opacity .35s ease}
 .deckpage .qa-ini-ans{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   min-width:100%;text-align:center;white-space:nowrap;border-radius:var(--r);

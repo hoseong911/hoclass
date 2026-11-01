@@ -8,7 +8,7 @@
 
 import * as M from './model.js?v=20261101f';
 import { icon } from './shared/icons.js?v=20261031e';
-import { buildSlides, renderSlide } from './slide-deck.js?v=20261101f';
+import { buildSlides, renderSlide } from './slide-deck.js?v=20261101h';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
 
 const YEAR = 2027;

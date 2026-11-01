@@ -344,7 +344,7 @@ export function renderSlide(s){
         return `<div class="qa">
           <span class="qa-n">${base + i + 1}</span>
           <span class="qa-txt">${qHtml}</span>
-          <div class="qa-slot">${slot}</div></div>`;
+          ${slot ? `<div class="qa-slot">${slot}</div>` : ''}</div>`;
       }).join('')}</div>
     </div>`;
   }
