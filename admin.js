@@ -2587,7 +2587,8 @@ function pageGeneral(){
       <button class="ib ib-sm ib-danger" data-act="gen-year-del" data-y="${y.year}" title="삭제" aria-label="삭제">${icon('trash-2',14)}</button></div>`).join('')
       || '<div class="empty">학년도가 없습니다.</div>'}</div>`;
   const subjRows = state.year ? M.getSubjectRows(state.year) : [];
-  const subjectCol = `<div class="gen-col"><div class="sectionlabel">과목 관리${state.year ? ` <span class="unit">${esc(state.year)}학년도</span>` : ''}</div>
+  // 과목은 학년도별이라 먼저 학년도를 고른다(선생님 지시 2026-11-01). 헤더의 드롭다운(year-pick)이 state.year를 바꾼다.
+  const subjectCol = `<div class="gen-col"><div class="sectionlabel between">과목 관리${M.getYears().length ? yearSelHtml() : ''}</div>
     ${state.year ? `<div class="row"><input class="f grow" id="gen-subject-new" placeholder="예: 역사" aria-label="새 과목">
         <button class="btn-chip" data-act="gen-subject-add">${icon('plus',13)}추가</button></div>
       ${subjRows.map(s => `<div class="row"><div class="grow">${esc(s.name)}</div>
@@ -2619,9 +2620,18 @@ function pageGeneral(){
       ${moveBtns(i)}</div>`;
   }).join('');
 
-  return `<div class="pagehead"><h2>${esc(M.menuName('general'))}</h2>
+  // 서브 메뉴 둘(선생님 지시 2026-11-01): 학년도·과목(학사) 설정과 화면·문구(브라우저) 설정을 나눈다.
+  const gtab = state.genTab || 'school';
+  const seg = `<span class="seg seg-inline">
+    <button class="seg-b ${gtab==='school'?'on':''}" data-act="gen-tab" data-v="school">학년도·과목</button>
+    <button class="seg-b ${gtab==='site'?'on':''}" data-act="gen-tab" data-v="site">화면·문구</button>
+  </span>`;
+  if (gtab === 'school')
+    return `<div class="pagehead"><h2>${esc(M.menuName('general'))}</h2>${seg}</div>
+      <div class="gen-cols">${yearCol}${subjectCol}</div>`;
+  return `<div class="pagehead"><h2>${esc(M.menuName('general'))}</h2>${seg}
       <button class="btn-add" data-act="general-save" title="저장" aria-label="저장">${icon('check',16)}<span>저장</span></button></div>
-    <div class="gen-cols">${yearCol}${subjectCol}${groups}
+    <div class="gen-cols">${groups}
       <div class="gen-col"><div class="sectionlabel">어드민 메뉴</div>${menuRows}</div></div>`;
 }
 // 다시 그리기 전에 일반 설정 칸에 적던 글을 붙잡아 둔다(메뉴를 옮기면 화면을 다시 그리므로).
@@ -3146,6 +3156,8 @@ document.getElementById('shell').addEventListener('click', e => {
       [order[i], order[j]] = [order[j], order[i]];
       keepGeneralDraft(); state.menuDraft = order; render(); break;
     }
+    // 일반 설정 서브 탭 전환(학년도·과목 / 화면·문구). 화면·문구 입력 중이면 초안을 지킨다.
+    case 'gen-tab': keepGeneralDraft(); state.genTab = v; render(); break;
     // 일반 설정: 학년도·과목 관리(선생님 지시 2026-11-01). 바로 저장되고 다시 그린다(텍스트 초안은 지킨다).
     case 'gen-year-add': {
       const v2 = (document.getElementById('gen-year-new')?.value || '').trim();
