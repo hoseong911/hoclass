@@ -1379,6 +1379,18 @@ function axisAddBtn(l, ax){
   return '';
 }
 
+/* 전체 슬라이드에서 이 단계의 페이지 번호가 시작하는 값(앞 단계들이 만든 쪽 수. 선생님 지시 2026-11-01:
+   "전체 슬라이드 기준으로 페이지를 보여줘 N페이지로 다 통일"). 전에는 섹션마다 1부터 다시 셌는데,
+   학생이 보는 실제 슬라이드 순서대로 이어서 센다(표지 1페이지, 전시학습확인 2, 3페이지 하는 식).
+   buildSlides가 실제 덱을 만들므로 내용이 없어 빠지는 단계는 저절로 빠진다. 편집 중 빈 페이지는
+   아직 쪽이 안 서서 번호가 잠깐 어긋날 수 있으나, 채우면 학생 화면과 맞는다.
+   한 쪽 안의 항목 번호(학습 목표 줄, 전시학습확인 문항)는 페이지가 아니라 그대로 둔다(선생님 지시). */
+function slideOffset(l, stepKey){
+  const stepIdx = key => M.SLIDE_AXIS.findIndex(a => a.key === key);
+  const idx = stepIdx(stepKey);
+  return buildSlides(l, l.num).filter(s => stepIdx(s.step) < idx).length;
+}
+
 /* 왼쪽 줄자: 축 여덟 단계. 단계 이름만 둔다.
    번호와 굵은 글씨는 걷었다(선생님 지시 2026-10-30: "번호 삭제, 글씨 굵기 해제, 각 개체끼리 간격 두기").
    안 채운 단계는 흐린 글씨다(켜고 끄는 스위치를 두지 않는 대신 여기서 어디가 비었는지 본다). */
@@ -1470,7 +1482,8 @@ function axisEditor(l, ax){
       else { if (!cur){ cur = { bi:-1, items:[] }; pages.push(cur); } cur.items.push({ it, i }); }
     });
     if (!pages.length)
-      return `<div class="placeholder">아직 페이지가 없습니다. 오른쪽 위 ‘페이지 추가’를 눌러 페이지를 먼저 만드세요.</div>`;
+      return `<div class="placeholder">아직 페이지가 없습니다. 오른쪽 위 ‘페이지’를 눌러 페이지를 먼저 만드세요.</div>`;
+    const base = slideOffset(l, k);   // 전체 슬라이드 기준 페이지 번호의 시작값
     let qn = 0;   // 문항 번호: 페이지를 넘어 이어 센다(슬라이드 번호와 맞춘다)
     return pages.map((pg, p) => {
       // '문제 추가'가 끼울 자리: 이 페이지 마지막 문항 바로 뒤(비었으면 마커 바로 뒤)
@@ -1497,7 +1510,7 @@ function axisEditor(l, ax){
           </div></div>`;
       }).join('') || `<div class="placeholder">문항이 없습니다. ‘문제 추가’를 누르세요.</div>`;
       return `<div class="rvpage">
-        <div class="rvpage-head"><span class="rvpage-title">페이지 ${p + 1}</span>
+        <div class="rvpage-head"><span class="rvpage-title">${base + p + 1}페이지</span>
           <span class="axitem-sp"></span>
           <button class="btn-chip" data-act="deck-add-q" data-id="${l.id}" data-at="${insertAt}">${icon('plus',13)}문제</button>
           <button class="ib ib-sm ib-danger" data-act="deck-del-page" data-id="${l.id}"
@@ -1512,6 +1525,7 @@ function axisEditor(l, ax){
        글은 사료 인용과 같은 세리프 양쪽정렬이되 따옴표는 없다(슬라이드 slide-deck.js 참고). */
     if (!items.length)
       return `<div class="placeholder">아직 페이지가 없습니다. 오른쪽 위 ‘페이지’를 눌러 추가하세요.</div>`;
+    const base = slideOffset(l, k);   // 전체 슬라이드 기준 페이지 번호의 시작값
     return items.map((it, i) => {
       const set = f => `data-act="deck-set" data-id="${l.id}" data-k="${k}" data-i="${i}" data-f="${f}"`;
       const kind = it.kind || 'image';
@@ -1533,7 +1547,7 @@ function axisEditor(l, ax){
               `<input class="f grow" ${set('url')} value="${esc(it.url || '')}" aria-label="주소">`)
           + fld('설명', `<input class="f grow" ${set('caption')} value="${esc(it.caption || '')}" aria-label="설명">`);
       return `<div class="rvpage">
-        <div class="rvpage-head"><span class="rvpage-title">페이지 ${i + 1}</span>
+        <div class="rvpage-head"><span class="rvpage-title">${base + i + 1}페이지</span>
           <span class="axitem-sp"></span>${tools(i)}</div>
         ${kindSel}${bodyFields}</div>`;
     }).join('');
@@ -1566,6 +1580,7 @@ function axisEditor(l, ax){
    단계는 기호가 정하므로 빈칸은 보기용이다. 그래서 선생님이 빈칸을 손으로 맞출 필요가 없다. */
 function pageEditor(l, k){
   const pages = M.getPages(l.id, k);
+  const base = slideOffset(l, k);   // 전체 슬라이드 기준 페이지 번호의 시작값(선생님 지시 2026-11-01)
   const at = (act, p, r) => `data-act="${act}" data-id="${l.id}" data-k="${k}"`
     + (p != null ? ` data-p="${p}"` : '') + (r != null ? ` data-r="${r}"` : '');
   const btn = (act, p, r, ic, title, { danger = false, off = false } = {}) =>
@@ -1632,7 +1647,7 @@ function pageEditor(l, k){
          커서 줄부터 나누기(가위, 묶음 머리) 묶음 하나가 너무 길 때 그 줄부터 새 페이지로
        나누기 단추는 묶음이 하나뿐이면 꺼 둔다. 그것이 "이 페이지는 원칙에 맞다"는 표시도 된다. */
     return `<section class="pgblock">
-      <div class="pghead"><span class="axnum">${p + 1}</span>
+      <div class="pghead"><span class="rvpage-title pgnum">${base + p + 1}페이지</span>
         <input class="f pgtitle" ${at('pg-title', p)} value="${esc(pg.title)}" aria-label="페이지 제목">
         <div class="tools">
           ${btn('pg-up', p, null, 'arrow-up', '페이지 위로', { off: p === 0 })}

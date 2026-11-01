@@ -674,7 +674,10 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .rvpage{border:1px solid var(--line);border-radius:8px;padding:6px 12px 10px;margin-bottom:12px}
 .rvpage-head{display:flex;align-items:center;gap:9px;min-height:var(--h-ctl);
   border-bottom:1px solid var(--line);margin-bottom:4px}
-.rvpage-title{font-size:var(--fs-body);font-weight:700;color:var(--navy)}
+/* 페이지 표시: 전시학습확인, 동기 유발, 개념 노트, 미션 활동 모두 'N페이지'로 통일한다
+   (선생님 지시 2026-11-01, 전체 슬라이드 기준 번호). 줄바꿈 없이 제자리를 지킨다 */
+.rvpage-title{font-size:var(--fs-body);font-weight:700;color:var(--navy);white-space:nowrap}
+.pghead .pgnum{flex:0 0 auto}
 .rvpage .axitem:first-child{border-top:0}
 /* 문항 카드(선생님 지시 2026-10-31): 번호를 한 줄 통째로 먹지 않게 맨 왼쪽에 두고, 유형 줄과 높이를 맞춘다.
    순서·삭제 버튼은 유형 줄 오른쪽 끝에. 문제·정답은 그 아래로(번호 칸만큼 들여 쓰여 유형 아래에 정렬). */
