@@ -242,8 +242,11 @@ function lineTree(lines){
    dropNum: 1단계 번호(1. 2.)를 떼고 그린다(선생님 지시: "1. 설립 : 이렇게 있으면 1. 이런 말머리는
    떼고 보여줘"). 개념 노트만이다. 미션 활동의 1. 2.는 활동 순서라 남긴다. */
 function itemHTML(it, dropNum){
-  // 이어지는 줄도 "『소학』: 내용"처럼 제 소제목이 있으면 그 안에서 다시 가른다
-  const contHTML = c => { const t = termOf(c);
+  // -(2단계), ·(3단계) 레벨은 쌍점을 떼지 않고 입력 그대로 평문으로 둔다(선생님 지시 2026-11-01:
+  // "-나 가운뎃점에서는 :을 살려줘"). 소제목 가르기(굵게+여백)는 1. 번호 레벨에서만 한다.
+  const keepColon = it.lv >= 2;
+  // 이어지는 줄도 "『소학』: 내용"처럼 제 소제목이 있으면 그 안에서 다시 가른다(단, -·레벨은 그대로)
+  const contHTML = c => { const t = keepColon ? null : termOf(c);
     return t ? `<span class="pt"><span class="pk">${inlineText(t.term)}</span><span class="pv">${inlineText(t.text)}</span></span>`
       : inlineText(c); };
   // 이어지는 줄(.pc)은 내용칸(.pv) 안에 남겨 내어쓰기를 살리고, 한 수준 낮은 항목(kids)은 .pv 밖으로
@@ -251,8 +254,8 @@ function itemHTML(it, dropNum){
   const contPart = it.cont.map(c => `<span class="pc">${contHTML(c)}</span>`).join('');
   const kidsPart = it.kids.map(k => itemHTML(k, dropNum)).join('');
   const kids = kidsPart ? `<span class="pkids">${kidsPart}</span>` : '';
-  const t = termOf(it.body);
-  const heading = !t && (it.cont.length || it.kids.length) && it.body.length <= 15;
+  const t = keepColon ? null : termOf(it.body);
+  const heading = !keepColon && !t && (it.cont.length || it.kids.length) && it.body.length <= 15;
   /* heading: 쌍점 없는 소제목("1. 서적 편찬")에 한 수준 낮은 항목이 달린 것. 소제목을 제 줄에 세우고
      하위 항목은 그 아래로 내린다(pt-head). 쌍점이 있는 묶음("설립 : 내용")만 소제목과 내용이 한 줄이다. */
   const pt = t
@@ -321,7 +324,7 @@ export function renderSlide(s){
     const base = s.startNum || 0;
     return `<div class="s-qa">
       <div class="intro-sweep"></div>
-      <div class="qa-top"><span class="qa-badge">지난 시간에는?</span><h2 class="qa-title">지난 시간 복습하기</h2></div>
+      <div class="qa-top"><span class="qa-badge">REVIEW</span><h2 class="qa-title">지난 시간 복습하기</h2></div>
       <div class="qa-list">${s.items.map((it, i) => {
         const ans = String(it.a || '').trim();
         let qHtml = inlineText(it.q), slot = '';
