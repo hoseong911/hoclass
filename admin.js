@@ -244,42 +244,24 @@ function pageRooms(){
       <div class="empty">학년도가 없습니다.</div>`;
 
   const courses = M.getCourses(state.year);
-  const byClass = state.roomGroup === 'class';
 
   const yearSel = `<select class="sel" id="year-sel" data-act="year-pick" aria-label="학년도">
     ${years.map(y => `<option value="${y.year}" ${y.year===state.year?'selected':''}>${y.year}학년도</option>`).join('')}
   </select>`;
-  // 과목은 머리줄 드롭다운(전역 state.subject). 반별 묶음 축일 때는 여러 과목을 한 반에서 보므로 숨긴다.
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('rooms'))}</h2>${yearSel}${byClass ? '' : subjectSel()}${addBtn}</div>`;
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('rooms'))}</h2>${yearSel}${subjectSel()}${addBtn}</div>`;
 
-  // 묶음 축 토글(과목별/반별): 필터 줄 오른쪽 끝에.
-  const groupToggle = `<span class="line-end"><span class="seg seg-inline">
-    <button class="seg-b ${byClass?'':'on'}" data-act="room-group" data-v="subject">과목별</button>
-    <button class="seg-b ${byClass?'on':''}" data-act="room-group" data-v="class">반별</button>
-  </span></span>`;
-
-  // 필터 탭: 축에 따라 과목 또는 반. 늘 있는 것만(요구사항 3). 정렬도 축에 맞춘다.
-  let filterLine, list = courses.slice();
-  if (byClass){
-    const roomNos = [...new Set(courses.map(c => M.roomNo(c)))].sort();
-    if (state.fClass && !roomNos.includes(state.fClass)) state.fClass = null;
-    if (state.fClass) list = list.filter(c => M.roomNo(c) === state.fClass);
-    list.sort((a,b) => a.grade - b.grade || a.classNo - b.classNo || a.subject.localeCompare(b.subject,'ko'));
-    filterLine = catline(roomNos.map(rn => ({ v:rn, label:rn })), state.fClass, 'set-class', '전체', groupToggle);
-  } else {
-    // 과목은 머리줄 드롭다운(전역 state.subject)으로 고른다. 그 과목 강의실만 보인다(선생님 지시 2026-11-01).
-    const sub = curSubject();
-    if (sub) list = list.filter(c => c.subject === sub);
-    list.sort((a,b) => a.subject.localeCompare(b.subject,'ko') || a.grade - b.grade || a.classNo - b.classNo);
-    filterLine = catline([], null, 'set-subject', '', groupToggle);   // 줄에는 과목별/반별 토글만
-  }
+  // 과목은 머리줄 드롭다운(전역 state.subject)으로 고른다. 과목별/반별 토글과 과목·반 필터 줄은 없앴다
+  // (선생님 지시 2026-11-01): 고른 과목의 강의실만 반 번호 순으로 보이고, 라벨도 과목을 뗀 반 번호(301)다.
+  const sub = curSubject();
+  const list = courses.filter(c => !sub || c.subject === sub)
+    .sort((a, b) => a.grade - b.grade || a.classNo - b.classNo);
 
   // 누르면 그 자리에서 아래로 펼쳐진다(인라인 아코디언). 묶음은 구분선만(요구사항 3).
   const showRow = c => {
     const open = c.id === state.roomDetailId;
     const row = `<div class="row ${open?'on':''}">
       <div class="grow rowlink" data-act="room-open" data-id="${c.id}">
-        <div class="t"><span class="chev">${icon(open?'chevron-down':'chevron-right',16)}</span>${esc(M.roomName(c))}</div></div>
+        <div class="t"><span class="chev">${icon(open?'chevron-down':'chevron-right',16)}</span>${esc(M.roomNo(c))}</div></div>
       <div class="tools">
         <button class="ib" data-act="room-edit" data-id="${c.id}" title="수정" aria-label="수정">${icon('pencil',16)}</button>
         <button class="ib ib-danger" data-act="room-del" data-id="${c.id}" title="삭제" aria-label="삭제">${icon('trash-2',16)}</button>
@@ -287,33 +269,22 @@ function pageRooms(){
     return open ? row + roomDetailPanel(c) : row;
   };
 
-  if (!list.length) return `${head}${filterLine}<div class="empty">강의실이 없습니다.</div>`;
-
-  const keyOf = c => byClass ? M.roomNo(c) : c.subject;
-  const grouped = rowOf => {
-    const out = []; let last = null, first = true;
-    list.forEach(c => {
-      const key = keyOf(c);
-      if (key !== last){ if (!first) out.push(`<div class="group-sep"></div>`); last = key; first = false; }
-      out.push(rowOf(c));
-    });
-    return out.join('');
-  };
+  if (!list.length) return `${head}<div class="empty">강의실이 없습니다.</div>`;
 
   if (!WIDE.matches)
-    return `${head}${filterLine}${grouped(c => c.id === state.editRoomId ? roomEditRow(c) : showRow(c))}`;
+    return `${head}${list.map(c => c.id === state.editRoomId ? roomEditRow(c) : showRow(c)).join('')}`;
 
   // 넓은 화면: 왼쪽 목록에서 고르면 오른쪽 상세가 바뀐다. 수정, 삭제는 상세 머리에.
   if (!list.some(c => c.id === state.roomDetailId)) state.roomDetailId = list[0].id;
-  const left = grouped(c => `<div class="row ${c.id===state.roomDetailId?'on':''}">
-      <div class="grow rowlink" data-act="room-open" data-id="${c.id}"><div class="t">${esc(M.roomName(c))}</div></div></div>`);
+  const left = list.map(c => `<div class="row ${c.id===state.roomDetailId?'on':''}">
+      <div class="grow rowlink" data-act="room-open" data-id="${c.id}"><div class="t">${esc(M.roomNo(c))}</div></div></div>`).join('');
   const c = M.getCourse(state.roomDetailId);
   const paneHead = c.id === state.editRoomId ? roomEditRow(c)
-    : `<div class="pane-head"><h3>${esc(M.roomName(c))}</h3><div class="tools">
+    : `<div class="pane-head"><h3>${esc(M.roomNo(c))}</h3><div class="tools">
         <button class="ib" data-act="room-edit" data-id="${c.id}" title="수정" aria-label="수정">${icon('pencil',16)}</button>
         <button class="ib ib-danger" data-act="room-del" data-id="${c.id}" title="삭제" aria-label="삭제">${icon('trash-2',16)}</button>
       </div></div>`;
-  return `${head}${filterLine}<div class="split split-room"><div class="split-list">${left}</div>
+  return `${head}<div class="split split-room"><div class="split-list">${left}</div>
     <div class="pane">${paneHead}<div class="two">${roomDetailCols(c)}</div></div></div>`;
 }
 
