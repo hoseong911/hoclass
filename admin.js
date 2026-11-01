@@ -939,7 +939,7 @@ function pageStudents(){
   const yearSel = `<select class="sel" id="year-sel" data-act="year-pick" aria-label="학년도">
     ${years.map(y => `<option value="${y.year}" ${y.year===state.year?'selected':''}>${y.year}학년도</option>`).join('')}
   </select>`;
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('students'))}</h2>${yearSel}${addBtn}</div>`;
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('students'))}</h2>${yearSel}${subjectSel()}${addBtn}</div>`;
   const search = `<span class="line-end"><label class="searchbox">${icon('search',15)}
     <input class="f" id="stu-search" data-act="stu-search" inputmode="numeric" autocomplete="off"
       value="${esc(state.studentQuery)}" aria-label="학번 검색"></label></span>`;
@@ -1196,7 +1196,7 @@ function lessonPlacer(l){
    (요구사항 46, 47). 그래서 서브 메뉴도 콘텐츠와 디자인 둘뿐이다. */
 function pageConcept(){
   const tabs = catline(M.ADMIN_SUBMENUS.concept, state.conceptTab, 'concept-tab');
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('concept'))}</h2></div>${tabs}`;
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('concept'))}</h2>${yearSelHtml()}${subjectSel()}</div>${tabs}`;
 
   if (state.conceptTab === 'library')
     return head + pageLessons();
@@ -1920,7 +1920,7 @@ function clearAxisContent(lessonId){
    앱 어드민은 브라우저 새 탭으로 연다(선생님 지시 2026-10-29: 학생 활동을 보면서 성적을 매기려면
    어드민이 따로 떠 있어야 한다). 같은 창 안의 탭(요구사항 67)은 이 지시로 걷어냈다. */
 function pageMission(){
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('mission'))}</h2>
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('mission'))}</h2>${yearSelHtml()}${subjectSel()}
     <button class="btn-add" data-act="mission-add-open" title="추가" aria-label="추가">${icon('plus',16)}<span>추가</span></button></div>`;
 
   const apps = M.getMissionApps();
