@@ -29,7 +29,7 @@
  *   - 제목의 단계 이름 머리("개념 노트 #1 : ")는 뗀다(slide-axis.js의 stripStepPrefix).
  *             "사료 : "는 떼지 않는다. 그 머리로 사료 쪽인 줄 알기 때문이다(SOURCE_RE).
  */
-import { stripStepPrefix, SOURCE_RE, rowFilled } from './slide-axis.js?v=20261101a';
+import { stripStepPrefix, SOURCE_RE, rowFilled } from './slide-axis.js?v=20261101b';
 
 export const SHORT = 10;   // 라벨로 볼 수 있는 가장 긴 글자 수
 

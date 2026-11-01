@@ -15,7 +15,7 @@
    2026의 글꼴 슬라이더, 장평, 디자인 설정 50여 칸은 가져오지 않았다. 아직 시킨 것이 아니다.
    ════════════════════════════════════════════════════════════════════════ */
 // Firebase를 끌어오지 않는 축 파일만 쓴다: 혼자 도는 미리보기 문서도 이 엔진을 그대로 쓴다
-import { SLIDE_AXIS, normalizeDeck, toPages, lineLevel, stripStepPrefix, SOURCE_RE, rowFilled, rowKind, lessonBadge } from './shared/slide-axis.js?v=20261101a';
+import { SLIDE_AXIS, normalizeDeck, toPages, lineLevel, stripStepPrefix, SOURCE_RE, rowFilled, rowKind, lessonBadge } from './shared/slide-axis.js?v=20261101b';
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -118,7 +118,8 @@ export function buildSlides(lesson, no){
       (deck.hook?.items || []).forEach(it => {
         if (it?.kind === 'text'){
           const t = String(it.text || '').trim();
-          if (t) push('hook', { type:'preview', kind:'text', text:t });
+          // 정렬은 어드민에서 고른다(양쪽이 기본, 가운데 선택 가능. 선생님 지시 2026-11-01)
+          if (t) push('hook', { type:'preview', kind:'text', text:t, align:it.align === 'center' ? 'center' : 'justify' });
         } else if (String(it?.url || '').trim())
           push('hook', { type:'preview', kind:it.kind === 'video' ? 'video' : 'image',
             url:it.url, caption:it.caption || '' });
@@ -365,7 +366,7 @@ export function renderSlide(s){
       const lines = String(s.text).split('\n').map(t => t.trim()).filter(Boolean);
       return `<div class="s-preview s-preview-text">
         <div class="intro-sweep"></div>
-        <div class="pv-text">${lines.map(t => `<p>${inlineText(t)}</p>`).join('')}</div></div>`;
+        <div class="pv-text${s.align === 'center' ? ' pv-center' : ''}">${lines.map(t => `<p>${inlineText(t)}</p>`).join('')}</div></div>`;
     }
     const yt = s.kind === 'video' ? youTube(s.url) : null;
     const frame = yt

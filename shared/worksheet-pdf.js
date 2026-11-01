@@ -30,7 +30,7 @@
  *
  * 이 파일은 Firebase도 화면도 모른다. 노드에서도 같은 함수로 시험한다(pdfjs를 넘겨준다).
  */
-import { lineLevel, SOURCE_RE } from './slide-axis.js?v=20261101a';
+import { lineLevel, SOURCE_RE } from './slide-axis.js?v=20261101b';
 import { SHORT, JUNK_RE, unwrapTitle, makeCollector, tidyPages,
   UNIT_RE, TOPIC_RE, OBJ_RE, PAGE_RE, LECNO_RE, QUESTION_RE } from './worksheet.js?v=20261031e';
 

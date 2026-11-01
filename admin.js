@@ -6,9 +6,9 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261101a';
+import * as M from './model.js?v=20261101b';
 import { icon } from './shared/icons.js?v=20261031e';
-import { buildSlides, renderSlide } from './slide-deck.js?v=20261101a';
+import { buildSlides, renderSlide } from './slide-deck.js?v=20261101b';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
 
 const YEAR = 2027;
@@ -1519,8 +1519,16 @@ function axisEditor(l, ax){
           <option value="image" ${kind==='image'?'selected':''}>사진</option>
           <option value="video" ${kind==='video'?'selected':''}>영상</option>
           <option value="text" ${kind==='text'?'selected':''}>글</option></select></div>`);
+      /* 글: 정렬(양쪽/가운데)을 고르고, 선택한 글자를 '굵게' 단추로 굵게 한다(선생님 지시 2026-11-01).
+         굵게는 온 슬라이드가 쓰는 **굵게** 문법을 그대로 쓴다: 단추가 고른 글자 둘레에 **를 끼운다
+         (hook-bold 핸들러). 글 칸에는 **가 그대로 보이고 슬라이드에서 굵게 나온다. */
       const bodyFields = kind === 'text'
-        ? fld('글', `<textarea class="f grow ta pgtext" rows="5" ${set('text')} aria-label="글">${esc(it.text || '')}</textarea>`)
+        ? fld('정렬', `<div class="grow"><select class="f axtype" ${set('align')} aria-label="정렬">
+              <option value="justify" ${it.align !== 'center' ? 'selected' : ''}>양쪽</option>
+              <option value="center" ${it.align === 'center' ? 'selected' : ''}>가운데</option></select></div>`)
+          + fld(`글 <button class="btn-chip" data-act="hook-bold" data-id="${l.id}" data-k="${k}" data-i="${i}"
+                  title="선택한 글자를 굵게" aria-label="선택한 글자를 굵게">굵게</button>`,
+              `<textarea class="f grow ta pgtext" rows="5" ${set('text')} aria-label="글">${esc(it.text || '')}</textarea>`)
         : fld(kind === 'video' ? '유튜브 주소' : '그림 주소',
               `<input class="f grow" ${set('url')} value="${esc(it.url || '')}" aria-label="주소">`)
           + fld('설명', `<input class="f grow" ${set('caption')} value="${esc(it.caption || '')}" aria-label="설명">`);
@@ -2750,6 +2758,18 @@ document.getElementById('shell').addEventListener('click', e => {
     case 'deck-up': M.deckMoveItem(id, k, +el.dataset.i, -1); render(); break;
     case 'deck-down': M.deckMoveItem(id, k, +el.dataset.i, 1); render(); break;
     case 'deck-del': M.deckDelItem(id, k, +el.dataset.i); render(); break;
+    /* 동기 유발 글 '굵게'(선생님 지시 2026-11-01): 글 칸에서 고른 글자 둘레에 **를 끼운다.
+       슬라이드 전체가 쓰는 **굵게** 문법이라 슬라이드에서 굵게 나온다(slide-deck.js의 inlineText).
+       단추를 눌러도 글 칸의 선택 범위는 남아 있어 그 자리를 읽어 쓴다. 고른 글자가 없으면 알린다. */
+    case 'hook-bold': {
+      const ta = el.closest('.row')?.querySelector('textarea');
+      if (!ta) break;
+      const a = ta.selectionStart, b = ta.selectionEnd;
+      if (a == null || a === b){ toast('굵게 할 글자를 먼저 선택하세요.'); break; }
+      const vtext = ta.value;
+      M.deckSetItem(id, k, +el.dataset.i, 'text', vtext.slice(0, a) + '**' + vtext.slice(a, b) + '**' + vtext.slice(b));
+      render(); break;
+    }
 
     // 미션 활동: 앱 어드민은 브라우저 새 탭으로. 목록은 최신순이라 순서 단추가 없다
     case 'mission-admin': openMissionAdmin(M.getMissionApp(v)); break;
