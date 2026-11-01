@@ -1195,8 +1195,30 @@ function pageConcept(){
      - 요소별: 크기·자간·줄간격. 개별로 바꾸면 그 요소만. 전체를 다시 움직이면 전체값이 다시 먹는다.
    크기·자간은 pt(한글·워드와 같은 단위. 1pt=2 design-px, 쪽 크기에 맞춰 함께 커진다), 줄간격은 배수(글자 크기의 몇 배).
    미리보기는 1920×1080 고정 렌더 + transform:scale로 축소 → 실제 투사와 분량이 같다(wireDesignStage).
-   미리보기 쪽은 종류별 대표 샘플이다(설정이 전체 공통이라 특정 강의에 매이지 않는다). */
-// 종류별 대표 샘플 쪽(디자인 미리보기 전용). 그 종류가 조절하는 요소가 다 보이게 짰다.
+   미리보기 쪽은 최신 강의의 실제 쪽을 쓴다(선생님 지시 2026-11-01: "진짜 예시 샘플 말고 실제
+   강의로"). 최신 강의에 그 종류 쪽이 없으면 대표 샘플로 돌아간다(designPreviewSlide). */
+/* 디자인 미리보기에 띄울 쪽. 최신 강의의 실제 쪽 중 이 그룹(조절 종류)에 맞는 것을 고른다.
+   최신 강의 = 내용이 든 가장 최근 강의(갓 만든 빈 강의는 표지밖에 없어 건너뛴다). 못 찾으면 샘플. */
+function designPreviewSlide(grp){
+  return realDesignSlide(grp) || designSampleSlide(grp);
+}
+function realDesignSlide(grp){
+  const newest = M.getLessonsNewest();
+  // 표지만 서는 빈 강의는 거른다. 그런 것뿐이면 그래도 맨 앞(최신) 강의를 쓴다
+  const l = newest.find(x => buildSlides(x, x.num).length > 1) || newest[0];
+  if (!l) return null;
+  const slides = buildSlides(l, l.num);
+  const isCompare = s => s.type === 'page' && (s.rows || []).some(r => r.kind === 'compare');
+  const isSource  = s => s.type === 'page' && (s.kind === 'source' || (s.rows || []).some(r => r.kind === 'source'));
+  if (grp.step === 'cover')      return slides.find(s => s.step === 'cover');
+  if (grp.step === 'objective')  return slides.find(s => s.type === 'numbered');
+  if (grp.step === 'question')   return slides.find(s => s.type === 'question');
+  if (grp.group === '비교표')     return slides.find(isCompare);
+  if (grp.group === '사료 인용')  return slides.find(isSource);
+  // 공통(쪽 제목·본문): 비교표도 사료도 아닌 보통 개념/미션 쪽
+  return slides.find(s => s.type === 'page' && !isCompare(s) && !isSource(s) && (s.rows || []).length);
+}
+// 종류별 대표 샘플 쪽(디자인 미리보기 폴백). 그 종류가 조절하는 요소가 다 보이게 짰다.
 function designSampleSlide(g){
   switch (g.step){
     case 'cover': return { type:'cover', num:'29', title:'사림의 성장과 붕당', topic:'조선 전기의 정치 변화', unit:'Ⅱ-2 사림의 대두', pages:'72~79' };
@@ -1239,7 +1261,7 @@ function pageDesign(){
 
   return `<div class="ds2">
     <style id="dpv-style">${M.designVarsCss(vals)}</style>
-    <div class="ds-stage" id="ds-stage"><div class="deckframe"><div class="deckpage">${renderSlide(designSampleSlide(grp))}</div></div></div>
+    <div class="ds-stage" id="ds-stage"><div class="deckframe"><div class="deckpage">${renderSlide(designPreviewSlide(grp))}</div></div></div>
     <div class="ds-panel">
       <div class="ds-top">
         <div class="ds-nav">
