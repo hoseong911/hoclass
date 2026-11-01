@@ -273,13 +273,13 @@
    초성 자리를 relative로 두고 답을 absolute로 포개(글자 크기는 물음과 같게 상속), 답이 뜨면 초성은
    흐려진다(크로스페이드). 오른쪽 별도 답 알약은 없다. */
 .deckpage .qa-ini{position:relative;display:inline-block;vertical-align:baseline}
-.deckpage .qa-ini-hint{display:inline-block;color:rgba(244,241,232,.65);font-weight:600;
-  padding:0 calc(var(--px) * 4);transition:opacity .35s ease}
-.deckpage .qa-ini-ans{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  min-width:100%;text-align:center;white-space:nowrap;border-radius:var(--r);
-  background:var(--red);color:#fff;font-weight:900;padding:calc(var(--px) * 2) calc(var(--px) * 16)}
-.deckpage .qa-ini-ans[data-step]{opacity:0;transition:opacity .35s ease}
+/* 답은 제자리에 빨간 글씨로만 뜬다(박스 없음). 이 글자가 칸 폭을 잡아 양옆 글자를 침범하지 않는다. */
+.deckpage .qa-ini-ans{white-space:nowrap;color:var(--red);font-weight:900;transition:opacity .35s ease}
+.deckpage .qa-ini-ans[data-step]{opacity:0}
 .deckpage .qa-ini-ans[data-step].shown{opacity:1}
+/* 초성 힌트는 답 글자 위에 가운데로 겹쳐 두고, 답이 뜨면 흐려진다(크로스페이드) */
+.deckpage .qa-ini-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  white-space:nowrap;color:rgba(244,241,232,.65);font-weight:600;transition:opacity .35s ease;pointer-events:none}
 .deckpage .qa-ini:has(.qa-ini-ans.shown) .qa-ini-hint{opacity:0}
 /* 뒤로 넘겨 들어왔을 때는 움직임 없이 다 나온 모양으로 선다 */
 .deckpage .instant, .deckpage .instant .qa-oxb{transition:none}
