@@ -2,5 +2,6 @@
 # 교재 쪽 강의 시안 데이터 — 남의 출판물 쪽 그림이라 공개 레포에 올리지 않는다.
 # tools/extract-pages.mjs로 다시 만든다.
 demo/
+node_modules/
 tools/node_modules/
 tools/package*.json
