@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>동기 유발 미리보기</title>
+<!-- 임시 미리보기(선생님 지시 2026-11-01): 동기 유발 '글' 슬라이드를 보여 드리는 단독 문서.
+     Firebase 없이 슬라이드 엔진(slide-deck.js)만 불러 손으로 만든 쪽을 그린다.
+     사진/영상 동기 유발과 같은 다크 톤에, 글은 사료와 같은 세리프 양쪽정렬이되 따옴표가 없다.
+     ←/→ 로 쪽을 넘긴다. 작업이 끝나면 지워도 되는 문서다. -->
+<link rel="stylesheet" href="../slide-deck.css?v=20261101l">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&family=Gowun+Batang:wght@400;700&family=Great+Vibes&display=swap">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--navy);color:#fff;font-family:var(--font)}
+#stage{position:fixed;inset:0;overflow:hidden;background:#fff}
+#stage .deckframe{position:absolute;left:50%;top:50%;width:1920px;height:1080px;
+  transform:translate(-50%,-50%) scale(1);transform-origin:center center}
+#stage.dark{background:radial-gradient(120% 120% at 50% 40%, #1a2130 0%, #12151C 55%, #0b0d12 100%)}
+#stage.dark .deckframe, #stage.dark .deckpage, #stage.dark .s-preview{background:transparent}
+#bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:12px;justify-content:center;
+  padding:10px 14px;background:rgba(4,30,66,.92);color:#fff;font-size:14px;z-index:5}
+#bar button{border:1px solid rgba(255,255,255,.35);background:none;color:#fff;border-radius:8px;
+  padding:6px 14px;font-size:14px;cursor:pointer;font-family:inherit}
+#bar button:hover{background:rgba(255,255,255,.12)}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="deckframe"><div class="deckpage" id="page"></div></div>
+</div>
+<div id="bar">
+  <button id="prev">‹ 이전</button>
+  <span id="label"></span>
+  <button id="next">다음 ›</button>
+</div>
+
+<script type="module">
+import { renderSlide } from '../slide-deck.js?v=20261101l';
+
+const $ = id => document.getElementById(id);
+
+// 손으로 만든 동기 유발 쪽들. 글 / 사진 / 영상 세 종류를 다 보여 준다.
+const imgSvg = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800">
+     <rect width="1200" height="800" fill="#c9a24b"/>
+     <text x="600" y="420" font-size="72" fill="#2a2320" text-anchor="middle" font-family="sans-serif">사진 예시</text>
+   </svg>`);
+
+const slides = [
+  { type:'preview', step:'hook', kind:'text', align:'justify',
+    text:'사림은 조선 중기에 지방 사족을 기반으로 성장한 **새로운 정치 세력**이었다.\n'
+       + '이들은 성리학적 명분과 의리를 앞세워 중앙 정계에 진출하였고, 훈구 세력의 비리와 권력 독점을 거세게 비판하였다.\n'
+       + '사림과 훈구의 대립은 **네 차례의 사화**로 이어졌으나, 사림은 서원과 향약을 바탕으로 향촌에서 꾸준히 세력을 키워 끝내 정국의 주도권을 잡게 되었다.' },
+  { type:'preview', step:'hook', kind:'text', align:'center',
+    text:'역사는 과거와 현재의 **끊임없는 대화**이다.\n우리는 왜 사림의 등장에 주목해야 할까?' },
+  { type:'preview', step:'hook', kind:'image', url:imgSvg, caption:'사진을 올리면 이렇게 가득 차게 보입니다' },
+];
+
+let i = 0;
+const labels = ['글 (양쪽정렬, 굵게)', '글 (가운데정렬)', '사진'];
+
+const frame = $('stage').querySelector('.deckframe');
+const fit = () => { const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+  frame.style.transform = `translate(-50%,-50%) scale(${s})`; };
+const draw = () => {
+  $('page').innerHTML = renderSlide(slides[i]);
+  $('label').textContent = `동기 유발 — ${labels[i]} (${i + 1}/${slides.length})`;
+  $('stage').classList.add('dark');   // 동기 유발은 늘 다크 톤
+};
+const go = d => { const n = i + d; if (n >= 0 && n < slides.length){ i = n; draw(); } };
+
+draw(); fit();
+addEventListener('resize', fit, { passive:true });
+$('prev').addEventListener('click', () => go(-1));
+$('next').addEventListener('click', () => go(1));
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') go(1);
+  if (e.key === 'ArrowLeft') go(-1);
+});
+</script>
+</body>
+</html>

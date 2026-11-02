@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261102f';
+import * as M from './model.js?v=20261102g';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -71,6 +71,11 @@ const state = {
   scCourseId: null,                // 반 탭(강의실)
   scClId: null,                    // 성적 입력에서 고른 연결 강의
   scOpenNo: null,                  // 성적 조회에서 강의별 내역을 펼친 학생(학번)
+
+  // 열공 마일리지 (hismile 재설계 이식, 2026-11-02)
+  mileageTab: 'review',            // 서브 메뉴 'review'(인증 검토) | 'config'(설정)
+  mileageCertSel: null,            // 검토에서 펼친 인증(cert id)
+  mileageNoteDraft: null,          // 설정 메모: 저장 전까지 들고 있다(범위 체크로 다시 그려도 안 날아가게)
 };
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -2872,6 +2877,70 @@ function formativeResultPanel(rooms, placed, lessons){
       <tbody>${body}</tbody></table></div>`;
 }
 
+/* ── 열공 마일리지 (hismile 재설계 이식, 2026-11-02) ──
+   과목별로 돈다(머리줄 과목 드롭다운). 서브 메뉴 둘:
+     인증 검토 : 학생이 낸 인증을 통과/보류로 가린다(보류만 모아 본다). 손으로 통과를 못박을 수 있다
+     설정      : 그 과목의 인증 범위(학기 강의)를 고르고 메모를 적는다
+   학생 인증 화면과 사진 날짜 판정은 다음 단계에서 붙인다. 여기는 교사 쪽 뼈대다. */
+function pageMileage(){
+  const years = M.getYears();
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('mileage'))}</h2>${yearSelHtml()}${subjectSel()}</div>`
+    + catline(M.ADMIN_SUBMENUS.mileage, state.mileageTab, 'mileage-tab');
+  if (!years.length) return head + `<div class="empty">학년도가 없습니다.</div>`;
+  const subject = curSubject();
+  if (!subject) return head + `<div class="empty">과목이 없습니다. 일반 설정에서 과목을 먼저 만드세요.</div>`;
+  return head + (state.mileageTab === 'config' ? mileageConfigPanel(subject) : mileageReviewPanel(subject));
+}
+
+/* 설정: 인증 범위 강의와 메모. 범위는 그 과목 강의실에 연결된 강의 중에서 고른다.
+   체크는 누르는 즉시 저장되고(mileage-scope), 메모는 아래 저장 단추로 쓴다(성적 설정과 같은 길). */
+function mileageConfigPanel(subject){
+  const cfg = M.getMileageConfig(subject);
+  const lessons = M.getSubjectLessons(state.year, subject);
+  const picked = new Set(cfg.scopeLessonIds || []);
+  // 줄을 label로 감싸지 않는다(화면 규칙): 체크박스를 눌러야만 범위가 바뀐다.
+  const list = lessons.length ? numberedNewest(lessons).map(({ x:l, no }) => {
+    const on = picked.has(l.id);
+    return `<div class="row compact selrow ${on?'on':''}">
+      <input type="checkbox" data-act="mileage-scope" data-lid="${l.id}" ${on?'checked':''}
+        aria-label="${esc(lnumPlain(l, no))} 인증 범위">
+      <span class="grow"><span class="t">${lessonNo(l, no)} ${esc(l.title)}</span></span></div>`;
+  }).join('') : `<div class="empty">연결된 강의가 없습니다.</div>`;
+
+  const note = state.mileageNoteDraft ?? cfg.note ?? '';
+  const save = `<div class="lfoot"><div class="tools">
+      <button class="btn-chip" data-act="mileage-config-save">${icon('check',13)}저장</button>
+    </div></div>`;
+  return `<div class="sectionlabel">인증 범위 강의</div>${list}
+    <div class="sectionlabel">메모</div>
+    <textarea class="f fbtmpl" id="mileage-note" rows="4" aria-label="메모">${esc(note)}</textarea>${save}`;
+}
+
+/* 검토: 보류 중인 인증을 모아 본다. 사진과 글, 못 미친 사유를 보고 통과를 못박거나 그대로 둔다
+   (보류는 학생이 다시 내거나 선생님이 통과시킬 때까지 남는다). */
+function mileageReviewPanel(subject){
+  const pending = M.getMileagePending(subject);
+  if (!pending.length) return `<div class="empty">검토할 인증이 없습니다.</div>`;
+  return `<div class="mi-list">${pending.map(mileageCertRow).join('')}</div>`;
+}
+function mileageCertRow(c){
+  const eff = M.mileageResult(c);
+  const photo = c.photoURL ? `<img class="mi-photo" src="${esc(c.photoURL)}" alt="인증 사진" loading="lazy">` : '';
+  const reason = c.reason ? `<div class="s">${esc(c.reason)}</div>` : '';
+  const feeling = c.feeling ? `<div class="s">${esc(c.feeling)}</div>` : '';
+  return `<div class="row mi-cert ${eff==='pending'?'':'on'}">
+    ${photo}
+    <div class="grow mi-body">
+      <div class="t"><span class="mono">${esc(c.studentNo)}</span> ${esc(c.name)}
+        <span class="s">${esc(c.date)}</span></div>
+      ${c.content ? `<div class="s">${esc(c.content)}</div>` : ''}${feeling}${reason}
+    </div>
+    <div class="tools">
+      <button class="btn-chip ${eff==='pass'?'on':''}" data-act="mileage-verdict" data-id="${esc(c.id)}" data-v="pass">${icon('check',13)}통과</button>
+      <button class="btn-chip ${eff==='pending'?'on':''}" data-act="mileage-verdict" data-id="${esc(c.id)}" data-v="pending">보류</button>
+    </div></div>`;
+}
+
 /* ── 일반 설정 (선생님 지시 2026-10-28) ──
    화면 문구를 코드에 박지 않고 여기서 직접 심고 바꾼다(model.js의 TEXT_FIELDS 규칙 참고).
    비워 두면 기본값이 그대로 쓰인다. 칸마다 따로 저장하지 않고 저장 버튼 하나로 한 번에 쓴다. */
@@ -2965,7 +3034,7 @@ function render(){
   renderSide();
   const p = { rooms:pageRooms, students:pageStudents, progress:pageProgress, notice:pageNotice,
               concept:pageConcept, mission:pageMission, question:pageQuestion, formative:pageFormative,
-              scores:pageScores, general:pageGeneral }[state.page];
+              scores:pageScores, mileage:pageMileage, general:pageGeneral }[state.page];
   $main.innerHTML = p ? p() : '';
   wireFades();
   wireDesignStage();
@@ -2988,7 +3057,8 @@ document.getElementById('shell').addEventListener('click', e => {
       state.studentDetailNo = null; state.roomStudentEdit = false;
       state.conceptLessonId = null; state.formativeLessonId = null; state.formativeTab = 'manage';
       state.fmEditIdx = null; state.fmNewType = null;
-      state.progMemoId = null; state.genDraft = null; state.menuDraft = null; render(); break;
+      state.progMemoId = null; state.genDraft = null; state.menuDraft = null;
+      state.mileageNoteDraft = null; render(); break;
     case 'set-year': state.year = +v; state.editRoomId = null; render(); break;
     case 'set-subject': state.fSubject = v; render(); break;
     case 'set-class': state.fClass = v === 'all' ? null : v; render(); break;
@@ -3413,6 +3483,17 @@ document.getElementById('shell').addEventListener('click', e => {
       break;
     }
 
+    // 열공 마일리지
+    case 'mileage-tab': state.mileageTab = v; state.mileageNoteDraft = null; render(); break;
+    // 인증 검토: 통과/보류를 손으로 못박는다(같은 값을 다시 누르면 자동 판정으로 되돌린다).
+    case 'mileage-verdict': M.setMileageVerdict(id, v); render(); break;
+    // 과목 설정 저장(메모). 인증 범위 체크는 누르는 즉시 저장되므로 여기서 안 건드린다.
+    case 'mileage-config-save': {
+      M.setMileageConfig(curSubject(), { note: document.getElementById('mileage-note')?.value ?? '' });
+      state.mileageNoteDraft = null;
+      toast('저장했습니다.'); render(); break;
+    }
+
     /* 수업일자가 된 강의를 한꺼번에 공개(2026-11-02). 학생에게 보이기 시작하는 일이라 확인을 받는다.
        지우는 일이 아니므로 확인 단추는 레드 채움이 아니라 주 버튼 색이다(okCls). */
     case 'prog-open-due': {
@@ -3579,6 +3660,14 @@ document.getElementById('shell').addEventListener('change', e => {
   } else if (el.dataset.act === 'sc-pick-lesson'){   // 성적에 반영할 강의 목록
     M.toggleGradeLesson(el.dataset.lid, el.checked);
     M.saveGradeConfig().catch(() => toast('저장하지 못했습니다. 다시 시도해 주세요.'));
+    render();
+  } else if (el.dataset.act === 'mileage-scope'){   // 열공 마일리지: 인증 범위로 셀 강의
+    // 적던 메모가 다시 그릴 때 날아가지 않게 먼저 챙겨 둔다(저장 전까지 들고 있다가 저장 단추에서 비운다)
+    const ta = document.getElementById('mileage-note'); if (ta) state.mileageNoteDraft = ta.value;
+    const subject = curSubject();
+    const set = new Set(M.getMileageConfig(subject).scopeLessonIds || []);
+    if (el.checked) set.add(el.dataset.lid); else set.delete(el.dataset.lid);
+    M.setMileageConfig(subject, { scopeLessonIds:[...set] });
     render();
   } else if (el.dataset.act === 'q-lesson'){   // 오늘의 질문: 답변을 모아 볼 강의
     state.questionLessonId = el.value; render();

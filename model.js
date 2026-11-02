@@ -14,7 +14,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { db, collection, getDocs, doc, getDoc, setDoc, deleteDoc } from './shared/fb.js?v=20261028a';
-import { CLAUDE_PROXY_URL } from './shared/util.js?v=20261028f';
+import { CLAUDE_PROXY_URL, kstDate } from './shared/util.js?v=20261028f';
 // 슬라이드 축과 덱 모양은 shared/slide-axis.js 한 곳에서. 아래에서 그대로 다시 내보낸다
 import { normalizeDeck, toPages, fromPages, blankDeck, AXIS_ORDER, pagesFilled } from './shared/slide-axis.js?v=20261101f';
 
@@ -60,6 +60,10 @@ export const COLLECTIONS = {
   noticeReads:        'hoclass_notice_reads',    // 공지 열람+좋아요 { noticeId, studentNo, name, liked }  id = 공지id_학번
   noticeComments:     'hoclass_notice_comments', // 공지 댓글 { noticeId, studentNo, name, text, createdAt }
   noticeBans:         'hoclass_notice_bans',     // 댓글 작성 차단 { }  id = 학번(있으면 차단). 교사만 건다
+
+  // 열공 마일리지 (hismile 재설계 이식, 2026-11-02). 과목별로 돈다.
+  mileageCerts:       'hoclass_mileage_certs',   // 인증 한 건 { subject, year, studentNo, name, date, photoURL, content, feeling, result, checks, reason, photoDate } id = 과목__학번__날짜
+  mileageConfig:      'hoclass_mileage_config',  // 과목별 설정 { subject, scopeLessonIds:[], note } id = 과목
 };
 
 // 강의 안 네 칸: 각 강의에 최대 1개, 순서 자유.
@@ -102,6 +106,7 @@ export const ADMIN_MENUS = [
   { key:'question',  name:'오늘의 질문',     icon:'message-square' },
   { key:'formative', name:'형성평가',        icon:'circle-check' },
   { key:'scores',    name:'성적',            icon:'bar-chart-3' },
+  { key:'mileage',   name:'열공 마일리지',   icon:'flame' },
   { key:'general',   name:'일반 설정',       icon:'settings' },
 ];
 
@@ -111,7 +116,7 @@ export const ADMIN_MENUS = [
    순서 안의 MENU_SEP는 구분선이다. 메뉴처럼 위아래로 옮길 수 있다. */
 export const MENU_SEP = '|';
 export const DEFAULT_MENU_ORDER = ['rooms','students','progress','notice', MENU_SEP,
-  'concept','mission','question','formative','scores', MENU_SEP, 'general'];
+  'concept','mission','question','formative','scores','mileage', MENU_SEP, 'general'];
 let menuOrder = null;   // 관리자가 정한 순서. loadCore가 settings/general에서 채운다.
 export function menuName(key){
   const v = siteTexts['menu_' + key];
@@ -154,6 +159,8 @@ export const ADMIN_SUBMENUS = {
   formative:[ { v:'manage',  label:'문제 관리' }, { v:'result',  label:'성취도 관리' } ],
   // 성적은 hoistory/lms의 성적 Check 세 화면(입력, 설정, 조회)을 그대로 옮긴 것이다.
   scores:   [ { v:'input',   label:'입력' }, { v:'setting', label:'설정' }, { v:'view',  label:'조회' } ],
+  // 열공 마일리지: 학생 인증을 검토하는 자리와 과목별 범위를 정하는 자리 둘(2026-11-02).
+  mileage:  [ { v:'review',  label:'인증 검토' }, { v:'config', label:'설정' } ],
 };
 
 /* ── 일반 설정에서 바꾸는 글 (2026-10-28, 2026-10-29 줄임) ──────────────────
@@ -258,6 +265,9 @@ const DEMO = {
   courseQuizzes: [],  // course_quizzes { id, courseId, quizId, isOpen }
   missionApps:   [],  // mission_apps   { id:앱키, name, studentUrl, adminUrl }
   xp:            [],  // course_xp      { id:'강의실id_학번', courseId, studentNo, xp, point }
+
+  mileageCerts:  [],  // mileage_certs  { id:'과목__학번__날짜', subject, year, studentNo, name, date, photoURL, content, feeling, result, checks, reason, photoDate, verdict, tries, createdAt }
+  mileageConfig: [],  // mileage_config { id:과목, subject, scopeLessonIds:[], note }
 };
 
 /* 레벨 표: 2026 LMS shared/xp.js의 기본값을 그대로 옮겼다(누적 경험치 기준).
@@ -285,7 +295,7 @@ function del(coll, id){ deleteDoc(doc(db, coll, id)).catch(e => console.error('d
 
 export async function loadCore(){
   const C = COLLECTIONS;
-  const [ys, cs, ss, rs, cls, ls, subs, grs, mas, nts, gen, grc, sjs, nrd, ncm, nbn] = await Promise.all([
+  const [ys, cs, ss, rs, cls, ls, subs, grs, mas, nts, gen, grc, sjs, nrd, ncm, nbn, mct, mcf] = await Promise.all([
     getDocs(collection(db, C.schoolYears)),
     getDocs(collection(db, C.courses)),
     getDocs(collection(db, C.courseStudents)),
@@ -304,6 +314,9 @@ export async function loadCore(){
     getDocs(collection(db, C.noticeReads)).catch(() => ({ docs: [] })),
     getDocs(collection(db, C.noticeComments)).catch(() => ({ docs: [] })),
     getDocs(collection(db, C.noticeBans)).catch(() => ({ docs: [] })),
+    // 열공 마일리지(인증, 과목별 설정). 규칙 미배포여도 로드를 깨지 않게 각각 catch.
+    getDocs(collection(db, C.mileageCerts)).catch(() => ({ docs: [] })),
+    getDocs(collection(db, C.mileageConfig)).catch(() => ({ docs: [] })),
   ]);
   const rows = snap => snap.docs.map(d => ({ ...d.data(), id:d.id }));
   DEMO.years       = rows(ys).sort((a,b) => b.year - a.year);
@@ -320,6 +333,8 @@ export async function loadCore(){
   DEMO.noticeReads = rows(nrd);
   DEMO.noticeComments = rows(ncm);
   DEMO.noticeBans  = rows(nbn);
+  DEMO.mileageCerts  = rows(mct);
+  DEMO.mileageConfig = rows(mcf);
   siteTexts       = gen.exists() ? (gen.data().texts || {}) : {};
   menuOrder        = gen.exists() ? (gen.data().menuOrder || null) : null;
   slideDesign      = gen.exists() ? (gen.data().slideDesign || {}) : {};
@@ -1803,4 +1818,114 @@ export async function verifyPassword(year, studentNo, password){
    로그인한 선생님은 지울 수 있다. 혹시 실패하면 화면이 오류를 안내한다. */
 export async function resetPassword(year, studentNo){
   await deleteDoc(doc(db, COLLECTIONS.courseAuth, `${year}_${studentNo}`));
+}
+
+/* ── 열공 마일리지 (hismile 재설계 이식, 2026-11-02) ────────────────────────────
+   과목별로 돈다(머리줄 과목 드롭다운과 같은 state.subject). 학생이 공부 사진 한 장과
+   공부한 내용, 느낀 점을 내면 통과(pass) 또는 보류(pending, 교사 검토)로 가린다.
+   마일리지 앱 자체는 '인증 일수'만 센다(통과한 날 수). 포인트 환산은 추후 연동이라
+   여기서는 일수와 연속일수만 구한다. 데이터 두 덩어리:
+     mileageCerts  : 인증 한 건. id = `${subject}__${studentNo}__${date}` (하루 1건, 다시 내면 덮어쓴다)
+     mileageConfig : 과목별 설정(인증 범위 강의 id 목록, 메모). id = subject
+   값 판정(사진 날짜 읽기, 범위 맞춤)은 shared/mileage-check.js가 맡고, 저장 모양만 여기서 둔다. */
+
+// 과목 설정(없으면 빈 기본값). 인증 범위로 고른 강의 id 목록과 메모를 든다.
+export function getMileageConfig(subject){
+  const c = DEMO.mileageConfig.find(x => x.subject === subject);
+  return c || { id:subject, subject, scopeLessonIds:[], note:'' };
+}
+export function setMileageConfig(subject, patch){
+  let c = DEMO.mileageConfig.find(x => x.subject === subject);
+  if (!c){ c = { id:subject, subject, scopeLessonIds:[], note:'' }; DEMO.mileageConfig.push(c); }
+  if (patch.scopeLessonIds != null) c.scopeLessonIds = [...patch.scopeLessonIds];
+  if (patch.note != null) c.note = String(patch.note);
+  put(COLLECTIONS.mileageConfig, c);
+  return c;
+}
+
+/* 그 과목 그 학년도의 강의 후보: 그 과목 강의실(반)에 연결된 강의를 한 줄로 모은다.
+   인증 범위 고르개가 이 목록을 보여 준다(선생님이 이 중에서 학기 범위를 고른다). 연결 순서대로. */
+export function getSubjectLessons(year, subject){
+  const rooms = getCourses(year).filter(c => c.subject === subject);
+  const firstOrder = new Map();
+  rooms.forEach(c => getCourseLessons(c.id).forEach(cl => {
+    const cur = firstOrder.get(cl.lessonId);
+    if (cur == null || cl.order < cur) firstOrder.set(cl.lessonId, cl.order);
+  }));
+  return getLessons().filter(l => firstOrder.has(l.id))
+    .sort((a,b) => firstOrder.get(a.id) - firstOrder.get(b.id));
+}
+
+// 인증 문서 id(하루 1건). 과목과 학번, 날짜를 두 밑줄로 잇는다(과목 이름에 밑줄이 섞여도 안 겹치게).
+export function mileageCertId(subject, studentNo, date){ return `${subject}__${studentNo}__${date}`; }
+
+// 그 과목 인증 전부(최신 제출순). 교사 검토 목록과 통계가 쓴다.
+export function getMileageCerts(subject){
+  return DEMO.mileageCerts.filter(c => c.subject === subject)
+    .sort((a,b) => (b.ts || createdMs(b)) - (a.ts || createdMs(a)));
+}
+// 교사 검토 대기(보류)만.
+export function getMileagePending(subject){
+  return getMileageCerts(subject).filter(c => effectiveResult(c) === 'pending');
+}
+// 한 건.
+export function getMileageCert(subject, studentNo, date){
+  return DEMO.mileageCerts.find(c => c.id === mileageCertId(subject, studentNo, date)) || null;
+}
+
+// 교사가 손으로 통과/보류를 못박으면(verdict) 그것이 자동 판정을 이긴다.
+function effectiveResult(c){
+  if (c?.verdict === 'pass') return 'pass';
+  if (c?.verdict === 'pending') return 'pending';
+  return c?.result || 'pending';
+}
+export { effectiveResult as mileageResult };
+
+/* 인증 일수와 연속일수. days = 통과한 날 수. streak = 오늘(또는 어제)부터 거꾸로 이어진 통과 날 수.
+   포인트 환산은 추후라 수치만 돌려준다. */
+export function mileageStats(subject, studentNo){
+  const days = DEMO.mileageCerts
+    .filter(c => c.subject === subject && String(c.studentNo) === String(studentNo) && effectiveResult(c) === 'pass')
+    .map(c => c.date).sort();           // 오름차순 날짜(YYYY-MM-DD)
+  const set = new Set(days);
+  const count = set.size;
+  // 연속: 가장 최근 통과 날이 오늘이거나 어제면 거기서부터 하루씩 거슬러 센다.
+  const today = kstDate();
+  const yest = kstDate(Date.now() - 24*3600*1000);
+  let streak = 0;
+  const last = days[days.length - 1];
+  if (last === today || last === yest){
+    let cur = new Date(last + 'T00:00:00Z');
+    while (set.has(cur.toISOString().slice(0,10))){ streak++; cur = new Date(cur.getTime() - 24*3600*1000); }
+  }
+  return { days:count, streak, lastDate:last || null };
+}
+
+/* 인증 저장(학생 제출). 하루 1건이라 같은 자리를 덮어쓴다(보류가 쌓이지 않게. hismile certKey와 같은 뜻).
+   data: { subject, year, studentNo, name, date, photoURL, content, feeling, result, checks, reason, photoDate } */
+export function saveMileageCert(data){
+  const subject = data.subject, studentNo = String(data.studentNo), date = data.date;
+  const id = mileageCertId(subject, studentNo, date);
+  const prev = DEMO.mileageCerts.find(c => c.id === id);
+  const rec = {
+    ...(prev || {}),
+    id, subject, year:+data.year || null, studentNo, name: data.name || '',
+    date, photoURL: data.photoURL || '', content: data.content || '', feeling: data.feeling || '',
+    result: data.result || 'pending', checks: data.checks || {}, reason: data.reason || '',
+    photoDate: data.photoDate || '',
+    tries: (prev?.tries || 0) + 1,
+    ts: Date.now(), createdAt: prev?.createdAt ?? Date.now(),
+  };
+  const i = DEMO.mileageCerts.findIndex(c => c.id === id);
+  if (i >= 0) DEMO.mileageCerts[i] = rec; else DEMO.mileageCerts.push(rec);
+  put(COLLECTIONS.mileageCerts, rec);
+  return rec;
+}
+
+// 교사 검토: 통과/보류를 손으로 못박는다(같은 값을 다시 부르면 자동 판정으로 되돌린다).
+export function setMileageVerdict(certId, v){
+  const c = DEMO.mileageCerts.find(x => x.id === certId); if (!c) return null;
+  c.verdict = (c.verdict === v) ? null : v;
+  put(COLLECTIONS.mileageCerts, c);
+  return c;
 }

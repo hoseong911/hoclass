@@ -960,3 +960,9 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 
 /* 디자인 탭(슬라이드 요소별 크기·자간·줄간격) 스타일은 admin.js의 pageDesign이 <style>로 함께 낸다
    (미리보기 스케일·슬라이더가 한 덩어리라 거기 두는 편이 읽기 쉽다. 선생님 지시 2026-10-31). */
+
+/* 열공 마일리지 인증 검토 (hismile 재설계 이식, 2026-11-02) */
+.mi-cert{height:auto;min-height:var(--h-row);align-items:flex-start;gap:12px;padding-block:12px}
+.mi-cert .mi-photo{width:84px;height:84px;object-fit:cover;border-radius:4px;flex:0 0 auto}
+.mi-cert .mi-body .t{margin-bottom:4px}
+.mi-cert .tools{flex:0 0 auto;align-self:center}
