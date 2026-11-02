@@ -454,7 +454,7 @@ function pageProgress(){
     ? `<button class="btn-chip ${due.length ? 'on' : ''}" data-act="prog-open-due" ${due.length ? '' : 'disabled'}
         title="수업일자가 오늘이거나 지난 강의를 학생에게 한꺼번에 공개합니다">${icon('eye',13)}수업일자가 된 강의 공개${due.length ? ` (${due.length})` : ''}</button>`
     : '';
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('progress'))}</h2>${years.length?yearSel:''}${years.length?subjectSel():''}${openBtn}</div>`;
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('progress'))}</h2>${openBtn}${years.length?yearSel:''}${years.length?subjectSel():''}</div>`;
   if (!years.length) return `${head}<div class="empty">학년도가 없습니다.</div>`;
 
   const all = M.getCourses(state.year);
