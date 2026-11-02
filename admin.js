@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261102d';
+import * as M from './model.js?v=20261102e';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -30,7 +30,7 @@ const state = {
   studentDetailNo: null,           // 아래로 펼친 학생(학번)
   studentQuery: '',                // 학생 관리 학번 검색어
   stuScoreCourseId: null,          // 학생 관리 상세에서 성적을 보는 과목(강의실 id)
-  lessonId: null, lessonTab: 'edit',
+  lessonId: null,            // 강의 라이브러리에서 열어 둔 강의(없으면 목록 화면)
 
   // 칸별 메뉴 넷 (2026-10-27)
   conceptTab: 'content',           // 개념 노트 서브 메뉴 'content' | 'design'
@@ -999,7 +999,7 @@ function openLessonMakeModal(){
     if (!num){ err('강의 번호를 적어 주세요.'); return; }
     if (!title){ err('강의 제목을 적어 주세요.'); return; }
     try { const l = M.addLesson(title, num);
-      state.lessonId = l.id; state.lessonTab = 'edit'; close(); render(); }
+      state.lessonId = l.id; close(); render(); }
     catch(e){ err(e.message); }
   };
   const onKey = e => {
@@ -1230,40 +1230,19 @@ function pageLessons(){
   const l = M.getLesson(state.lessonId);
   if (!l){ state.lessonId = null; return pageLessons(); }
 
-  /* 세부 내용 배치는 슬라이드 편집기(pageAxis)와 같다(선생님 지시 2026-11-02: "세부 내용 배치ui를
-     슬라이드랑 비슷하게 해줘. 강의 편집, 강의실 콘텐츠를 왼쪽 메뉴로 빼주고 눌러서 넘어가게").
-     왼쪽 줄자(.axrail)에서 고르면 오른쪽 칸(.axpane)이 바뀐다. 클래스는 슬라이드 편집기 것을
-     그대로 쓴다: 어드민 안에서 두 화면이 같은 모양으로 보인다. 탭 줄(catline)은 걷었다. */
-  /* 왼쪽 줄자 둘. '강의실 콘텐츠'였던 둘째 칸을 '반 연결과 공개'로 바꿨다(2026-11-02):
-     선생님이 강의 편집 안의 칸 목록을 '강의실 연결 콘텐츠'라고 부르라고 하셔서 이름이 겹친다.
-     둘째 칸이 하는 일은 반마다 연결과 공개를 켜고 끄는 것이라 그 말이 더 정확하다. */
-  const menus = [{ k:'edit', name:'강의 편집' }, { k:'place', name:'반 연결과 공개' }];
-  if (!menus.some(m => m.k === state.lessonTab)) state.lessonTab = 'edit';
-  const cur = menus.find(m => m.k === state.lessonTab);
-  const rail = menus.map(m => { const on = m.k === state.lessonTab;
-    return `<button class="axrow ${on?'on':''}" data-act="lesson-tab" data-v="${m.k}"
-      aria-current="${on?'true':'false'}"><span class="axnm">${esc(m.name)}</span></button>`; }).join('');
-  // 활동지 올리기는 '강의 편집' 칸의 머리줄 오른쪽 끝으로(전에는 팔레트 아래 레드 단추였다).
-  // 추가 단추를 제목 머리줄로 모으는 규칙(선생님 지시 2026-11-01)과 같은 자리다.
-  const headAct = state.lessonTab === 'edit'
-    ? `<button class="ib" data-act="lesson-import" data-id="${l.id}"
-         title="활동지 올리기 (한글 파일 .hwpx를 권합니다)"
-         aria-label="활동지 올리기. 한글 파일 .hwpx를 권합니다">${icon('upload',16)}</button>`
-    : '';
-  const body = state.lessonTab === 'edit' ? lessonEditor(l) : lessonPlacer(l);
-
-  // 삭제는 머리줄 오른쪽에. 창고에서 지우는 것이라 강의실 상세와 같은 자리, 같은 모양으로 둔다
+  /* 세부 내용은 **한 화면 한 단**이다(선생님 지시 2026-11-02: "그냥 그러면 서브탭으로 두지 말고
+     강의실 연결 및 공개로 밑에 넣어버려"). 반 연결과 공개를 아래 묶음으로 내렸더니 왼쪽 줄자에
+     남을 것이 '강의 편집' 하나뿐이라, 줄자(.axwrap, .axrail, .axpane)와 state.lessonTab을 다 걷었다.
+     그 전 모양: 탭 줄(catline), 그다음 왼쪽 줄자 둘, 지금 한 단. 되돌리지 말 것.
+     활동지 올리기는 줄자가 없어졌으니 쪽 머리줄 오른쪽, 삭제 옆으로 왔다. */
   return `<div class="pagehead">
       <button class="ib" data-act="lesson-close" title="목록" aria-label="목록">${icon('chevron-left',16)}</button>
       <h2>${lnumTag(l.num)}${esc(l.title)}</h2>
+      <button class="ib" data-act="lesson-import" data-id="${l.id}"
+        title="활동지 올리기 (한글 파일 .hwpx를 권합니다)"
+        aria-label="활동지 올리기. 한글 파일 .hwpx를 권합니다">${icon('upload',16)}</button>
       <button class="ib ib-danger" data-act="lesson-del" data-id="${l.id}"
-        title="강의 삭제" aria-label="강의 삭제">${icon('trash-2',16)}</button></div>
-    <div class="axwrap">
-      <nav class="axrail">${rail}</nav>
-      <div class="axpane">
-        <div class="axpane-head"><h3>${esc(cur.name)}</h3>${headAct}</div>
-        <div class="axpane-body">${body}</div>
-      </div></div>`;
+        title="강의 삭제" aria-label="강의 삭제">${icon('trash-2',16)}</button></div>${lessonEditor(l)}`;
 }
 
 /* 강의가 가진 칸을 배지로(선생님 지시 2026-11-02). 칸마다 정해진 색(--concept 등)을 글자와
@@ -1301,16 +1280,12 @@ function lessonEditor(l){
   const partsHtml = order.map((k, i) => partRow(l, k, slides, { i, last:order.length - 1, linked })).join('')
     + absent.map(k => partRow(l, k, slides, { linked })).join('');
 
-  /* 아래 띠: 이 강의가 학생에게 어떻게 닿는지. 연결과 공개 칩을 누르면 강의실 콘텐츠 칸으로 넘어간다
-     (선생님 지시 2026-11-02: "강의 공개 기능까지 다 포함해"). 연결이 없으면 어느 학생도 못 본다 */
-  /* 레드(.on)는 '봐야 할 것'이라는 뜻이다. 칸 상태의 '아직 비어 있음'(.pstate.empty)과 같은 쓰임이다.
-     연결이 없거나 공개가 0이면 그 강의는 어느 학생에게도 안 보이므로 레드로 알린다.
-     공개가 하나라도 있으면 할 일이 없으니 회색으로 가만히 둔다. */
+  /* 묶음 이름 옆의 한 마디: 이 강의가 학생에게 닿고 있나. 연결이 없거나 공개가 0이면 어느 학생도
+     못 보므로 레드로 알린다(빈 칸의 X와 같은 쓰임이다). 공개가 하나라도 있으면 회색으로 가만히 둔다.
+     전에는 아래 띠의 누를 수 있는 칩이었는데, 반 목록이 바로 아래로 내려와 건너갈 자리가 없어졌다 */
   const reach = !linked
-    ? `<button class="btn-chip on" data-act="lesson-tab" data-v="place"
-         title="어느 반에도 연결되지 않아 학생 화면에 뜨지 않습니다">${icon('eye',13)}연결 안 됨</button>`
-    : `<button class="btn-chip ${opened ? '' : 'on'}" data-act="lesson-tab" data-v="place"
-         title="${opened ? '반 연결과 공개에서 바꿉니다' : '공개한 반이 없어 학생 화면에 뜨지 않습니다'}">${icon('eye',13)}연결 ${linked}반, 공개 ${opened}반</button>`;
+    ? `<span class="unit warn">어느 반에도 연결되지 않았습니다</span>`
+    : `<span class="unit ${opened ? '' : 'warn'}">연결 ${linked}반, 공개 ${opened}반</span>`;
 
   return `<div class="pb-form">
     <div class="row"><div class="t gen-label">강의 번호</div>
@@ -1324,9 +1299,12 @@ function lessonEditor(l){
     <div class="sectionlabel">강의실 연결 콘텐츠</div>
     ${partsHtml}
 
+    <div class="sectionlabel between">강의실 연결 및 공개${reach}</div>
+    ${lessonPlacer(l)}
+
     <div class="lfoot">
       <span class="unit">슬라이드 모두 ${slides.length}쪽</span>
-      <div class="tools">${reach}
+      <div class="tools">
         <button class="btn-chip" data-act="axis-preview" data-id="${l.id}"
           title="학생이 보는 슬라이드를 새 탭에서 엽니다">${icon('monitor',13)}미리보기</button>
       </div>
@@ -1404,12 +1382,13 @@ function subjectRooms(){
     .slice().sort((a,b) => (a.grade - b.grade) || (a.classNo - b.classNo));
 }
 
-/* ── 강의실 콘텐츠: 이 강의를 어느 반에 띄울지, 그 반에 공개할지 ──
+/* ── 강의실 연결 및 공개: 이 강의를 어느 반에 띄울지, 그 반에 공개할지 ──
+   강의 편집 안의 묶음이다(2026-11-02에 왼쪽 줄자에서 내려왔다. lessonEditor가 부른다).
    반마다 칸 둘이다. **체크는 연결, 눈 단추는 공개**다. 둘은 다른 일이다:
      연결만 하고 공개를 안 하면 강의실에 들어와 있지만 학생 화면에는 안 뜬다(수업 전까지 숨겨 두는 자리)
      공개는 연결이 있어야 걸 수 있다(연결 안 된 반은 눈 단추가 꺼져 있다)
-   공개 스위치는 강의실 관리 상세에도 있다. 거기는 반 하나 기준이고 여기는 강의 하나 기준이라
-   축이 다르다(선생님 지시 2026-11-02: 관제탑에 공개까지 넣는다).
+   공개 스위치는 강의실 관리 상세에도 있고 진도 관리의 [수업일자가 된 강의 공개]도 같은 값을 켠다.
+   거기는 반 하나 기준이고 여기는 강의 하나 기준이라 축이 다르다(선생님 지시 2026-11-02).
    줄을 label로 감싸지 않는다: 체크를 풀면 그 반의 성적과 제출물이 같이 없어지므로
    체크박스를 눌러야만 바뀌고 해제는 확인 창을 거친다(화면 규칙 2026-10-29).
    과목은 머리줄에서 이미 고른 것을 쓰므로 줄 글자에 과목명을 붙이지 않는다. */
@@ -2132,7 +2111,7 @@ async function createLessonFromWorksheet(){
      바로 뜬다. 필요 없는 반은 강의실 연결 콘텐츠 탭에서 체크를 풀면 된다. */
   const courses = M.getCourses(state.year);
   courses.forEach(c => M.placeLesson(c.id, l.id));
-  state.lessonId = l.id; state.lessonTab = 'edit'; render();
+  state.lessonId = l.id; render();
   toast(`"${title}" 강의 생성 (${done.join(', ')})${courses.length ? ` · 강의실 ${courses.length}곳 연결` : ''}`);
 }
 
@@ -3107,7 +3086,7 @@ document.getElementById('shell').addEventListener('click', e => {
     // 강의 만들기: 서브 탭 줄 오른쪽 끝 단추를 누르면 창에서 길 둘(활동지 올리기 / 빈 강의)을 고른다.
     // 전에 목록 위에 있던 폼 둘(lesson-add, lesson-from-worksheet)은 그 창으로 옮겼다(2026-11-02)
     case 'lesson-make-open': openLessonMakeModal(); break;
-    case 'lesson-open': state.lessonId = id; state.lessonTab = 'edit'; render(); break;
+    case 'lesson-open': state.lessonId = id; render(); break;
     case 'lesson-close': state.lessonId = null; render(); break;
     /* 강의 삭제. 강의실 삭제와 달리 내용 자체가 없어지므로
        제목을 그대로 치게 한다. 지운 뒤에는 그 강의를 가리키던 화면 상태를 다 풀어야 한다:
@@ -3141,7 +3120,6 @@ document.getElementById('shell').addEventListener('click', e => {
       });
       break;
     }
-    case 'lesson-tab': state.lessonTab = v; render(); break;
     case 'part-toggle': M.setLessonPart(state.lessonId, k, !(M.getLesson(state.lessonId).order||[]).includes(k)); render(); break;
     case 'part-off': M.setLessonPart(state.lessonId, k, false); render(); break;
     case 'part-up': M.moveLessonPart(state.lessonId, k, -1); render(); break;

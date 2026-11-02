@@ -518,6 +518,9 @@ textarea.f{padding:8px 10px}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 input[type=number]{-moz-appearance:textfield}
 .unit{font-size:var(--fs-meta);color:var(--sub)}
+/* 봐야 할 상태를 알리는 보조 글씨(강의 편집의 "어느 반에도 연결되지 않았습니다").
+   빈 칸의 X와 같은 쓰임, 같은 색이다 */
+.unit.warn{color:var(--accent);font-weight:600}
 .btn-text{border:1px solid var(--accent);color:#fff;background:var(--accent);border-radius:var(--r-btn);
   padding:9px 14px;font-size:var(--fs-body);cursor:pointer;font-weight:600;font-family:inherit}
 .btn-text:hover{background:var(--red-dark);border-color:var(--red-dark)}
@@ -543,6 +546,9 @@ input[type=number]{-moz-appearance:textfield}
 .lfoot{display:flex;align-items:center;gap:12px;min-height:var(--h-row);padding:0 13px;
   border-top:1px solid var(--line)}
 .lfoot .tools{margin-left:auto}
+/* 바로 위가 목록 줄이면 그 줄의 밑선이 이미 가르고 있다. 윗선을 또 두면 겹줄이 된다
+   (선생님 지시 2026-11-02: 구분선은 하나씩만) */
+.row + .lfoot,.partrow + .lfoot{border-top:0}
 .lfoot .btn-chip svg{flex:0 0 auto}
 @media (max-width:620px){
   .lfoot{flex-wrap:wrap;padding-block:8px}
@@ -773,8 +779,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .axpane-body::-webkit-scrollbar{display:none}
 .axpane-body .ce-add{margin-top:12px}
 .axpane-body > .row:first-child{border-top:0}
-/* 강의 편집의 첫 줄(강의 번호)도 머리줄 밑선과 겹치지 않게 윗선을 뺀다(선생님 지시: 구분선은 하나씩만) */
-.axpane-body .pb-form > .row:first-child{border-top:0}
+
 
 /* 문항 하나를 묶은 칸(전시학습확인, 동기 유발). 머리에 번호와 도구, 아래에 이름표 붙은 칸들.
    한 묶음이 카드 하나라는 규칙(2026-10-28)에 맞춰 묶음 사이는 얇은 선으로만 나눈다 */
