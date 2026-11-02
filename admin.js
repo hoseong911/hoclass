@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261102b';
+import * as M from './model.js?v=20261102c';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -535,37 +535,27 @@ function pageProgress(){
      성적 설정 : 과목별로 성적에 반영할 강의 목록 + 포트폴리오 점수 급간 표 + 피드백 템플릿
      성적 조회 : 반별로 학생의 영역 점수, 달성률, 총점. 두 단이고 학생을 누르면 오른쪽에 강의별 내역
    계산은 model.js의 studentGrade 한 곳에서 한다(머리 주석 참고). */
+/* 머리줄은 다른 메뉴와 똑같다(선생님 지시 2026-11-02: "입력 설정 조회 저런식으로 구분탭하지말고
+   다른 메뉴랑 통일해줘"). 제목 + 학년도 + 과목 드롭다운, 그 아래 서브 탭 줄(catline).
+   전에는 서브 메뉴 셋이 반 줄 오른쪽 끝의 작은 토글(.seg.seg-inline)이었다. 성적만 그랬다.
+   이제 강의 라이브러리, 오늘의 질문, 형성평가와 같은 모양이고 그 아래 반 줄이 따로 선다. */
 function pageScores(){
   const years = M.getYears();
-  const yearSel = `<select class="sel" id="year-sel" data-act="year-pick" aria-label="학년도">
-    ${years.map(y => `<option value="${y.year}" ${y.year===state.year?'selected':''}>${y.year}학년도</option>`).join('')}
-  </select>`;
-  // 세 줄이던 고르개를 한 줄로 모았다(선생님 지시 2026-10-29).
-  // 과목은 머리줄의 학년도 옆 드롭다운, 반은 카테고리 줄, 입력/설정/조회는 그 줄 오른쪽 끝 토글.
-  const subSeg = `<span class="line-end"><span class="seg seg-inline">
-    ${M.ADMIN_SUBMENUS.scores.map(t => `<button class="seg-b ${state.scTab===t.v?'on':''}" data-act="sc-tab" data-v="${t.v}">${esc(t.label)}</button>`).join('')}
-  </span></span>`;
-  if (!years.length) return `<div class="pagehead"><h2>${esc(M.menuName('scores'))}</h2></div><div class="empty">학년도가 없습니다.</div>`;
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('scores'))}</h2>${yearSelHtml()}${subjectSel()}</div>`
+    + catline(M.ADMIN_SUBMENUS.scores, state.scTab, 'sc-tab');
+  if (!years.length) return head + `<div class="empty">학년도가 없습니다.</div>`;
 
   const all = M.getCourses(state.year);
-  if (!all.length) return `<div class="pagehead"><h2>${esc(M.menuName('scores'))}</h2>${yearSel}</div><div class="empty">강의실이 없습니다.</div>`;
+  if (!all.length) return head + `<div class="empty">강의실이 없습니다.</div>`;
 
-  // 과목은 세 화면 공통이다(선생님 지시 2026-10-28: 성적 설정도 과목별로 뜨게).
-  const subjects = [...new Set(all.map(c => c.subject))].sort((a,b) => a.localeCompare(b,'ko'));
-  if (!subjects.includes(state.subject)) state.subject = subjects[0];
-  const subjectSel = `<select class="sel" data-act="subject-pick" aria-label="과목">
-    ${subjects.map(s => `<option value="${esc(s)}" ${s===state.subject?'selected':''}>${esc(s)}</option>`).join('')}
-  </select>`;
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('scores'))}</h2>${yearSel}${subjectSel}</div>`;
-
-  const rooms = all.filter(c => c.subject === state.subject)
+  const rooms = all.filter(c => c.subject === curSubject())
     .slice().sort((a,b) => a.grade - b.grade || a.classNo - b.classNo);
 
-  // 성적 설정은 반을 고르지 않는다: 반영 강의와 급간 표는 과목 단위다. 줄에는 토글만 남는다.
-  if (state.scTab === 'setting') return head + catline([], null, 'sc-room', '', subSeg) + scoreSettingPanel(rooms);
+  // 성적 설정은 반을 고르지 않는다: 반영 강의와 급간 표는 과목 단위다. 그래서 반 줄이 없다.
+  if (state.scTab === 'setting') return head + scoreSettingPanel(rooms);
 
   if (!rooms.some(c => c.id === state.scCourseId)) state.scCourseId = rooms[0]?.id || null;
-  const roomTabs = catline(rooms.map(c => ({ v:c.id, label:M.roomNo(c) })), state.scCourseId, 'sc-room', '', subSeg);
+  const roomTabs = catline(rooms.map(c => ({ v:c.id, label:M.roomNo(c) })), state.scCourseId, 'sc-room');
 
   const c = M.getCourse(state.scCourseId);
   if (!c) return `${head}${roomTabs}<div class="empty">강의실이 없습니다.</div>`;
@@ -597,19 +587,16 @@ function scoreInputPanel(c){
     return `<span class="gchip"><b>${esc(a.name)}</b>${st ? `${st.done} / ${st.all}` : '미실시'}</span>`;
   }).join('');
 
-  const dateNote = cl.date
-    ? `<span class="unit">수업일자 ${esc(cl.date)}</span>`
-    : `<span class="unit">수업일자가 없어 기한을 따지지 않습니다</span>`;
-
   const pubBtn = `<button class="btn-chip ${cl.gradePublished?'on':''}" data-act="sc-publish" data-id="${cl.id}">
     ${icon(cl.gradePublished ? 'eye' : 'eye-off', 13)}${cl.gradePublished ? '반영 중' : '반영하기'}</button>`;
   const autoBtn = `<button class="btn-chip" data-act="sc-auto" data-id="${cl.id}">${icon('download',13)}자동 끌어오기</button>`;
-  const inGrade = M.isGradeLesson(cl.lessonId);
 
-  // 한 줄로 모았다(선생님 지시 2026-10-28). 반영 강의가 아닐 때만 오류 줄이 한 줄 더 선다.
+  /* 한 줄이다(선생님 지시 2026-10-28). 전에 같이 있던 글 두 줄은 걷었다(선생님 지시 2026-11-02:
+     "이런 문구 필요 없을듯 수업일자 관련 문구도 필요 없고").
+       수업일자 안내  진도 관리와 강의실 관리에서 보고 고치는 값이다. 여기서 또 알릴 일이 아니다
+       반영 강의 안내 성적 설정의 반영 강의 목록은 그 화면에서 보면 된다 */
   const bar = `<div class="gradebar">
-    <div class="gradebar-line">${lessonSel}${dateNote}<div class="grow"></div>${autoBtn}${pubBtn}</div>
-    ${inGrade ? '' : `<div class="m-err">이 강의는 성적 설정의 반영 강의 목록에 없어 최종 성적에 들어가지 않습니다.</div>`}
+    <div class="gradebar-line">${lessonSel}<div class="grow"></div>${autoBtn}${pubBtn}</div>
   </div>`;
 
   if (!students.length) return bar + `<div class="empty">학생이 없습니다.</div>`;
@@ -691,14 +678,19 @@ function scoreInputPanel(c){
 function scoreSettingPanel(rooms){
   const { lessons } = placedLessons(rooms);
   const picked = new Set(M.getGradeLessons());
+  /* 줄을 label로 감싸지 않는다(2026-11-02). 체크를 풀면 그 강의가 최종 성적에서 빠지는데
+     줄만 눌러도 바뀌면 모르고 빼게 된다(화면 규칙 2026-10-29. 강의실 등록과 같은 자리다).
+     칸이 하나도 없는 강의는 보조 글씨를 안 적는다: "성적에 드는 칸이 없습니다" 같은 설명문을
+     줄마다 붙이지 않는다(작은 글씨 설명 금지). 빈 자리 자체가 그 말을 한다. */
   const list = lessons.length ? numberedNewest(lessons).map(({ x:l, no }) => {
     const on = picked.has(l.id);
     const parts = M.GRADE_AREAS.filter(a => M.partWeight(l.id, a.key)).map(a => a.name).join(', ');
-    return `<label class="row compact selrow ${on?'on':''}">
-      <input type="checkbox" data-act="sc-pick-lesson" data-lid="${l.id}" ${on?'checked':''}>
+    return `<div class="row compact selrow ${on?'on':''}">
+      <input type="checkbox" data-act="sc-pick-lesson" data-lid="${l.id}" ${on?'checked':''}
+        aria-label="${esc(lnumPlain(l, no))} 성적 반영">
       <span class="grow"><span class="t">${lessonNo(l, no)} ${esc(l.title)}</span>
-        ${parts ? `<span class="s">${esc(parts)}</span>` : `<span class="s">성적에 드는 칸이 없습니다.</span>`}</span></label>`;
-  }).join('') : `<div class="empty">깔린 강의가 없습니다.</div>`;
+        ${parts ? `<span class="s">${esc(parts)}</span>` : ''}</span></div>`;
+  }).join('') : `<div class="empty">연결된 강의가 없습니다.</div>`;
 
   const bands = M.getBands();
   const rows = bands.map((b, i) => {
@@ -712,18 +704,24 @@ function scoreSettingPanel(rooms){
   const full = M.GRADE_AREAS.reduce((n, a) => n + (+top[a.key] || 0), 0);
 
   // 피드백 템플릿: 한 줄에 하나. 성적 입력의 피드백 칸 옆 고르개가 이 목록을 쓴다.
-  const tmpl = `<div class="sectionlabel between">피드백 템플릿
-      <button class="btn-link" data-act="sc-fb-save">저장</button></div>
+  const tmpl = `<div class="sectionlabel">피드백 템플릿</div>
     <textarea class="f fbtmpl" id="sc-fb-tmpl" rows="6" aria-label="피드백 템플릿">${esc(M.getFeedbackTemplates().join('\n'))}</textarea>`;
 
+  /* 저장 단추는 **하나**다(2026-11-02). 전에는 급간 표와 피드백 템플릿에 하나씩 둘이었는데,
+     둘이 같은 문서(settings/grade) 하나를 쓰기 때문에 한쪽만 누르면 **다른 쪽에 적던 글이
+     날아갔다**(저장한 뒤 다시 그리면서 옛 값으로 돌아온다). 이제 한 단추가 둘을 같이 저장한다.
+     반영할 강의 체크는 누르는 즉시 저장되므로 이 단추와 상관없다. */
+  const save = `<div class="lfoot"><div class="tools">
+      <button class="btn-chip" data-act="sc-setting-save">${icon('check',13)}저장</button>
+    </div></div>`;
+
   return `<div class="sectionlabel">성적에 반영할 강의</div>${list}
-    <div class="sectionlabel between">포트폴리오 점수 급간
-      <button class="btn-link" data-act="sc-config-save">저장</button></div>
+    <div class="sectionlabel">포트폴리오 점수 급간</div>
     <div class="prog-wrap"><table class="prog bandtable">
       <thead><tr><th class="lname">달성률</th>${M.GRADE_AREAS.map(a => `<th class="num">${esc(a.name)}</th>`).join('')}</tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td class="lname">만점</td><td class="num" colspan="${M.GRADE_AREAS.length}">${full}점</td></tr></tfoot>
-    </table></div>` + tmpl;
+    </table></div>` + tmpl + save;
 }
 
 /* 성적 조회: 반별로 학생의 영역 점수와 총점. 학생을 누르면 강의별 내역이 뜬다.
@@ -760,7 +758,9 @@ function scoreViewPanel(c){
       <div class="detail">${scoreLines(g)}</div></td></tr>` : row;
   }).join('');
 
-  const label = `<div class="sectionlabel">${esc(M.roomName(c))} 포트폴리오 성적</div>`;
+  // 반 이름을 다시 적지 않는다(2026-11-02): 바로 위 반 줄에서 고른 것이고, 과목명을 뺀 뒤로는
+  // "301 포트폴리오 성적"이 머리줄의 '성적'과 서브 탭 '조회'를 되풀이하는 군더더기다
+  const label = '';
   const table = `<div class="prog-wrap"><table class="prog scoretable">
       <thead><tr><th class="lname">학생</th>${th}<th class="num">총점</th></tr></thead>
       <tbody>${body}</tbody></table></div>`;
@@ -1344,9 +1344,10 @@ function partRow(l, k, slides, opts = {}){
     <div class="grow"><div class="t">${esc(d.name)}${d.portfolio ? '' : ' <span class="unit">성적 무관</span>'}</div></div>
     <span class="pstate ${st.empty ? 'empty' : ''}">${esc(st.text)}</span>
     <div class="tools">
-      <button class="btn-chip ${st.empty ? 'on' : ''}" data-act="part-go" data-k="${k}" data-id="${l.id}"
+      <button class="ib ib-sm ${st.empty ? 'ib-primary' : ''}" data-act="part-go" data-k="${k}" data-id="${l.id}"
         ${gated ? 'disabled' : ''}
-        title="${gated ? '형성평가는 강의실에 연결한 뒤에 만들 수 있습니다.' : esc(partGoWhere(k))}">고치기</button>
+        title="${gated ? '형성평가는 강의실에 연결한 뒤에 만들 수 있습니다.' : esc(partGoWhere(k))}"
+        aria-label="수정">${icon('pencil',15)}</button>
       <button class="ib ib-sm" data-act="part-up" data-k="${k}" ${opts.i === 0 ? 'disabled' : ''} title="위로" aria-label="위로">${icon('arrow-up',15)}</button>
       <button class="ib ib-sm" data-act="part-down" data-k="${k}" ${opts.i === opts.last ? 'disabled' : ''} title="아래로" aria-label="아래로">${icon('arrow-down',15)}</button>
       <button class="ib ib-sm" data-act="part-off" data-k="${k}" title="이 칸을 빼기" aria-label="빼기">${icon('x',15)}</button>
@@ -1368,17 +1369,15 @@ function partGoWhere(k){ return PART_GO[k] || '고치는 자리로 갑니다'; }
 function partState(l, k, slides){
   if (k === 'formative'){
     const n = (l.parts?.formative?.items || []).length;
-    return n ? { text:`문항 ${n}개`, empty:false } : { text:'아직 비어 있음', empty:true };
+    return n ? { text:`${n}문항`, empty:false } : { text:'비어 있음', empty:true };
   }
   if (k === 'question'){
+    // 질문은 하나뿐이라 셀 것이 없다. 채웠으면 아무 말도 안 적는다(빈 것만 알리면 된다)
     const q = String(l.parts?.question?.question || '').trim();
-    return q ? { text:'질문 적힘', empty:false } : { text:'아직 비어 있음', empty:true };
+    return q ? { text:'', empty:false } : { text:'비어 있음', empty:true };
   }
   const n = slides.filter(s => s.step === k).length;
-  if (!n) return { text:'아직 비어 있음', empty:true };
-  // 미션 활동은 학생이 누를 미니앱이 걸려 있는지도 같이 알려 준다(걸려 있어야 제출이 들어온다)
-  const app = k === 'mission' && M.getMissionApps().some(a => a.lessonId === l.id);
-  return { text:`슬라이드 ${n}쪽${app ? ', 앱 연결됨' : ''}`, empty:false };
+  return n ? { text:`${n}쪽`, empty:false } : { text:'비어 있음', empty:true };
 }
 
 /* 머리줄 드롭다운으로 고른 과목의 강의실, 학년과 반 순서. 강의 편집과 강의실 콘텐츠가 같이 쓴다 */
@@ -2279,8 +2278,12 @@ function pageNotice(){
   const tabs = '';
 
   const list = M.getNotices(state.year, state.subject);
+  /* 글은 **눌러야** 아래 수정 칸이 뜬다(선생님 지시 2026-11-02: "글목록에서 글을 눌러야 수정화면에
+     뜨게 해줘"). 전에는 고른 것이 없으면 맨 위 글을 저절로 골라서, 메뉴에 들어오기만 해도 수정 칸이
+     펼쳐져 있었다. 두 칸 화면(.split)의 "오른쪽 칸이 늘 하나 떠 있다" 규칙과 다른 자리다:
+     여기는 위아래로 쌓인 한 단이라 아무것도 안 고른 상태가 어색하지 않다. */
   const isNew = state.noticeSel === 'new';
-  if (!isNew && !list.some(n => n.id === state.noticeSel)) state.noticeSel = list[0]?.id ?? null;
+  if (!isNew && !list.some(n => n.id === state.noticeSel)) state.noticeSel = null;
 
   /* 상단: 글 목록(최근 5개, 더 있으면 더보기).
      '목록' 아래에 표 제목줄을 하나 둔다(선생님 지시 2026-11-02: "목록 아래에 제목줄 하나 생성해줘.
@@ -2437,11 +2440,14 @@ function questionManage(lessons){
   const items = numberedNewest(lessons);   // 최신 강의가 맨 위(요구사항 112)
   if (!lessons.some(l => l.id === state.questionSel)) state.questionSel = WIDE.matches ? items[0].x.id : null;
 
+  /* 왼쪽 목록은 **차수만** 적는다(선생님 지시 2026-11-02: "강의 목록 차수만 적어줘. 강의 주제
+     길이에 따라 이상하게 표시될듯"). 제목은 오른쪽 칸 머리줄에 서니 두 번 적을 일이 아니고,
+     제목 길이에 따라 줄이 접히거나 잘려 목록이 들쭉날쭉했다. 그래서 목록 단도 좁혔다(admin.css) */
   const row = ({ x:l, no }) => {
     const on = !!l.parts?.question;
     // 켜고 끄기는 강의실 관리의 공개 단추와 같은 눈 모양(선생님 지시 2026-10-29). 켜져 있으면 레드.
     return `<div class="row compact ${l.id===state.questionSel?'on':''}">
-      <div class="grow rowlink" data-act="q-sel" data-id="${l.id}"><div class="t">${lessonNo(l, no)} ${esc(l.title)}</div></div>
+      <div class="grow rowlink" data-act="q-sel" data-id="${l.id}"><div class="t">${lnumPlain(l, no)}</div></div>
       <div class="tools"><button class="ib ib-sm ${on?'ib-primary':''}" aria-pressed="${on}" data-act="q-enable" data-id="${l.id}"
         title="${on?'공개 중 (누르면 숨김)':'숨김 (누르면 공개)'}" aria-label="오늘의 질문 공개 전환">${icon('eye',14)}</button></div></div>`;
   };
@@ -2501,7 +2507,7 @@ function questionAnswers(rooms, placed, lessons){
     <select class="sel sel-lesson" data-act="q-lesson" aria-label="강의">
       ${qLessons.map(x => `<option value="${x.l.id}" ${x.l.id===lesson.id?'selected':''}>${lessonNo(x.l, x.no)} ${esc(x.l.title)}</option>`).join('')}
     </select>
-    ${catline(withCl.map(x => ({ v:x.c.id, label:`${x.c.classNo}반` })), state.questionRoom, 'q-room', '전체',
+    ${catline(withCl.map(x => ({ v:x.c.id, label:M.roomNo(x.c) })), state.questionRoom, 'q-room', '전체',
       openBtn ? `<span class="line-end">${openBtn}</span>` : '')}</div>`;
 
   const q = lesson.parts.question;
@@ -2670,11 +2676,12 @@ function formativeManage(lessons){
   if (!lessons.some(l => l.id === state.formativeLessonId))
     state.formativeLessonId = WIDE.matches ? items[0].x.id : null;
 
+  // 왼쪽 목록은 차수만(선생님 지시 2026-11-02). 질문 관리와 같은 까닭이다. 제목은 오른쪽 머리줄에
   const row = ({ x:l, no }) => {
     const on = !!l.parts?.formative;
     const n = on ? (l.parts.formative.items || []).length : 0;
     return `<div class="row compact ${l.id===state.formativeLessonId?'on':''}">
-      <div class="grow rowlink" data-act="fm-open" data-id="${l.id}"><div class="t">${lessonNo(l, no)} ${esc(l.title)}${
+      <div class="grow rowlink" data-act="fm-open" data-id="${l.id}"><div class="t">${lnumPlain(l, no)}${
         on && n ? `<span class="gsub">${n}문항</span>` : ''}</div></div>
       <div class="tools"><button class="ib ib-sm ${on?'ib-primary':''}" aria-pressed="${on}" data-act="fm-enable" data-id="${l.id}"
         title="${on?'형성평가 있음 (누르면 끕니다)':'없음 (누르면 켭니다)'}" aria-label="형성평가 켜고 끄기">${icon('eye',14)}</button></div></div>`;
@@ -2684,9 +2691,12 @@ function formativeManage(lessons){
   if (!WIDE.matches)
     return items.map(it => it.x.id === state.formativeLessonId
       ? row(it) + `<div class="detail">${formativeEditor(it.x)}</div>` : row(it)).join('');
+  // 오른쪽 칸 머리줄에 강의 이름을 세운다. 왼쪽 목록이 차수만 적으므로 어느 강의를 고치는 중인지
+  // 여기서 알린다(질문 관리의 .pane-head와 같은 모양). 전에는 이 칸에 강의 이름이 아예 없었다
   return `<div class="split split-formative">
       <div class="split-list">${items.map(row).join('')}</div>
-      <div class="pane"><div class="dscroll">${formativeEditor(sel)}</div></div></div>`;
+      <div class="pane"><div class="pane-head"><h3>${lnumTag(sel.num)}${esc(sel.title)}</h3></div>
+        <div class="dscroll">${formativeEditor(sel)}</div></div></div>`;
 }
 
 /* 문항 목록과 문제 만들기. 꺼진 강의는 켜라는 말만 띄운다(왼쪽 눈 단추로 켠다).
@@ -3374,16 +3384,12 @@ document.getElementById('shell').addEventListener('click', e => {
       toast(`${M.partDef(k)?.name || ''}을 ${on ? '활성화' : '비활성화'}했습니다.`);
       render(); break;
     }
-    // 피드백 템플릿 저장(한 줄에 하나). 급간 표와 같은 settings/grade 문서에 들어간다.
-    case 'sc-fb-save': {
+    /* 성적 설정의 저장 단추 하나(2026-11-02). 급간 표와 피드백 템플릿을 **같이** 저장한다.
+       전에는 단추가 둘이었는데(sc-config-save, sc-fb-save) 둘이 같은 문서(settings/grade)를 써서
+       한쪽만 누르면 다른 쪽에 적던 글이 날아갔다. 그래서 하나로 합쳤다.
+       반영 강의 목록은 체크하는 즉시 저장되므로(sc-pick-lesson) 여기서 안 건드린다. */
+    case 'sc-setting-save': {
       M.setFeedbackTemplates(document.getElementById('sc-fb-tmpl')?.value ?? '');
-      M.saveGradeConfig()
-        .then(() => { toast('저장했습니다.'); render(); })
-        .catch(() => toast('저장하지 못했습니다. 다시 시도해 주세요.'));
-      break;
-    }
-    // 급간 표와 반영 강의 목록을 한 번에 쓴다(일반 설정의 저장 버튼과 같은 방식).
-    case 'sc-config-save': {
       const bands = M.getBands().map((b, i) => {
         const out = { min:b.min };
         M.GRADE_AREAS.forEach(a => {
@@ -3607,12 +3613,20 @@ document.getElementById('shell').addEventListener('change', e => {
     const cl = M.findCourseLesson(courseId, lid); if (!cl) return;
     const d = M.clDeps(cl.id);
     const gone = [d.grades ? `성적 ${d.grades}건` : '', d.subs ? `제출물 ${d.subs}건` : ''].filter(Boolean);
+    /* 잃을 것이 있으면 **반 번호를 그대로 치게** 한다(화면 규칙: 되돌릴 수 없는 삭제는 이름 입력 확인).
+       강의 삭제가 제목을 치게 하는 것과 같은 게이트다. 잃을 것이 없으면 확인 한 번으로 끝낸다.
+       왜 이렇게까지 하나: 다시 연결해도 **안 돌아온다.** placeLesson이 연결 id를 새로 만들어
+       (nid('cl')) 옛 성적 문서의 id(연결id_학번)와 영영 안 맞는다(선생님 확인 2026-11-02). */
     confirmDelete({
       title: `${room} 연결 빼기`,
-      bodyHtml: `<b>${esc(room)}</b>에서 이 강의를 뺍니다. 강의 내용은 강의 라이브러리에 그대로 남습니다.`
+      bodyHtml: `<b>${esc(room)}</b>에서 이 강의를 뺍니다. 강의 내용(개념 노트, 미션, 질문, 문항)은`
+        + ` 강의 라이브러리에 그대로 남습니다.`
         + (gone.length
-            ? `<ul><li>이 반의 ${gone.join(', ')}이 같이 없어집니다</li></ul>`
-            : `<ul><li>이 반에는 아직 성적과 제출물이 없습니다</li></ul>`),
+            ? `<ul><li><b>이 반의 ${gone.join(', ')}이 지워집니다</b></li>`
+              + `<li>다시 연결해도 돌아오지 않습니다</li></ul>`
+              + `<br>빼려면 <b>${esc(room)}</b>을 그대로 적어 주세요.`
+            : `<ul><li>이 반에는 아직 성적과 제출물이 없어 잃을 것이 없습니다</li></ul>`),
+      needText: gone.length ? room : null,
       okText: '빼기',
     }).then(ok => {
       if (!ok) return;

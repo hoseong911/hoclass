@@ -143,6 +143,10 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 .split-room .pane .dcol:first-child{flex:1 1 0;min-width:360px}
 .split-room .pane .dcol:last-child{flex:0 1 460px}
 /* 학생 명단(왼쪽)은 학번+이름뿐이라 좁혀 상세를 넓힌다(선생님 지시 2026-11-01). */
+/* 오늘의 질문 질문 관리와 형성평가 문제 관리: 왼쪽 목록이 차수만 적으므로 좁다
+   (선생님 지시 2026-11-02). 줄에 눈 단추가 있어 강의실 관리(110px)보다는 넉넉히 둔다 */
+.split.split-question,.split.split-formative{grid-template-columns:160px minmax(0,1fr)}
+.split-question .split-list .t,.split-formative .split-list .t{display:flex;align-items:center;gap:5px}
 .split.split-stu{grid-template-columns:210px minmax(0,1fr)}
 /* 학생 관리 상세: 수강 과목은 강의실 이름 몇 줄뿐이라 좁게, 남는 폭은 과목별 성적이 받는다(선생님 지시 2026-10-29) */
 .split-stu .pane .dcol:first-child{flex:0 1 220px}
@@ -609,9 +613,9 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .seg-b:hover:not(.on):not(:disabled){color:var(--ink)}
 .seg-b.on{background:var(--accent-fade);color:var(--accent)}
 .seg-b:disabled{opacity:.4;cursor:default}
-/* 작은 인라인 세그먼트(과목별/반별 토글): 카테고리 줄 끝에. 글자 크기는 본문과 같게 두고 패딩만 줄인다 */
-.seg.seg-inline{margin:0;padding:2px;align-self:center;height:var(--h-ctl)}
-.seg.seg-inline .seg-b{flex:0 0 auto;padding:0 11px}
+/* .seg.seg-inline은 2026-11-02에 걷었다. 성적의 입력/설정/조회만 쓰던 작은 토글인데,
+   선생님 지시로 다른 메뉴와 같은 서브 탭 줄(catline)로 바뀌었다. 다시 만들지 말 것:
+   서브 메뉴는 어드민 전체가 catline 하나로 통일돼 있다. */
 
 .m-form{display:flex;flex-direction:column;gap:6px}
 .m-form .f{width:100%;margin:0}
@@ -646,7 +650,11 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .notice-social .sectionlabel .unit{display:inline-flex;align-items:center;gap:4px}
 .notice-social .sectionlabel .unit svg{vertical-align:-2px}
 .ncm-list{display:flex;flex-direction:column}
+/* 댓글 줄: 글은 왼쪽에서 늘어나고 단추는 맨 오른쪽에 붙는다(선생님 지시 2026-11-02).
+   .grow가 늘어나지 않아 단추가 글 바로 뒤에 붙어 있었다(.row .grow 규칙은 .row 안에서만 먹는다) */
 .ncm{display:flex;align-items:flex-start;gap:8px;padding:8px 2px;border-top:1px solid var(--line)}
+.ncm .grow{flex:1;min-width:0}
+.ncm .tools{margin-left:auto;flex:0 0 auto}
 .ncm:first-child{border-top:0}
 .ncm-who{font-size:var(--fs-meta);color:var(--sub);font-weight:600}
 .ncm-text{font-size:var(--fs-body);color:var(--ink);word-break:break-word;margin-top:2px}

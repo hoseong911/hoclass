@@ -12,7 +12,7 @@
 // 지금은 데모 데이터로 돈다(model.js). 로그인도 데모: 학번만 맞으면 입장.
 // 규칙: 인라인 onclick/window 노출 없이 data-act + 이벤트 위임. 상태는 state 하나.
 
-import * as M from './model.js?v=20261102b';
+import * as M from './model.js?v=20261102c';
 import { icon } from './shared/icons.js?v=20261102a';
 
 const YEAR = 2027;
@@ -255,7 +255,10 @@ function viewHome(){
 function noticeList(c){
   const all = M.getNotices(YEAR, c?.subject);
   const shown = state.noticeAll ? all : all.slice(0, NOTICE_MAX);
+  // 상단 고정한 글은 핀을 같이 보여 준다(선생님 지적 2026-11-02: 학생 화면에서 핀이 안 보인다).
+  // getNotices가 이미 고정 글을 맨 위로 올려 주는데, 왜 위에 있는지 알 길이 없었다.
   const rows = shown.map(n => `<div class="nrow" data-act="open-notice" data-id="${esc(n.id)}">
+      ${n.pinned ? `<span class="npin">${icon('pin',14)}</span>` : ''}
       <span class="t">${esc(n.title)}</span><span class="chev">${icon('chevron-right',16)}</span></div>`).join('')
     || `<div class="nempty">공지사항이 없습니다.</div>`;
   // 더보기 옆 괄호는 "아직 안 보인 글이 몇 개 더 있는지"다(선생님 지시 2026-10-30).

@@ -43,6 +43,8 @@ html:not(.lms-ready) #app{display:none}
 .nrow:hover{background:var(--accent-fade)}
 .nrow .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nrow .chev{color:var(--sub);flex:0 0 auto;display:grid}
+/* 상단 고정 핀(2026-11-02). 어드민 공지 목록과 같은 모양이다 */
+.nrow .npin{color:var(--accent);flex:0 0 auto;display:grid}
 .nempty{color:var(--sub);padding:12px 2px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .morebtn{display:block;width:100%;min-height:var(--h-ctl);margin-top:4px;border:0;background:none;
   color:var(--sub);font-size:var(--fs-body);font-family:inherit;cursor:pointer}
