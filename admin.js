@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261102e';
+import * as M from './model.js?v=20261102f';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -1387,6 +1387,8 @@ function subjectRooms(){
    반마다 칸 둘이다. **체크는 연결, 눈 단추는 공개**다. 둘은 다른 일이다:
      연결만 하고 공개를 안 하면 강의실에 들어와 있지만 학생 화면에는 안 뜬다(수업 전까지 숨겨 두는 자리)
      공개는 연결이 있어야 걸 수 있다(연결 안 된 반은 눈 단추가 꺼져 있다)
+   맨 윗줄은 **전체 연결**과 **전체 공개** 체크다(선생님 지시 2026-11-02). 아래 줄들과 자리를 맞춰
+   왼쪽 체크가 연결 칸, 오른쪽 체크가 공개 칸에 선다. 지금 전부 그 상태면 체크가 켜져 있다.
    공개 스위치는 강의실 관리 상세에도 있고 진도 관리의 [수업일자가 된 강의 공개]도 같은 값을 켠다.
    거기는 반 하나 기준이고 여기는 강의 하나 기준이라 축이 다르다(선생님 지시 2026-11-02).
    줄을 label로 감싸지 않는다: 체크를 풀면 그 반의 성적과 제출물이 같이 없어지므로
@@ -1395,10 +1397,23 @@ function subjectRooms(){
 function lessonPlacer(l){
   const rooms = subjectRooms();
   if (!rooms.length) return `<div class="empty">강의실이 없습니다. 강의실 관리에서 먼저 만드세요.</div>`;
-  return rooms.map(c => {
+  const links = rooms.map(c => M.findCourseLesson(c.id, l.id)).filter(Boolean);
+  const allLinked = links.length === rooms.length;
+  const allOpen = links.length > 0 && links.every(cl => cl.isOpen);
+  /* 공개 체크를 줄 맨 끝에 둬서 아래 줄들의 눈 단추와 세로로 맞춘다(그래서 이름표가 체크 앞에 온다) */
+  const allRow = `<div class="row compact selrow allrow">
+    <input type="checkbox" data-act="place-all" ${allLinked ? 'checked' : ''} aria-label="전체 연결"
+      title="그 과목 강의실 전부에 연결합니다">
+    <div class="grow"><div class="t">전체 연결</div></div>
+    <div class="t">전체 공개</div>
+    <span class="allbox"><input type="checkbox" data-act="open-all" ${allOpen ? 'checked' : ''}
+      ${links.length ? '' : 'disabled'} aria-label="전체 공개"
+      title="${links.length ? '연결한 반을 한꺼번에 공개하거나 숨깁니다' : '먼저 연결해야 공개할 수 있습니다.'}"></span>
+  </div>`;
+  return allRow + rooms.map(c => {
     const cl = M.findCourseLesson(c.id, l.id);
     const open = !!cl?.isOpen;
-    return `<div class="row compact">
+    return `<div class="row compact selrow">
       <input type="checkbox" data-act="place-toggle" data-id="${c.id}" ${cl ? 'checked' : ''}
         aria-label="${esc(M.roomNo(c))} 연결">
       <div class="grow"><div class="t">${esc(M.roomNo(c))}</div></div>
@@ -3612,6 +3627,49 @@ document.getElementById('shell').addEventListener('change', e => {
     if (el.dataset.f === 'kind' || el.dataset.f === 'type') render();
   } else if (el.dataset.act === 'q-score'){   // 답변 점수 저장
     M.setSubScore(el.dataset.id, el.value);
+  } else if (el.dataset.act === 'open-all'){
+    /* 전체 공개 체크(2026-11-02). 연결한 반을 한꺼번에 켜거나 끈다.
+       되돌릴 수 있는 일이라(공개 여부만 바뀐다) 확인 창을 두지 않는다. 반마다 누르는 눈 단추와 같다. */
+    const lid = state.lessonId, subject = curSubject();
+    if (!lid) return;
+    const on = el.checked;
+    const n = M.setLessonOpenInSubject(state.year, subject, lid, on);
+    toast(n ? `${n}반을 ${on ? '공개' : '숨김'}으로 바꿨습니다.` : '바뀐 것이 없습니다.');
+    render();
+  } else if (el.dataset.act === 'place-all'){
+    /* 전체 연결 체크(2026-11-02). 켜면 그 과목 강의실 전부에 연결한다(이미 연결된 반은 그대로).
+       **끄면 전부 빼는 것이라 반 하나 뺄 때보다 위험하다.** 그 과목의 모든 반에서 성적과 제출물이
+       같이 지워지고 다시 연결해도 안 돌아온다. 그래서 잃을 것이 있으면 '전체'를 그대로 치게 한다
+       (반 하나는 반 번호를 치게 하는 것과 같은 게이트). 확인 전까지 체크는 되돌려 둔다. */
+    const lid = state.lessonId, subject = curSubject();
+    if (!lid) return;
+    if (el.checked){
+      const n = M.placeLessonInSubject(state.year, subject, lid);
+      toast(n ? `${n}반에 연결했습니다.` : '이미 모든 반에 연결돼 있습니다.');
+      render(); return;
+    }
+    el.checked = true;
+    const links = subjectRooms().map(c => M.findCourseLesson(c.id, lid)).filter(Boolean);
+    if (!links.length){ render(); return; }
+    const sum = links.reduce((t, cl) => { const d = M.clDeps(cl.id);
+      return { grades:t.grades + d.grades, subs:t.subs + d.subs }; }, { grades:0, subs:0 });
+    const gone = [sum.grades ? `성적 ${sum.grades}건` : '', sum.subs ? `제출물 ${sum.subs}건` : ''].filter(Boolean);
+    confirmDelete({
+      title: '전체 연결 빼기',
+      bodyHtml: `${esc(subject || '')} 강의실 <b>${links.length}개 전부</b>에서 이 강의를 뺍니다.`
+        + ` 강의 내용은 강의 라이브러리에 그대로 남습니다.`
+        + (gone.length
+            ? `<ul><li><b>${gone.join(', ')}이 지워집니다</b></li>`
+              + `<li>다시 연결해도 돌아오지 않습니다</li></ul>`
+              + `<br>빼려면 <b>전체</b>라고 그대로 적어 주세요.`
+            : `<ul><li>아직 성적과 제출물이 없어 잃을 것이 없습니다</li></ul>`),
+      needText: gone.length ? '전체' : null,
+      okText: '빼기',
+    }).then(ok => {
+      if (!ok) return;
+      const n = M.removeLessonFromSubject(state.year, subject, lid);
+      toast(`${n}반에서 뺐습니다.`); render();
+    });
   } else if (el.dataset.act === 'place-toggle'){
     /* 강의실 연결 체크(강의 편집의 강의실 콘텐츠). 체크하면 바로 연결한다.
        **해제는 확인 창을 거친다.** 학생 수강 해제와 달리 여기는 되돌릴 수 없다:

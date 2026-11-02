@@ -764,6 +764,26 @@ export function addLessonToSubject(year, subject, title, num){
   rooms.forEach(c => placeLesson(c.id, lesson.id));
   return { lesson, rooms: rooms.length };
 }
+/* ── 한 강의를 그 과목 강의실 전부에 한꺼번에 (강의 편집의 전체 연결, 전체 공개. 2026-11-02) ──
+   셋 다 **한 과목 안에서만** 돈다(머리줄 드롭다운으로 고른 그 과목). 다른 과목 강의실은 안 건드린다. */
+// 아직 연결 안 된 반에만 연결한다(이미 연결된 반은 그대로. order와 공개 여부를 지키려고).
+export function placeLessonInSubject(year, subject, lessonId){
+  const rooms = DEMO.courses.filter(c => c.year === +year && c.subject === subject);
+  let n = 0;
+  rooms.forEach(c => {
+    if (!findCourseLesson(c.id, lessonId)){ placeLesson(c.id, lessonId); n++; }
+  });
+  return n;
+}
+// 연결된 반의 공개를 한꺼번에 켜거나 끈다. 연결 안 된 반은 켤 수가 없으니 건너뛴다.
+export function setLessonOpenInSubject(year, subject, lessonId, on){
+  const ids = new Set(DEMO.courses
+    .filter(c => c.year === +year && c.subject === subject).map(c => c.id));
+  const targets = DEMO.courseLessons.filter(cl => cl.lessonId === lessonId && ids.has(cl.courseId)
+    && cl.isOpen !== !!on);
+  targets.forEach(cl => { cl.isOpen = !!on; put(COLLECTIONS.courseLessons, cl); });
+  return targets.length;
+}
 // 진도표 한 줄(= 한 강의)을 그 과목 강의실 전부에서 뺀다.
 export function removeLessonFromSubject(year, subject, lessonId){
   const ids = new Set(DEMO.courses
