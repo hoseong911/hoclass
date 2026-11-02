@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261102a';
+import * as M from './model.js?v=20261102b';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -1262,72 +1262,158 @@ function partBadges(l){
   return ks.map(k => `<span class="lbadge" style="--lb:var(--${k})">${esc(M.partDef(k).name)}</span>`).join('');
 }
 
-/* ── 강의 편집 ──
-   이 강의가 '무엇으로 되어 있는지'를 정하는 자리다(선생님 질문 2026-11-02: "애초에 강의 편집의
-   의의가 뭘까?"). 안에 적는 글(슬라이드 쪽, 개념 노트 묶음, 질문 글)은 콘텐츠 탭이 맡고
-   여기서는 겉을 정한다.
-     번호와 제목   학생에게 보이는 이름. 제목은 전에 진도표에서만 고칠 수 있었다(여기엔 번호만 있었다)
-     칸 넣고 빼기  개념 노트/미션 활동/오늘의 질문/형성평가 중 무엇을 둘지와 그 차례
-   칸 줄의 보조 글씨는 '칸 제목'이 아니라 '내용이 들었는가'다. 전에는 칸을 만들 때 칸 종류 이름을
-   그대로 제목으로 넣어 둬서 "개념 노트 / 개념 노트"로 겹쳐 보였다(선생님 지적 2026-11-02).
-   제목 칸 자체는 쓰는 자리가 없어 없앴다(model.js의 setLessonPart). */
+/* ── 강의 편집 = 이 강의의 관제탑 (선생님 결정 2026-11-02, 길 A) ──────────────
+   "애초에 강의 편집의 의의가 뭘까?"를 재어 보고 정한 자리다. 강의 하나가 가진 값을 어느 화면에서
+   고치는지 전부 세어 봤더니, 이 화면만 할 수 있는 일이 둘뿐이었다(강 번호, 칸 순서). 속성 적는
+   폼으로 두면 들어올 이유가 없다. 그래서 **지금 상태를 보여 주고 고칠 자리로 데려가는 자리**로 둔다.
+     번호와 제목   학생에게 보이는 이름
+     칸 넷의 상태  있나 없나, 내용이 들었나, 몇 쪽인가. 줄마다 [고치기]가 그 칸의 편집 자리로 간다
+     아래 띠       슬라이드 총 쪽수, 몇 반에 연결됐고 몇 반에 공개됐나, 미리보기
+   선생님이 일하는 순서가 "활동지 올림, 칸이 자동으로 붙음, 어디가 비었는지 보고 채움"이라
+   그 "어디가 비었나"를 한 화면에서 보는 것이 이 자리의 쓸모다. 전에는 슬라이드 탭, 오늘의 질문,
+   형성평가를 하나씩 열어 봐야 알 수 있었다.
+   칸 넣고 빼기의 **정본은 여기**다. 다른 메뉴(오늘의 질문, 형성평가, 성적 입력)의 눈 단추는
+   그 자리에서 켜는 것이 자연스러워 그대로 둔다. 넷이 같은 함수 하나(setPartEnabled)를 부르므로
+   어디서 눌러도 결과는 같다(선생님 확인 2026-11-02). */
 function lessonEditor(l){
   const order = l.order || [];
-  const deck = order.length ? order.map((k,i) => {
-    const d = M.partDef(k);
-    return `<div class="partrow">
-      <span class="dot" style="background:var(--${k})"></span>
-      <div class="grow"><div class="t">${esc(d.name)}</div>
-        <div class="s">${esc(partState(l, k))}${d.portfolio?'':' (성적 무관)'}</div></div>
-      <div class="tools">
-        <button class="ib" data-act="part-up" data-k="${k}" ${i===0?'disabled':''} title="위로" aria-label="위로">${icon('arrow-up',16)}</button>
-        <button class="ib" data-act="part-down" data-k="${k}" ${i===order.length-1?'disabled':''} title="아래로" aria-label="아래로">${icon('arrow-down',16)}</button>
-        <button class="ib" data-act="part-off" data-k="${k}" title="빼기" aria-label="빼기">${icon('x',16)}</button>
-      </div></div>`;
-  }).join('') : `<div class="placeholder">칸이 없습니다. 오른쪽에서 추가해 주세요.</div>`;
+  const slides = buildSlides(l, l.num);          // 쪽 수를 세려고 실제 덱을 만든다
+  const rooms = subjectRooms();
+  const links = rooms.map(c => M.findCourseLesson(c.id, l.id)).filter(Boolean);
+  const linked = links.length;                   // 형성평가로 건너가려면 연결이 하나는 있어야 한다
+  const opened = links.filter(cl => cl.isOpen).length;
 
-  const palette = M.PART_TYPES.map(p => {
-    const has = order.includes(p.key);
-    return `<div class="pchip ${has?'has':''}" data-act="part-toggle" data-k="${p.key}">
-      <span class="dot" style="background:var(--${p.key})"></span>
-      <span class="grow">${esc(p.name)}</span>${has ? icon('check',15) : icon('plus',15)}</div>`;
-  }).join('');
+  // 있는 칸이 먼저(순서대로), 없는 칸은 그 아래 흐린 줄로. 없는 칸도 보여 주는 까닭:
+  // "형성평가가 없다"는 것도 알아야 할 상태이고, 넣는 단추가 그 자리에 있으면 팔레트가 필요 없다
+  const absent = M.PART_TYPES.map(p => p.key).filter(k => !order.includes(k));
+  const partsHtml = order.map((k, i) => partRow(l, k, slides, { i, last:order.length - 1, linked })).join('')
+    + absent.map(k => partRow(l, k, slides, { linked })).join('');
 
-  return `<div class="editor">
-    <div class="deck">
-      <div class="row"><div class="t gen-label">강의 번호</div>
-        <input class="f w-md" data-act="lesson-num" data-id="${l.id}" value="${esc(l.num || '')}"
-          placeholder="1, OT, 수행" aria-label="강의 번호"
-          title="숫자면 N강, OT, 수행 같은 말이면 [OT]로 표시됩니다"></div>
-      <div class="row"><div class="t gen-label">제목</div>
-        <input class="f grow" data-act="lesson-title" data-id="${l.id}" value="${esc(l.title || '')}"
-          placeholder="강의 제목" aria-label="강의 제목"></div>
-      <div class="sectionlabel">이 강의의 칸 (순서 자유)</div>${deck}</div>
-    <div class="palette"><div class="sectionlabel">칸 넣고 빼기</div>${palette}</div></div>`;
+  /* 아래 띠: 이 강의가 학생에게 어떻게 닿는지. 연결과 공개 칩을 누르면 강의실 콘텐츠 칸으로 넘어간다
+     (선생님 지시 2026-11-02: "강의 공개 기능까지 다 포함해"). 연결이 없으면 어느 학생도 못 본다 */
+  /* 레드(.on)는 '봐야 할 것'이라는 뜻이다. 칸 상태의 '아직 비어 있음'(.pstate.empty)과 같은 쓰임이다.
+     연결이 없거나 공개가 0이면 그 강의는 어느 학생에게도 안 보이므로 레드로 알린다.
+     공개가 하나라도 있으면 할 일이 없으니 회색으로 가만히 둔다. */
+  const reach = !linked
+    ? `<button class="btn-chip on" data-act="lesson-tab" data-v="place"
+         title="어느 반에도 연결되지 않아 학생 화면에 뜨지 않습니다">${icon('eye',13)}연결 안 됨</button>`
+    : `<button class="btn-chip ${opened ? '' : 'on'}" data-act="lesson-tab" data-v="place"
+         title="${opened ? '강의실 콘텐츠에서 연결과 공개를 바꿉니다' : '공개한 반이 없어 학생 화면에 뜨지 않습니다'}">${icon('eye',13)}연결 ${linked}반, 공개 ${opened}반</button>`;
+
+  return `<div class="pb-form">
+    <div class="row"><div class="t gen-label">강의 번호</div>
+      <input class="f w-md" data-act="lesson-num" data-id="${l.id}" value="${esc(l.num || '')}"
+        placeholder="1, OT, 수행" aria-label="강의 번호"
+        title="숫자면 N강, OT, 수행 같은 말이면 [OT]로 표시됩니다"></div>
+    <div class="row"><div class="t gen-label">제목</div>
+      <input class="f grow" data-act="lesson-title" data-id="${l.id}" value="${esc(l.title || '')}"
+        placeholder="강의 제목" aria-label="강의 제목"></div>
+
+    <div class="sectionlabel">이 강의의 칸</div>
+    ${partsHtml}
+
+    <div class="lfoot">
+      <span class="unit">슬라이드 모두 ${slides.length}쪽</span>
+      <div class="tools">${reach}
+        <button class="btn-chip" data-act="axis-preview" data-id="${l.id}"
+          title="학생이 보는 슬라이드를 새 탭에서 엽니다">${icon('monitor',13)}미리보기</button>
+      </div>
+    </div>
+  </div>`;
 }
 
-/* 칸에 내용이 들었는지 한 마디로. 슬라이드 축과 이름이 같은 칸 셋(개념 노트, 미션 활동,
-   오늘의 질문)은 축 판정(deckStepFilled)을 그대로 쓴다. 형성평가는 축에 없어 문항 수를 센다 */
-function partState(l, k){
+/* 칸 한 줄. 있는 칸은 상태와 [고치기], 순서 화살표, 빼기. 없는 칸은 흐린 줄에 [넣기]만.
+   opts.i가 있으면 있는 칸이다(순서 화살표를 그릴 자리를 안다). */
+function partRow(l, k, slides, opts = {}){
+  const d = M.partDef(k);
+  const has = opts.i != null;
+  if (!has)
+    return `<div class="partrow absent">
+      <span class="dot off"></span>
+      <div class="grow"><div class="t">${esc(d.name)}</div></div>
+      <span class="pstate">없음</span>
+      <div class="tools"><button class="btn-chip" data-act="part-toggle" data-k="${k}"
+        title="${esc(d.name)} 칸을 이 강의에 넣습니다">${icon('plus',13)}넣기</button></div></div>`;
+
+  const st = partState(l, k, slides);
+  // 형성평가만 연결된 강의에서 고친다(형성평가 메뉴가 연결 강의만 세운다). 나머지 셋은
+  // 슬라이드 탭에서 고치므로 연결과 무관하다(그래서 활동지로 만든 강의도 바로 채울 수 있다)
+  const gated = k === 'formative' && !opts.linked;
+  return `<div class="partrow">
+    <span class="dot" style="background:var(--${k})"></span>
+    <div class="grow"><div class="t">${esc(d.name)}${d.portfolio ? '' : ' <span class="unit">성적 무관</span>'}</div></div>
+    <span class="pstate ${st.empty ? 'empty' : ''}">${esc(st.text)}</span>
+    <div class="tools">
+      <button class="btn-chip ${st.empty ? 'on' : ''}" data-act="part-go" data-k="${k}" data-id="${l.id}"
+        ${gated ? 'disabled' : ''}
+        title="${gated ? '형성평가는 강의실에 연결한 뒤에 만들 수 있습니다.' : esc(partGoWhere(k))}">고치기</button>
+      <button class="ib ib-sm" data-act="part-up" data-k="${k}" ${opts.i === 0 ? 'disabled' : ''} title="위로" aria-label="위로">${icon('arrow-up',15)}</button>
+      <button class="ib ib-sm" data-act="part-down" data-k="${k}" ${opts.i === opts.last ? 'disabled' : ''} title="아래로" aria-label="아래로">${icon('arrow-down',15)}</button>
+      <button class="ib ib-sm" data-act="part-off" data-k="${k}" title="이 칸을 빼기" aria-label="빼기">${icon('x',15)}</button>
+    </div></div>`;
+}
+
+/* [고치기]를 누르면 어디로 가는지. 단추 설명(title)과 아래 part-go 처리가 같은 표를 본다 */
+const PART_GO = {
+  concept:   '슬라이드의 개념 노트 단계로 갑니다',
+  mission:   '슬라이드의 미션 활동 단계로 갑니다',
+  question:  '슬라이드의 오늘의 질문 단계로 갑니다',
+  formative: '형성평가 문제 관리로 갑니다',
+};
+function partGoWhere(k){ return PART_GO[k] || '고치는 자리로 갑니다'; }
+
+/* 칸에 내용이 들었는지 한 마디로. { text, empty } 를 돌려준다(empty면 붉은 글씨에 [고치기]를 강조).
+   개념 노트와 미션 활동은 실제로 선 쪽 수를 센다: "내용 있음"보다 "슬라이드 3쪽"이 훨씬 말이 된다.
+   쪽을 세는 기준은 학생이 보는 덱 그 자체(buildSlides)라 화면에 뜨는 수와 어긋나지 않는다. */
+function partState(l, k, slides){
   if (k === 'formative'){
     const n = (l.parts?.formative?.items || []).length;
-    return n ? `문항 ${n}개` : '아직 비어 있음';
+    return n ? { text:`문항 ${n}개`, empty:false } : { text:'아직 비어 있음', empty:true };
   }
-  return M.deckStepFilled(l.id, k) ? '내용 있음' : '아직 비어 있음';
+  if (k === 'question'){
+    const q = String(l.parts?.question?.question || '').trim();
+    return q ? { text:'질문 적힘', empty:false } : { text:'아직 비어 있음', empty:true };
+  }
+  const n = slides.filter(s => s.step === k).length;
+  if (!n) return { text:'아직 비어 있음', empty:true };
+  // 미션 활동은 학생이 누를 미니앱이 걸려 있는지도 같이 알려 준다(걸려 있어야 제출이 들어온다)
+  const app = k === 'mission' && M.getMissionApps().some(a => a.lessonId === l.id);
+  return { text:`슬라이드 ${n}쪽${app ? ', 앱 연결됨' : ''}`, empty:false };
 }
 
-/* ── 강의실 콘텐츠: 이 강의를 어느 반에 띄울지 ──
-   과목은 머리줄 드롭다운으로 이미 고른 것을 쓰므로 그 과목 강의실만 세운다. 그래서 줄 글자에
-   과목명을 또 붙이지 않는다(선생님 지시 2026-11-02: 강의실 이름에서 과목명 전부 빼기). */
-function lessonPlacer(l){
+/* 머리줄 드롭다운으로 고른 과목의 강의실, 학년과 반 순서. 강의 편집과 강의실 콘텐츠가 같이 쓴다 */
+function subjectRooms(){
   const subject = curSubject();
-  const rooms = M.getCourses(state.year).filter(c => !subject || c.subject === subject)
-    .sort((a,b) => (a.grade - b.grade) || (a.classNo - b.classNo));
+  return M.getCourses(state.year).filter(c => !subject || c.subject === subject)
+    .slice().sort((a,b) => (a.grade - b.grade) || (a.classNo - b.classNo));
+}
+
+/* ── 강의실 콘텐츠: 이 강의를 어느 반에 띄울지, 그 반에 공개할지 ──
+   반마다 칸 둘이다. **체크는 연결, 눈 단추는 공개**다. 둘은 다른 일이다:
+     연결만 하고 공개를 안 하면 강의실에 들어와 있지만 학생 화면에는 안 뜬다(수업 전까지 숨겨 두는 자리)
+     공개는 연결이 있어야 걸 수 있다(연결 안 된 반은 눈 단추가 꺼져 있다)
+   공개 스위치는 강의실 관리 상세에도 있다. 거기는 반 하나 기준이고 여기는 강의 하나 기준이라
+   축이 다르다(선생님 지시 2026-11-02: 관제탑에 공개까지 넣는다).
+   줄을 label로 감싸지 않는다: 체크를 풀면 그 반의 성적과 제출물이 같이 없어지므로
+   체크박스를 눌러야만 바뀌고 해제는 확인 창을 거친다(화면 규칙 2026-10-29).
+   과목은 머리줄에서 이미 고른 것을 쓰므로 줄 글자에 과목명을 붙이지 않는다. */
+function lessonPlacer(l){
+  const rooms = subjectRooms();
   if (!rooms.length) return `<div class="empty">강의실이 없습니다. 강의실 관리에서 먼저 만드세요.</div>`;
-  const placed = new Set(rooms.filter(c => M.getCourseLessons(c.id).some(cl => cl.lessonId === l.id)).map(c => c.id));
-  return rooms.map(c => `<label class="checkline">
-    <input type="checkbox" data-act="place-toggle" data-id="${c.id}" ${placed.has(c.id)?'checked':''}>
-    <span>${esc(M.roomNo(c))}</span></label>`).join('');
+  return rooms.map(c => {
+    const cl = M.findCourseLesson(c.id, l.id);
+    const open = !!cl?.isOpen;
+    return `<div class="row compact">
+      <input type="checkbox" data-act="place-toggle" data-id="${c.id}" ${cl ? 'checked' : ''}
+        aria-label="${esc(M.roomNo(c))} 연결">
+      <div class="grow"><div class="t">${esc(M.roomNo(c))}</div></div>
+      ${cl?.date ? `<span class="unit">${esc(cl.date)}</span>` : ''}
+      <button class="ib ib-sm ${open ? 'ib-primary' : ''}" data-act="cl-open" data-id="${cl?.id || ''}"
+        ${cl ? '' : 'disabled'}
+        title="${cl ? (open ? '공개 중 (누르면 숨김)' : '숨김 (누르면 공개)') : '먼저 연결해야 공개할 수 있습니다.'}"
+        aria-label="공개 전환">${icon('eye',14)}</button>
+    </div>`;
+  }).join('');
 }
 
 /* ── 개념 노트 ──
@@ -1559,8 +1645,14 @@ function wirePageOverflow(){
    (shared/slide-axis.js의 from 참고). 같은 것을 두 군데 적지 않게 하려는 것이다.
    개념 노트는 여기서 바로 고치고, 오늘의 질문은 읽기만 하고 고치는 것은 그 메뉴에서 한다. */
 function pageAxis(){
-  const lessons = M.getLessonsWithPart('concept');
-  if (!lessons.length) return `<div class="empty">개념 노트가 있는 강의가 없습니다.</div>`;
+  /* 강의 드롭다운에 **강의를 다 세운다.** 전에는 개념 노트가 있는 강의만 세웠는데(getLessonsWithPart),
+     이 편집기가 고치는 것은 축 여덟 단계 전부이고 개념 노트는 그중 하나일 뿐이다. 거르면 두 가지가 깨진다:
+       하나, 개념 노트 없이 미션 활동만 있는 강의는 표지, 학습 목표, 동기 유발, 맺음말을 고칠 길이 아예 없었다
+       둘,   강의 편집(관제탑)의 [고치기]가 그 강의로 못 와서 드롭다운 맨 위의 **다른 강의**로 떨어졌다
+             (아래 줄이 state.conceptLessonId를 목록에 없다고 보고 lessons[0]으로 바꿔 버린다)
+     '개념 노트 콘텐츠'라고 부르던 때(2026-10-30) 남은 거르개다. 다시 좁히지 말 것. */
+  const lessons = M.getLessonsNewest();
+  if (!lessons.length) return `<div class="empty">강의가 없습니다.</div>`;
   // 고른 강의가 없거나 사라졌으면 맨 위(최신) 강의를 고른다. 편집창이 늘 하나 떠 있어야 한다
   if (!lessons.some(l => l.id === state.conceptLessonId)) state.conceptLessonId = lessons[0].id;
   const l = M.getLesson(state.conceptLessonId);
@@ -3029,11 +3121,18 @@ document.getElementById('shell').addEventListener('click', e => {
     case 'part-down': M.moveLessonPart(state.lessonId, k, 1); render(); break;
     // 강의 라이브러리의 강의 편집과 콘텐츠 탭 머리줄 둘이 같이 쓴다(data-id로 강의를 받는다)
     case 'lesson-import': { const lid = id || state.lessonId; if (lid) importWorksheet(lid); break; }
-    case 'place-toggle': {
-      // 데모: 연결만(해제는 다음 단계). 연결돼 있지 않으면 연결한다.
-      const already = M.getCourseLessons(id).some(cl => cl.lessonId === state.lessonId);
-      if (!already){ M.placeLesson(id, state.lessonId); toast('강의실에 연결했습니다.'); }
-      else toast('해제는 다음 단계에서 붙입니다.');
+    /* 강의 편집(관제탑)의 [고치기]: 그 칸을 고치는 자리로 건너간다(선생님 결정 2026-11-02, 길 A).
+       개념 노트, 미션 활동, 오늘의 질문 셋은 슬라이드 탭의 그 단계에서 고친다. 오늘의 질문 메뉴로
+       보내지 않는 까닭: 그 메뉴는 연결 강의만 세워서 활동지로 갓 만든 강의가 안 뜬다.
+       슬라이드 탭의 질문 칸은 같은 parts.question을 고치므로 나중에 연결해도 그대로 이어진다.
+       형성평가는 문항을 고치는 자리가 형성평가 메뉴뿐이고 거기도 연결 강의만 세운다.
+       그래서 연결이 없으면 단추를 꺼 두었다(partRow의 gated). */
+    case 'part-go': {
+      const lid = id || state.lessonId; if (!lid) break;
+      if (k === 'formative')
+        Object.assign(state, { page:'formative', formativeTab:'manage', formativeLessonId:lid });
+      else
+        Object.assign(state, { page:'concept', conceptTab:'content', conceptLessonId:lid, axisStep:k });
       render(); break;
     }
     // 개념 노트
@@ -3491,6 +3590,35 @@ document.getElementById('shell').addEventListener('change', e => {
     if (el.dataset.f === 'kind' || el.dataset.f === 'type') render();
   } else if (el.dataset.act === 'q-score'){   // 답변 점수 저장
     M.setSubScore(el.dataset.id, el.value);
+  } else if (el.dataset.act === 'place-toggle'){
+    /* 강의실 연결 체크(강의 편집의 강의실 콘텐츠). 체크하면 바로 연결한다.
+       **해제는 확인 창을 거친다.** 학생 수강 해제와 달리 여기는 되돌릴 수 없다:
+       연결을 빼면 unplaceLesson이 그 반의 그 강의 성적(course_grades)과
+       제출물(course_submissions)을 같이 지운다. 그래서 무엇이 없어지는지 세어 보여 준다.
+       확인 전까지는 체크를 되돌려 둔다(선생님 지시 2026-10-29: 모르고 눌러 빠지는 일을 막는다). */
+    const courseId = el.dataset.id, lid = state.lessonId;
+    const c = M.getCourse(courseId); if (!c || !lid) return;
+    const room = M.roomNo(c);
+    if (el.checked){
+      M.placeLesson(courseId, lid);
+      toast(`${room}에 연결했습니다.`); render(); return;
+    }
+    el.checked = true;
+    const cl = M.findCourseLesson(courseId, lid); if (!cl) return;
+    const d = M.clDeps(cl.id);
+    const gone = [d.grades ? `성적 ${d.grades}건` : '', d.subs ? `제출물 ${d.subs}건` : ''].filter(Boolean);
+    confirmDelete({
+      title: `${room} 연결 빼기`,
+      bodyHtml: `<b>${esc(room)}</b>에서 이 강의를 뺍니다. 강의 내용은 강의 라이브러리에 그대로 남습니다.`
+        + (gone.length
+            ? `<ul><li>이 반의 ${gone.join(', ')}이 같이 없어집니다</li></ul>`
+            : `<ul><li>이 반에는 아직 성적과 제출물이 없습니다</li></ul>`),
+      okText: '빼기',
+    }).then(ok => {
+      if (!ok) return;
+      M.unplaceLesson(cl.id);
+      toast(`${room}에서 뺐습니다.`); render();
+    });
   } else if (el.dataset.act === 'enroll'){
     /* 강의실 등록 체크(학생 관리의 수강 과목, 강의실 관리의 명단 편집 공용).
        체크하면 바로 등록한다. 해제는 확인 창을 거친다(선생님 지시 2026-10-29: 모르고 눌러 학생이 빠졌다).

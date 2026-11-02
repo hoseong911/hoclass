@@ -671,6 +671,20 @@ export function setCourseLessonDate(clId, date){
   const cl = DEMO.courseLessons.find(c => c.id === clId); if (!cl) return null;
   cl.date = String(date ?? '').trim(); put(COLLECTIONS.courseLessons, cl); return cl;
 }
+/* 강의실 한 반과 강의 하나를 잇는 연결 하나. 없으면 null.
+   강의 편집(관제탑)의 강의실 콘텐츠가 반마다 이것을 찾아 연결 여부와 공개 여부를 읽는다. */
+export function findCourseLesson(courseId, lessonId){
+  return DEMO.courseLessons.find(cl => cl.courseId === courseId && cl.lessonId === lessonId) || null;
+}
+/* 연결 하나를 뺄 때 같이 없어지는 것. 확인 창 문구에 쓴다.
+   아래 unplaceLesson이 그 연결에 매인 성적과 제출물을 같이 지우므로 미리 세어 보여 준다.
+   (학생 수강 해제와 다르다: 그쪽은 성적이 남아 다시 등록하면 돌아온다) */
+export function clDeps(clId){
+  return {
+    grades: DEMO.grades.filter(g => g.clId === clId).length,
+    subs:   DEMO.submissions.filter(s => s.clId === clId).length,
+  };
+}
 // 연결 강의 하나를 그 강의실에서 뺀다. 강의 내용 자체는 창고에 남는다.
 export function unplaceLesson(clId){
   const cl = DEMO.courseLessons.find(c => c.id === clId); if (!cl) return null;

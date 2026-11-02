@@ -521,11 +521,28 @@ input[type=number]{-moz-appearance:textfield}
 .empty{color:var(--sub);font-size:var(--fs-body);padding:16px 2px}
 .hi-ic{vertical-align:middle}
 
-/* 강의 편집기 */
-.editor{display:flex;gap:18px;flex-wrap:wrap}
-.deck{flex:1;min-width:280px}
-/* 강의 번호, 제목 줄의 이름표는 일반 설정(150px)보다 좁다: 왼쪽 단이 좁아 150px을 주면 글 칸이 눌린다 */
-.editor .row .gen-label{flex:0 0 84px}
+/* 강의 편집 = 관제탑 (선생님 결정 2026-11-02, 길 A)
+   두 단(.editor + .deck + .palette)이었던 것을 한 단으로 펴고, 오른쪽 팔레트를 없앴다.
+   팔레트가 하던 '칸 넣기'는 없는 칸 줄 자체에 [넣기] 단추로 들어가 있다(partRow의 .absent) */
+.pb-form{display:flex;flex-direction:column}
+/* 강의 번호, 제목 줄의 이름표는 일반 설정(150px)보다 좁다: 줄이 짧아 150px을 주면 가운데가 빈다 */
+.pb-form .row .gen-label{flex:0 0 84px}
+/* 칸 상태 한 마디("슬라이드 5쪽", "아직 비어 있음"). 비면 레드로 알린다 */
+.pstate{flex:0 0 auto;font-size:var(--fs-meta);color:var(--sub);white-space:nowrap}
+.pstate.empty{color:var(--accent)}
+/* 아직 넣지 않은 칸: 흐린 줄. 줄 전체 opacity를 쓰지 않는다(단추 글자까지 흐려진다) */
+.partrow.absent .t{color:var(--sub);font-weight:500}
+.partrow .dot.off{background:transparent;border:1.5px solid var(--line-strong);box-sizing:border-box}
+/* 아래 띠: 슬라이드 쪽수와 닿는 범위(연결, 공개), 미리보기 */
+.lfoot{display:flex;align-items:center;gap:12px;min-height:var(--h-row);padding:0 13px;
+  border-top:1px solid var(--line)}
+.lfoot .tools{margin-left:auto}
+.lfoot .btn-chip svg{flex:0 0 auto}
+@media (max-width:620px){
+  .lfoot{flex-wrap:wrap;padding-block:8px}
+  .lfoot .tools{margin-left:0;width:100%}
+  .pstate{display:none}   /* 좁으면 칸 이름과 단추만 (줄이 둘로 접히지 않게) */
+}
 /* 목록 줄과 같이 테두리는 위아래만(선생님 지시 2026-10-29) */
 .partrow{display:flex;align-items:center;gap:10px;border:0;border-top:1px solid var(--line);
   border-bottom:1px solid var(--line);border-radius:0;
@@ -535,19 +552,10 @@ input[type=number]{-moz-appearance:textfield}
 .partrow .plnum{font-size:var(--fs-head)}
 .partrow .dot{width:10px;height:10px;flex:0 0 auto}
 .partrow .grow{flex:1}
-.partrow.off{opacity:.45}
 .partrow.on{background:var(--accent-fade)}
-.palette{flex:0 0 220px}
-/* 강의 편집기 팔레트도 한 묶음으로: 위아래 테두리만, 넣은 것은 레드 반투명 바탕 */
-.pchip{display:flex;align-items:center;gap:9px;border:0;border-top:1px solid var(--line);
-  border-bottom:1px solid var(--line);border-radius:0;
-  padding:9px 11px;margin-bottom:0;cursor:pointer;background:transparent;font-size:var(--fs-body);font-family:inherit;
-  width:100%;text-align:left;color:var(--ink)}
-.pchip + .pchip{border-top:0}
-.pchip:hover{background:var(--hover)}
-.pchip .dot{width:10px;height:10px}
-.pchip.has{background:var(--accent-fade);color:var(--accent)}
-.pchip.has:hover{background:var(--accent-fade-hover)}
+/* 2026-11-02에 걷은 것: .partrow.off, .palette, .pchip.
+   강의 편집이 관제탑이 되면서 오른쪽 팔레트 단이 없어졌다(칸 넣기는 없는 칸 줄의 [넣기] 단추).
+   되살릴 일이 생기면 git log에서 2026-11-02 앞을 보면 된다. */
 /* 체크로 켜고 끄는 목록 줄: 목록 줄과 같이 테두리는 위아래만, 줄마다 카드를 나누지 않는다
    (선생님 지시 2026-10-29) */
 .checkline{display:flex;align-items:center;gap:9px;border:0;border-top:1px solid var(--line);
@@ -756,7 +764,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .axpane-body .ce-add{margin-top:12px}
 .axpane-body > .row:first-child{border-top:0}
 /* 강의 편집의 첫 줄(강의 번호)도 머리줄 밑선과 겹치지 않게 윗선을 뺀다(선생님 지시: 구분선은 하나씩만) */
-.axpane-body .editor .deck > .row:first-child{border-top:0}
+.axpane-body .pb-form > .row:first-child{border-top:0}
 
 /* 문항 하나를 묶은 칸(전시학습확인, 동기 유발). 머리에 번호와 도구, 아래에 이름표 붙은 칸들.
    한 묶음이 카드 하나라는 규칙(2026-10-28)에 맞춰 묶음 사이는 얇은 선으로만 나눈다 */
@@ -919,10 +927,8 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
   .searchbox{flex:1}
   .searchbox .f{width:100%}
   .gradetable td.gfb,.gradetable th.gfb{min-width:260px}
-  .editor{flex-direction:column}
-  .palette{flex:1 1 auto;width:100%}
-  .row{flex-wrap:wrap}
-  .row .tools{margin-left:auto}
+  .row,.partrow{flex-wrap:wrap}
+  .row .tools,.partrow .tools{margin-left:auto}
   .detail.two{flex-direction:column;gap:0}
   .detail.two .dcol+.dcol{margin-top:6px}
   .plrow{flex-wrap:nowrap}
