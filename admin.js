@@ -1044,7 +1044,7 @@ function pageStudents(){
   const yearSel = `<select class="sel" id="year-sel" data-act="year-pick" aria-label="학년도">
     ${years.map(y => `<option value="${y.year}" ${y.year===state.year?'selected':''}>${y.year}학년도</option>`).join('')}
   </select>`;
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('students'))}</h2>${yearSel}${subjectSel()}${addBtn}</div>`;
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('students'))}</h2>${addBtn}${yearSel}${subjectSel()}</div>`;
   const search = `<span class="line-end"><label class="searchbox">${icon('search',15)}
     <input class="f" id="stu-search" data-act="stu-search" inputmode="numeric" autocomplete="off"
       value="${esc(state.studentQuery)}" aria-label="학번 검색"></label></span>`;
@@ -2168,8 +2168,8 @@ function clearAxisContent(lessonId){
    앱 어드민은 브라우저 새 탭으로 연다(선생님 지시 2026-10-29: 학생 활동을 보면서 성적을 매기려면
    어드민이 따로 떠 있어야 한다). 같은 창 안의 탭(요구사항 67)은 이 지시로 걷어냈다. */
 function pageMission(){
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('mission'))}</h2>${yearSelHtml()}${subjectSel()}
-    <button class="btn-add" data-act="mission-add-open" title="추가" aria-label="추가">${icon('plus',16)}<span>추가</span></button></div>`;
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('mission'))}</h2>
+    <button class="btn-add" data-act="mission-add-open" title="추가" aria-label="추가">${icon('plus',16)}<span>추가</span></button>${yearSelHtml()}${subjectSel()}</div>`;
 
   const apps = M.getMissionApps();
   const isNew = state.missionSel === 'new';
@@ -2280,8 +2280,8 @@ function openMissionAdmin(app){
    과목마다 따로다(선생님 지시 2026-10-30, 요구사항 115): 오늘의 질문처럼 과목 탭을 두고, 쓴 글은
    그 과목 강의실(반) 전부의 맨 위에 뜬다(학생 화면). */
 function pageNotice(){
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('notice'))}</h2>${yearSelHtml()}${subjectSel()}
-    <button class="btn-add" data-act="notice-add-open" title="추가" aria-label="추가">${icon('plus',16)}<span>추가</span></button></div>`;
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('notice'))}</h2>
+    <button class="btn-add" data-act="notice-add-open" title="추가" aria-label="추가">${icon('plus',16)}<span>추가</span></button>${yearSelHtml()}${subjectSel()}</div>`;
 
   const all = M.getCourses(state.year);
   if (!all.length) return head + `<div class="empty">강의실이 없습니다.</div>`;
