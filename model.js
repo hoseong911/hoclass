@@ -166,7 +166,7 @@ export const TEXT_FIELDS = [
   { group:'일반', items:[
     { key:'browserTitle', label:'브라우저 탭 제목',   def:'HOCLASS' },
     { key:'siteName',     label:'사이트 이름',         def:'호성T 수업 : 학습 관리 시스템' },
-    { key:'adminName',    label:'어드민 이름',         def:'2027' },
+    { key:'adminName',    label:'어드민 이름',         def:'hoclass' },
     { key:'kakaoUrl',     label:'오픈카톡 링크',       def:'' },
     { key:'installUrl',   label:'홈 화면에 추가 안내 링크', def:'' },
   ]},
@@ -199,7 +199,12 @@ export function formativeTypeDef(key){ return FORMATIVE_TYPES.find(t => t.key ==
 
 // 표시 이름 헬퍼
 const pad2 = n => String(n).padStart(2, '0');
-export function roomName(course){ return `${course.subject} ${course.grade}${pad2(course.classNo)}`; }
+/* 강의실 이름에는 과목명을 붙이지 않는다(선생님 지시 2026-11-02: "모든 강의실 이름에서 과목명
+   다 빼야 하는데 여전히 잔존하는게 많네"). 과목은 늘 머리줄 드롭다운으로 따로 고르므로 이름에
+   또 적으면 겹친다. 그래서 roomName과 roomNo는 같은 글자를 돌려준다("301").
+   둘을 하나로 합치지 않고 남겨 둔 까닭: 부르는 자리의 뜻이 다르다(이름 = 안내 문구, 번호 = 칸 글자).
+   나중에 이름 모양을 다시 바꿀 일이 생기면 roomName만 고치면 된다. */
+export function roomName(course){ return roomNo(course); }
 export function roomNo(course){ return `${course.grade}${pad2(course.classNo)}`; }
 
 /* 수업일자는 연도 없이 'M/D'로만 적는다(진도 관리, hoistory와 같다).
@@ -623,7 +628,10 @@ export function setLessonMemo(lessonId, memo){
 export function setLessonPart(lessonId, key, on){
   const l = getLesson(lessonId); if (!l) return;
   if (on){
-    if (!l.parts[key]) l.parts[key] = { title:partDef(key).name };
+    // 칸 제목은 비워 둔 채로 만든다. 전에는 칸 종류 이름("개념 노트")을 그대로 넣었는데,
+    // 화면이 종류 이름과 제목을 위아래로 같이 보여 줘서 "개념 노트 / 개념 노트"로 겹쳐 보였다
+    // (선생님 지적 2026-11-02). 비면 화면이 종류 이름만 보여 준다.
+    if (!l.parts[key]) l.parts[key] = { title:'' };
     if (!l.order.includes(key)) l.order.push(key);
   } else {
     delete l.parts[key];
@@ -1536,6 +1544,72 @@ export function setMissionAppKey(oldId, newKey){
   return moved;
 }
 
+/* ── 공지 글 서식 (선생님 지시 2026-11-02: "공지사항 작성 시 편집기를 생성해서 정렬, 굵기,
+   글색상을 바꿀 수 있게") ───────────────────────────────────────────────────
+   공지 내용은 이제 글자 모양을 가진다. 그래서 저장하는 값이 그냥 글자가 아니라 아주 좁은
+   HTML 조각이다. 어드민 편집기는 contenteditable이라 브라우저가 제멋대로 태그를 끼워 넣는데
+   (크롬, 사파리, 파이어폭스가 다 다르다), 저장할 때와 화면에 띄울 때 두 번 여기를 지나며
+   **아는 태그와 아는 스타일만** 남긴다. 걸러 내는 것이 아니라 아는 것만 남기는 쪽이다:
+   새 브라우저가 모르는 태그를 내놔도 글자는 살고 모양만 빠진다.
+     남기는 태그  굵게/기울임/밑줄/취소선, 줄바꿈, 묶음(div, p, span, font)
+     남기는 스타일 정렬(text-align), 글자색(color), 굵기, 기울임, 밑줄
+   링크(a)와 그림(img)은 넣지 않는다: 공지에서 쓸 일이 없고 넣는 순간 걸러 낼 것이 늘어난다.
+   학생 화면(index.js)과 어드민이 같이 쓴다. 옛 글(그냥 글자)은 그대로 보이게 따로 다룬다. */
+const RICH_TAGS = new Set(['B','STRONG','I','EM','U','S','STRIKE','BR','DIV','P','SPAN','FONT']);
+const RICH_DROP = /^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|LINK|META|FORM|INPUT|SVG)$/;
+const RICH_STYLES = ['text-align', 'color', 'font-weight', 'font-style',
+  'text-decoration', 'text-decoration-line'];
+
+export function sanitizeRich(html){
+  const src = String(html ?? '');
+  if (!src) return '';
+  const doc = new DOMParser().parseFromString('<div id="r"></div>', 'text/html');
+  const root = doc.getElementById('r');
+  root.innerHTML = src;
+  // 1) 위험한 태그는 안에 든 것까지 통째로 먼저 버린다. 아래 루프에 맡기지 않고 여기서 한 번에
+  //    쓸어 내는 까닭: 루프에는 무한 루프를 막는 횟수 제한이 있어서, 쓰레기가 아주 많이 붙은 글을
+  //    붙여 넣으면 제한에 걸려 남을 수 있다. 남아선 안 되는 것은 제한 밖에서 지운다.
+  root.querySelectorAll('script,style,iframe,object,embed,link,meta,form,input,svg').forEach(n => n.remove());
+  // 2) 모르는 태그는 껍데기만 벗긴다(안의 글은 살린다).
+  //    한 번 벗기면 안쪽이 바깥으로 나오므로 더 없을 때까지 돈다(무한 루프 방지로 횟수를 둔다).
+  for (let i = 0; i < 2000; i++){
+    const bad = [...root.querySelectorAll('*')].find(n => !RICH_TAGS.has(n.tagName));
+    if (!bad) break;
+    if (RICH_DROP.test(bad.tagName)) bad.remove();
+    else bad.replaceWith(...bad.childNodes);
+  }
+  // 3) 남은 태그에서 속성을 다 떼고 아는 스타일만 다시 붙인다(onclick 같은 것이 끼지 못하게)
+  root.querySelectorAll('*').forEach(n => {
+    // 옛 execCommand는 글자색을 <font color="red">로 내놓는다. 스타일로 옮겨 두고 같이 거른다
+    if (n.tagName === 'FONT'){
+      const c = n.getAttribute('color');
+      if (c) n.style.color = c;
+    }
+    const keep = RICH_STYLES.map(k => [k, n.style.getPropertyValue(k)]).filter(([, v]) => v);
+    [...n.attributes].forEach(a => n.removeAttribute(a.name));
+    keep.forEach(([k, v]) => n.style.setProperty(k, v));
+  });
+  return root.innerHTML;
+}
+
+/* 공지 내용을 화면에 띄울 HTML. 글을 그대로 innerHTML에 넣는 자리가 쓴다(어드민 편집기, 학생 모달).
+   **글 하나를 통째로 받는다**(내용 글자만이 아니라). 서식이 든 글인지를 글자를 뜯어 보고 짐작하지 않고
+   글에 붙은 bodyRich 표시로 가리기 때문이다.
+     bodyRich 있음  편집기로 쓴 글. 아는 태그만 남겨 그대로 띄운다
+     bodyRich 없음  편집기가 생기기 전(2026-11-02 앞)에 올린 그냥 글자. escape하고 줄바꿈만 <br>로
+   처음에는 "글 안에 태그처럼 보이는 것이 있는가"로 가렸는데, 그러면 선생님이 글자로 적어 둔
+   "<b>" 같은 것이 든 옛 글이 서식 글로 오해받아 그 글의 **줄바꿈이 통째로 사라졌다**(저장하기 전에
+   확인하다 잡았다). 표시로 가리면 그런 일이 없다: 옛 글에는 표시가 없고 표시는 저장할 때만 붙는다. */
+export function noticeBodyHtml(notice){
+  if (!notice) return '';
+  const s = String(notice.body ?? '');
+  if (!s) return '';
+  if (!notice.bodyRich)
+    return s.replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]))
+            .replace(/\r?\n/g, '<br>');
+  return sanitizeRich(s);
+}
+
 /* ── 공지사항 (선생님 지시 2026-10-30, 요구사항 109, 110, 115) ──
    어드민 공지사항 메뉴에서 쓰고, 학생 화면은 강의실 안 맨 위에 글 목록으로 띄운다(최대 5개, 더보기).
    **과목마다 따로다**(115): 학년도와 과목에 매인 글이라 그 과목 강의실(반) 전부에 같은 글이 뜬다.
@@ -1550,14 +1624,17 @@ export function addNotice(year, subject, { title, body }){
   const t = String(title ?? '').trim();
   if (!t) throw new Error('제목을 입력하시길 바랍니다.');
   if (!subject) throw new Error('과목을 골라 주세요.');
-  const n = { id:nid('n_'), year:+year, subject, title:t, body:String(body ?? '').trim(), createdAt:Date.now() };
+  // 내용은 서식이 든 HTML 조각이다. 저장 전에 아는 태그만 남기고(sanitizeRich) 서식 글이라는
+  // 표시를 붙인다(bodyRich). 표시가 없는 글은 띄울 때 그냥 글자로 다룬다(2026-11-02)
+  const n = { id:nid('n_'), year:+year, subject, title:t,
+    body:sanitizeRich(body), bodyRich:true, createdAt:Date.now() };
   DEMO.notices.push(n); put(COLLECTIONS.notices, n); return n;
 }
 export function updateNotice(id, { title, body }){
   const n = getNotice(id); if (!n) throw new Error('글을 찾지 못했습니다.');
   const t = String(title ?? '').trim();
   if (!t) throw new Error('제목을 입력하시길 바랍니다.');
-  n.title = t; n.body = String(body ?? '').trim();
+  n.title = t; n.body = sanitizeRich(body); n.bodyRich = true;
   put(COLLECTIONS.notices, n); return n;
 }
 export function deleteNotice(id){

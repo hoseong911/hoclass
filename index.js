@@ -12,8 +12,8 @@
 // 지금은 데모 데이터로 돈다(model.js). 로그인도 데모: 학번만 맞으면 입장.
 // 규칙: 인라인 onclick/window 노출 없이 data-act + 이벤트 위임. 상태는 state 하나.
 
-import * as M from './model.js?v=20261101h';
-import { icon } from './shared/icons.js?v=20261031e';
+import * as M from './model.js?v=20261102a';
+import { icon } from './shared/icons.js?v=20261102a';
 
 const YEAR = 2027;
 const $app = document.getElementById('app');
@@ -286,7 +286,10 @@ function noticeModal(){
     <div class="modal notice" role="dialog" aria-modal="true" aria-label="${esc(n.title)}">
       <div class="mhead"><h2>${esc(n.title)}</h2>
         <button class="iconbtn" data-act="close-notice" aria-label="닫기" title="닫기">${icon('x',18)}</button></div>
-      <div class="nbody">${esc(n.body)}</div>
+      <!-- 글 내용은 서식(굵게, 정렬, 글자색)이 든 HTML 조각이다(2026-11-02). 아는 태그만
+           남기고 걸러 내는 일은 M.noticeBodyHtml이 맡는다. 편집기가 생기기 전에 올린 글은
+           그냥 글자라서 그쪽도 같은 함수가 escape하고 줄바꿈만 <br>로 바꾼다 -->
+      <div class="nbody">${M.noticeBodyHtml(n)}</div>
       <div class="nlike-row">
         <button class="nlike ${liked?'on':''}" data-act="notice-like" data-id="${esc(n.id)}" aria-pressed="${liked}">
           ${icon('heart',18)}<span>좋아요 ${st.likes}</span></button>

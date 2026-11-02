@@ -103,6 +103,16 @@ Object.assign(PATHS, {
   "scissors":'<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>',
 });
 
+/* 글 서식 도구줄용(2026-11-02, 공지사항 편집기). Lucide, inner만.
+   굵게(bold)와 정렬 셋. 글자색은 아이콘이 아니라 색 동그라미로 보여 주므로 여기 없다. */
+Object.assign(PATHS, {
+  "bold":'<path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/>',
+  "align-left":'<path d="M15 12H3"/><path d="M17 18H3"/><path d="M21 6H3"/>',
+  "align-center":'<path d="M17 12H7"/><path d="M19 18H5"/><path d="M21 6H3"/>',
+  "align-right":'<path d="M21 12H9"/><path d="M21 18H7"/><path d="M21 6H3"/>',
+  "align-justify":'<path d="M3 12h18"/><path d="M3 18h18"/><path d="M3 6h18"/>',
+});
+
 export function icon(name, size = 22, cls = "") {
   let inner = PATHS[name] || PATHS["circle-help"];
   // 처음 옮겨 온 값 42개가 </svg> 없이 끝난다. 그대로 감싸면 바깥 <svg>가 닫히지 않아

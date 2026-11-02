@@ -281,8 +281,15 @@
   act 이름 `place-toggle`, `prog-place`, 상태 키 `lessonTab:'place'`, 문서 id의 `clId`.
   **컬렉션 이름은 바꾸지 않는다**(이름 규칙: 뿌리_세부, 이미 쓰고 있는 것을 갈지 않는다).
 
-### 강의실 이름은 "사회 301" (2026-10-25)
-- 강의실은 "사회 3학년 1반"이 아니라 **"사회 301"**(학년 한 자리 + 반 두 자리)로 쓴다. `model.js`의 `roomNo`, `courseShort` 한 곳에서 만든다.
+### 강의실 이름은 "301" (2026-10-25, 2026-11-02 과목명 뺌)
+- 강의실은 "3학년 1반"이 아니라 **"301"**(학년 한 자리 + 반 두 자리)로 쓴다. `model.js`의 `roomName`, `roomNo` 한 곳에서 만든다.
+- **과목명을 붙이지 않는다 (선생님 지시 2026-11-02:** "모든 강의실 이름에서 과목명 다 빼야 하는데
+  여전히 잔존하는게 많네. 다 확인해서 없애버려."**).** 전에는 `roomName`이 "역사 301"로 과목을 앞에
+  붙였다. 과목은 어느 화면에서든 머리줄 드롭다운으로 따로 고르므로 이름에 또 적으면 겹친다.
+  그래서 `roomName`과 `roomNo`가 같은 글자를 돌려준다(둘을 하나로 합치지는 않았다: 부르는 자리의
+  뜻이 달라서다. 이름 = 안내 문구, 번호 = 칸 글자). **강의실 이름을 만드는 새 코드를 쓰지 않는다.**
+- 예외는 학생 화면의 강의실 고르기 카드다(`index.js`의 `roomLabel`). 거기는 **과목만** 적는다
+  (요구사항 84). 과목에 학년과 반을 덧붙인 이름이 아니라 과목 그 자체가 그 카드의 이름이다.
 
 ### 가운뎃점, 줄표, 화살표를 쓰지 않는다 (2026-10-25, 2026-10-28 전면 확대)
 - **가운뎃점(·)과 줄표(—, –)는 내가 쓰는 모든 글에서 쓰지 않는다 (2026-10-28).** 화면 문구만이
@@ -675,6 +682,6 @@
 | `lessons` | 자동 id | 강의 `{ title, parts:{ concept?, mission?, question?, formative? } }`. 연도 무관, 남는다 |
 | `quizzes` | 자동 id | 복습 퀴즈 `{ title, items[], source }`. 연도 무관 |
 | `mission_apps` | appKey | 미니앱 등록부 `{ name, studentUrl, adminUrl }`. 앱 키는 `apps/` 아래 폴더 이름 |
-| `notices` | 자동 id | 공지사항 `{ year, subject, title, body, createdAt }`. **과목마다 따로**, 그 과목 강의실(반) 전부에 같은 글이 뜬다(2026-10-30). 어드민은 과목 탭 아래에서 쓴다. 규칙은 hoistory의 기본 구역(읽기 공개, 쓰기 선생님)으로 충분하다. 더미는 `node tools/더미데이터.mjs notices` / `notices-clear` |
+| `notices` | 자동 id | 공지사항 `{ year, subject, title, body, createdAt, pinned, commentsOff }`. **`body`는 2026-11-02부터 서식이 든 HTML 조각이다**(굵게, 정렬, 글자색). 저장할 때와 화면에 띄울 때 `model.js`의 `sanitizeRich`, `noticeBodyHtml`을 지나 아는 태그와 아는 스타일만 남는다. **`body`를 `esc()`로 그대로 escape해 띄우지 말 것**(태그가 글자로 보인다). 그 전에 올린 글은 태그 없는 그냥 글자인데 같은 함수가 가려 처리한다. 어드민 글 칸은 `textarea`가 아니라 `contenteditable`(`#nt-body`)이라 값을 `value`가 아니라 `innerHTML`로 읽는다. **과목마다 따로**, 그 과목 강의실(반) 전부에 같은 글이 뜬다(2026-10-30). 어드민은 과목 탭 아래에서 쓴다. 규칙은 hoistory의 기본 구역(읽기 공개, 쓰기 선생님)으로 충분하다. 더미는 `node tools/더미데이터.mjs notices` / `notices-clear` |
 
 > 재설계 전 모델(`lesson_library` 등)은 폐기. `course_submissions` 하나로 제출을 통일한다(예전 앱마다 흩어진 것 정리).

@@ -6,8 +6,8 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261101h';
-import { icon } from './shared/icons.js?v=20261031e';
+import * as M from './model.js?v=20261102a';
+import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
 
@@ -190,7 +190,9 @@ function run(fn, okMsg){
 // ── 사이드 ──
 // 메뉴 이름, 순서, 구분선 자리는 일반 설정에서 정한다(M.adminMenus).
 function renderSide(){
-  $side.innerHTML = `<div class="brand">${esc(M.getText('adminName'))}</div>` + M.adminMenus().map(m =>
+  // 브랜드는 두 줄: 이름(크게) + '관리자 모드'(작게). 선생님 지시 2026-11-02.
+  // 이름은 일반 설정의 '어드민 이름'(기본 hoclass)을 그대로 쓴다.
+  $side.innerHTML = `<div class="brand"><span class="brand-nm">${esc(M.getText('adminName'))}</span><span class="brand-sub">관리자 모드</span></div>` + M.adminMenus().map(m =>
     m.sep ? `<div class="side-sep"></div>`
     : `<div class="mi ${m.key === state.page ? 'on':''}" data-act="page" data-k="${m.key}">
       ${icon(m.icon,18)}<span>${esc(m.name)}</span></div>`).join('') +
@@ -360,7 +362,9 @@ function roomDetailCols(c){
     const open = state.openScore === `${c.id}_${s.studentNo}`;
     const row = `<div class="row compact rowlink" data-act="stu-score" data-no="${s.studentNo}" data-id="${c.id}">
       <div class="grow"><div class="t"><span class="chev">${icon(open?'chevron-down':'chevron-right',14)}</span><span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name)}</div></div></div>`;
-    return open ? row + studentCard(c.id, s.studentNo) : row;
+    // 비밀번호 초기화는 여기에 두지 않는다(pwReset=false). 비번은 학생 관리 한 곳에서만 건드린다
+    // (선생님 지시 2026-11-02: "비밀번호는 무조건 학생 관리에서만!")
+    return open ? row + studentCard(c.id, s.studentNo, false) : row;
   }).join('') : `<div class="empty">학생이 없습니다.</div>`;
 
   const stuHead = `<div class="sectionlabel between">학생 명단
@@ -376,7 +380,9 @@ function roomDetailCols(c){
 
 // 한 학생 카드: 포트폴리오 성적(펼침 안쪽, 요구사항 3).
 // 레벨, 경험치, 포인트 칸은 선생님 지시로 뺐다(2026-10-29).
-function studentCard(courseId, studentNo, pwReset = true){
+// pwReset은 이제 부르는 쪽이 다 false로 넘긴다(비번은 학생 관리에서만). 칸 자체는 남겨 둔다:
+// 학생 관리 상세에 다시 둘 일이 생기면 여기로 돌아오게.
+function studentCard(courseId, studentNo, pwReset = false){
   const sc = M.studentGrade(courseId, studentNo);
 
   let port;
@@ -929,6 +935,83 @@ function openRoomModal(){
   document.addEventListener('keydown', onKey);
 }
 
+/* 강의 만들기(선생님 지시 2026-11-02: "강의 만들기 버튼은 서브탭이랑 줄을 맞추고 누르면 모달로
+   두개가 뜨게 해줘. 하나는 활동지 올리기, 하나는 빈 강의 만들기").
+   전에는 강의 라이브러리 목록 위에 폼 둘이 늘 펼쳐져 있었다. 그 폼이 구분선을 넷이나 더해
+   목록과 겹쳐 보였고("겹줄이 너무 많아"), 쓰는 때는 강의를 만들 때 한 번뿐이다. 그래서 창으로 옮겼다.
+     활동지 올리기   한글 활동지(.hwpx) 하나로 강의를 통째로 만든다. 번호와 제목, 단계가 자동으로 들어간다
+     빈 강의 만들기   번호와 제목만 적고 시작한다. 내용은 콘텐츠에서 손으로 채운다
+   길 둘을 먼저 나란히 보여 주고, '빈 강의'를 고르면 같은 창 안에서 입력 칸으로 바뀐다(창을 또 띄우지 않는다). */
+function openLessonMakeModal(){
+  let mode = null;   // null = 길 고르기, 'blank' = 번호와 제목 적기
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="강의 만들기"></div>`;
+  document.body.appendChild(back);
+  const modal = back.querySelector('.modal');
+
+  const draw = () => {
+    if (!mode){
+      modal.innerHTML = `<h3>강의 만들기</h3>
+        <div class="m-pick">
+          <button class="m-card" data-m="worksheet">
+            <span class="m-card-i">${icon('upload',22)}</span>
+            <span class="m-card-t">활동지 올리기</span>
+            <span class="m-card-s">한글 활동지(.hwpx)로 번호와 제목, 내용까지 한 번에</span></button>
+          <button class="m-card" data-m="blank">
+            <span class="m-card-i">${icon('file-text',22)}</span>
+            <span class="m-card-t">빈 강의 만들기</span>
+            <span class="m-card-s">번호와 제목만 적고 내용은 콘텐츠에서 채우기</span></button>
+        </div>
+        <div class="m-acts"><button class="btn-ghost" data-m="cancel">닫기</button></div>`;
+      return;
+    }
+    modal.innerHTML = `<h3>빈 강의 만들기</h3>
+      <div class="m-form">
+        <label class="m-label">강의 번호</label>
+        <input class="f" id="lm-num" autocomplete="off" placeholder="1, OT, 수행"
+          title="숫자면 N강, OT, 수행 같은 말이면 [OT]로 표시됩니다">
+        <label class="m-label">제목</label>
+        <input class="f" id="lm-title" autocomplete="off">
+      </div>
+      <div class="m-err" id="lm-err"></div>
+      <div class="m-acts"><button class="btn-ghost" data-m="back">뒤로</button>
+        <button class="btn-text" data-m="ok">만들기</button></div>`;
+    modal.querySelector('#lm-num')?.focus();
+  };
+  draw();
+
+  const close = () => { document.removeEventListener('keydown', onKey); back.remove(); };
+  const err = m => { const e = modal.querySelector('#lm-err'); if (e) e.textContent = m; };
+  const submit = () => {
+    if (!mode) return;
+    const num = (modal.querySelector('#lm-num')?.value || '').trim();
+    const title = (modal.querySelector('#lm-title')?.value || '').trim();
+    if (!num){ err('강의 번호를 적어 주세요.'); return; }
+    if (!title){ err('강의 제목을 적어 주세요.'); return; }
+    try { const l = M.addLesson(title, num);
+      state.lessonId = l.id; state.lessonTab = 'edit'; close(); render(); }
+    catch(e){ err(e.message); }
+  };
+  const onKey = e => {
+    if (e.key === 'Escape'){ close(); return; }
+    if (e.key === 'Enter' && mode){ e.preventDefault(); submit(); }
+  };
+  back.addEventListener('click', e => {
+    if (e.target === back){ close(); return; }
+    const m = e.target.closest('[data-m]'); if (!m) return;
+    switch (m.dataset.m){
+      // 파일 고르개를 띄우는 동안 창이 걸쳐 있으면 안 되므로 먼저 닫는다
+      case 'worksheet': close(); createLessonFromWorksheet(); break;
+      case 'blank': mode = 'blank'; draw(); break;
+      case 'back': mode = null; draw(); break;
+      case 'ok': submit(); break;
+      default: close();
+    }
+  });
+  document.addEventListener('keydown', onKey);
+}
+
 // ── 학생 관리 ──
 // 헤더는 강의실 관리와 같은 모양(제목 + 학년도 드롭다운 + 추가 버튼), 아래 반별 한 줄.
 function pageStudents(){
@@ -1122,32 +1205,39 @@ function lessonNo(l, no){
 function lnumPlain(l, no){ return M.lessonBadge(l?.num) || (no != null ? `${no}강` : ''); }
 
 // ── 강의 라이브러리 (개념 노트의 서브 메뉴, 선생님 지시 2026-10-28) ──
+/* 목록은 한 줄에 다 담는다(선생님 지시 2026-11-02: "두줄로 되어 있는데, 개념 노트 이런거는
+   배지로 만들어서 한줄로 정렬해줘"). 번호와 제목은 왼쪽, 가진 칸은 오른쪽 배지다.
+   강의 만들기는 목록 위 폼 둘이 아니라 서브 탭 줄 오른쪽 끝의 단추 하나다(pageConcept가 그린다).
+   폼을 걷어 내니 줄 사이 구분선도 하나씩만 남는다(선생님 지시: "겹줄이 너무 많아"). */
 function pageLessons(){
   const lessons = M.getLessonsNewest();   // 새로 만든 강의가 맨 위(요구사항 112)
-  const listSide = lessons.map(l => `<div class="row" style="cursor:pointer" data-act="lesson-open" data-id="${l.id}">
-      <div class="grow"><div class="t">${lnumTag(l.num)}${esc(l.title)}</div>
-        <div class="s">${(l.order||[]).map(k => M.partDef(k)?.name).filter(Boolean).join(', ') || '빈 강의'}</div></div>
-      ${l.id === state.lessonId ? `<span class="badge">편집 중</span>` : ''}</div>`).join('') || `<div class="empty">강의가 없습니다.</div>`;
-
-  /* 강의 만들기 (선생님 지시 2026-10-30): 기본은 활동지(슬라이드)로 바로 만드는 것이다.
-     활동지에 있는 단계(미션, 질문 등)와 강 번호, 제목이 자동으로 들어간다. 빈 강의로 시작해
-     직접 채울 수도 있다. 번호 칸에 숫자를 적으면 "N강", OT·수행 같은 말이면 "[OT]"로 붙는다. */
-  const addForm = `<div class="formrow" style="margin-bottom:8px">
-    <button class="btn-text" data-act="lesson-from-worksheet" style="display:flex;align-items:center;gap:8px"
-      title="활동지(한글 .hwpx 권장)를 올리면 그 내용으로 강의가 만들어집니다">${icon('upload',16)}<span>활동지로 강의 만들기</span></button>
-  </div>
-  <div class="formrow">
-    <input class="f" id="l-num" placeholder="번호" style="max-width:88px" aria-label="강의 번호"
-      title="숫자면 N강, OT·수행 같은 말이면 [OT]로 표시됩니다">
-    <input class="f grow" id="l-title" placeholder="빈 강의 제목(직접 채우기)">
-    <button class="btn-text" data-act="lesson-add">빈 강의 만들기</button>
-  </div>`;
 
   if (!state.lessonId)
-    return `${addForm}${listSide}`;
+    return lessons.map(l => `<div class="row rowlink" data-act="lesson-open" data-id="${l.id}">
+        <div class="grow"><div class="t">${lnumTag(l.num)}${esc(l.title)}</div></div>
+        <span class="lbadges">${partBadges(l)}</span></div>`).join('')
+      || `<div class="empty">강의가 없습니다. 오른쪽 위 [강의 만들기]를 눌러 시작하세요.</div>`;
 
   const l = M.getLesson(state.lessonId);
-  const tabs = catline([{v:'edit',label:'강의 편집'},{v:'place',label:'강의실 연결 콘텐츠'}], state.lessonTab, 'lesson-tab');
+  if (!l){ state.lessonId = null; return pageLessons(); }
+
+  /* 세부 내용 배치는 슬라이드 편집기(pageAxis)와 같다(선생님 지시 2026-11-02: "세부 내용 배치ui를
+     슬라이드랑 비슷하게 해줘. 강의 편집, 강의실 콘텐츠를 왼쪽 메뉴로 빼주고 눌러서 넘어가게").
+     왼쪽 줄자(.axrail)에서 고르면 오른쪽 칸(.axpane)이 바뀐다. 클래스는 슬라이드 편집기 것을
+     그대로 쓴다: 어드민 안에서 두 화면이 같은 모양으로 보인다. 탭 줄(catline)은 걷었다. */
+  const menus = [{ k:'edit', name:'강의 편집' }, { k:'place', name:'강의실 콘텐츠' }];
+  if (!menus.some(m => m.k === state.lessonTab)) state.lessonTab = 'edit';
+  const cur = menus.find(m => m.k === state.lessonTab);
+  const rail = menus.map(m => { const on = m.k === state.lessonTab;
+    return `<button class="axrow ${on?'on':''}" data-act="lesson-tab" data-v="${m.k}"
+      aria-current="${on?'true':'false'}"><span class="axnm">${esc(m.name)}</span></button>`; }).join('');
+  // 활동지 올리기는 '강의 편집' 칸의 머리줄 오른쪽 끝으로(전에는 팔레트 아래 레드 단추였다).
+  // 추가 단추를 제목 머리줄로 모으는 규칙(선생님 지시 2026-11-01)과 같은 자리다.
+  const headAct = state.lessonTab === 'edit'
+    ? `<button class="ib" data-act="lesson-import" data-id="${l.id}"
+         title="활동지 올리기 (한글 파일 .hwpx를 권합니다)"
+         aria-label="활동지 올리기. 한글 파일 .hwpx를 권합니다">${icon('upload',16)}</button>`
+    : '';
   const body = state.lessonTab === 'edit' ? lessonEditor(l) : lessonPlacer(l);
 
   // 삭제는 머리줄 오른쪽에. 창고에서 지우는 것이라 강의실 상세와 같은 자리, 같은 모양으로 둔다
@@ -1155,9 +1245,32 @@ function pageLessons(){
       <button class="ib" data-act="lesson-close" title="목록" aria-label="목록">${icon('chevron-left',16)}</button>
       <h2>${lnumTag(l.num)}${esc(l.title)}</h2>
       <button class="ib ib-danger" data-act="lesson-del" data-id="${l.id}"
-        title="강의 삭제" aria-label="강의 삭제">${icon('trash-2',16)}</button></div>${tabs}${body}`;
+        title="강의 삭제" aria-label="강의 삭제">${icon('trash-2',16)}</button></div>
+    <div class="axwrap">
+      <nav class="axrail">${rail}</nav>
+      <div class="axpane">
+        <div class="axpane-head"><h3>${esc(cur.name)}</h3>${headAct}</div>
+        <div class="axpane-body">${body}</div>
+      </div></div>`;
 }
 
+/* 강의가 가진 칸을 배지로(선생님 지시 2026-11-02). 칸마다 정해진 색(--concept 등)을 글자와
+   테두리에만 쓴다. 바탕까지 채우지 않는 까닭: 한 줄에 색 덩이가 넷 서면 제목보다 눈에 띈다 */
+function partBadges(l){
+  const ks = (l.order || []).filter(k => M.partDef(k));
+  if (!ks.length) return `<span class="lbadge lb-empty">빈 강의</span>`;
+  return ks.map(k => `<span class="lbadge" style="--lb:var(--${k})">${esc(M.partDef(k).name)}</span>`).join('');
+}
+
+/* ── 강의 편집 ──
+   이 강의가 '무엇으로 되어 있는지'를 정하는 자리다(선생님 질문 2026-11-02: "애초에 강의 편집의
+   의의가 뭘까?"). 안에 적는 글(슬라이드 쪽, 개념 노트 묶음, 질문 글)은 콘텐츠 탭이 맡고
+   여기서는 겉을 정한다.
+     번호와 제목   학생에게 보이는 이름. 제목은 전에 진도표에서만 고칠 수 있었다(여기엔 번호만 있었다)
+     칸 넣고 빼기  개념 노트/미션 활동/오늘의 질문/형성평가 중 무엇을 둘지와 그 차례
+   칸 줄의 보조 글씨는 '칸 제목'이 아니라 '내용이 들었는가'다. 전에는 칸을 만들 때 칸 종류 이름을
+   그대로 제목으로 넣어 둬서 "개념 노트 / 개념 노트"로 겹쳐 보였다(선생님 지적 2026-11-02).
+   제목 칸 자체는 쓰는 자리가 없어 없앴다(model.js의 setLessonPart). */
 function lessonEditor(l){
   const order = l.order || [];
   const deck = order.length ? order.map((k,i) => {
@@ -1165,7 +1278,7 @@ function lessonEditor(l){
     return `<div class="partrow">
       <span class="dot" style="background:var(--${k})"></span>
       <div class="grow"><div class="t">${esc(d.name)}</div>
-        <div class="s">${esc(l.parts[k]?.title || '')}${d.portfolio?'':' (성적 무관)'}</div></div>
+        <div class="s">${esc(partState(l, k))}${d.portfolio?'':' (성적 무관)'}</div></div>
       <div class="tools">
         <button class="ib" data-act="part-up" data-k="${k}" ${i===0?'disabled':''} title="위로" aria-label="위로">${icon('arrow-up',16)}</button>
         <button class="ib" data-act="part-down" data-k="${k}" ${i===order.length-1?'disabled':''} title="아래로" aria-label="아래로">${icon('arrow-down',16)}</button>
@@ -1182,37 +1295,53 @@ function lessonEditor(l){
 
   return `<div class="editor">
     <div class="deck">
-      <div class="sectionlabel">강의 번호</div>
-      <div class="formrow" style="margin-bottom:12px">
-        <input class="f" data-act="lesson-num" data-id="${l.id}" value="${esc(l.num || '')}"
-          placeholder="번호 (예: 1, OT, 수행)" style="max-width:220px" aria-label="강의 번호"
-          title="숫자면 N강, OT·수행 같은 말이면 [OT]로 표시됩니다">
-      </div>
+      <div class="row"><div class="t gen-label">강의 번호</div>
+        <input class="f w-md" data-act="lesson-num" data-id="${l.id}" value="${esc(l.num || '')}"
+          placeholder="1, OT, 수행" aria-label="강의 번호"
+          title="숫자면 N강, OT, 수행 같은 말이면 [OT]로 표시됩니다"></div>
+      <div class="row"><div class="t gen-label">제목</div>
+        <input class="f grow" data-act="lesson-title" data-id="${l.id}" value="${esc(l.title || '')}"
+          placeholder="강의 제목" aria-label="강의 제목"></div>
       <div class="sectionlabel">이 강의의 칸 (순서 자유)</div>${deck}</div>
-    <div class="palette"><div class="sectionlabel">칸 넣고 빼기</div>${palette}
-      <div class="formrow" style="margin-top:10px;flex-direction:column;align-items:stretch">
-        <button class="btn-text" data-act="lesson-import" data-id="${l.id}" style="display:flex;align-items:center;justify-content:center;gap:8px"
-          title="활동지를 올려 개념 노트를 만듭니다 (한글 파일 .hwpx를 권합니다)">${icon('upload',16)}<span>활동지 올리기</span></button>
-      </div>
-    </div></div>`;
+    <div class="palette"><div class="sectionlabel">칸 넣고 빼기</div>${palette}</div></div>`;
 }
 
+/* 칸에 내용이 들었는지 한 마디로. 슬라이드 축과 이름이 같은 칸 셋(개념 노트, 미션 활동,
+   오늘의 질문)은 축 판정(deckStepFilled)을 그대로 쓴다. 형성평가는 축에 없어 문항 수를 센다 */
+function partState(l, k){
+  if (k === 'formative'){
+    const n = (l.parts?.formative?.items || []).length;
+    return n ? `문항 ${n}개` : '아직 비어 있음';
+  }
+  return M.deckStepFilled(l.id, k) ? '내용 있음' : '아직 비어 있음';
+}
+
+/* ── 강의실 콘텐츠: 이 강의를 어느 반에 띄울지 ──
+   과목은 머리줄 드롭다운으로 이미 고른 것을 쓰므로 그 과목 강의실만 세운다. 그래서 줄 글자에
+   과목명을 또 붙이지 않는다(선생님 지시 2026-11-02: 강의실 이름에서 과목명 전부 빼기). */
 function lessonPlacer(l){
-  const placed = new Set();
-  M.getCourses(state.year).forEach(c => {
-    if (M.getCourseLessons(c.id).some(cl => cl.lessonId === l.id)) placed.add(c.id);
-  });
-  const rows = M.getCourses(state.year).map(c => `<label class="checkline">
+  const subject = curSubject();
+  const rooms = M.getCourses(state.year).filter(c => !subject || c.subject === subject)
+    .sort((a,b) => (a.grade - b.grade) || (a.classNo - b.classNo));
+  if (!rooms.length) return `<div class="empty">강의실이 없습니다. 강의실 관리에서 먼저 만드세요.</div>`;
+  const placed = new Set(rooms.filter(c => M.getCourseLessons(c.id).some(cl => cl.lessonId === l.id)).map(c => c.id));
+  return rooms.map(c => `<label class="checkline">
     <input type="checkbox" data-act="place-toggle" data-id="${c.id}" ${placed.has(c.id)?'checked':''}>
-    <span>${esc(M.roomName(c))}</span></label>`).join('');
-  return `<div class="sectionlabel">이 강의를 연결할 강의실</div>${rows}`;
+    <span>${esc(M.roomNo(c))}</span></label>`).join('');
 }
 
 /* ── 개념 노트 ──
    2026 lms의 개념 체크에서 가져오는 것은 콘텐츠 올리는 기능과 디자인 조절 기능뿐이다
    (요구사항 46, 47). 그래서 서브 메뉴도 콘텐츠와 디자인 둘뿐이다. */
 function pageConcept(){
-  const tabs = catline(M.ADMIN_SUBMENUS.concept, state.conceptTab, 'concept-tab');
+  /* 강의 만들기 단추는 서브 탭 줄 오른쪽 끝에 붙인다(선생님 지시 2026-11-02: "강의 만들기 버튼은
+     서브탭이랑 줄을 맞추고"). 강의 라이브러리 탭에서만, 그리고 강의 하나를 열어 둔 동안은 빼 둔다
+     (그때 머리줄은 그 강의의 이름과 삭제 단추 자리다). */
+  const makeBtn = (state.conceptTab === 'library' && !state.lessonId)
+    ? `<span class="line-end"><button class="btn-add" data-act="lesson-make-open"
+         title="강의 만들기" aria-label="강의 만들기">${icon('plus',16)}<span>강의 만들기</span></button></span>`
+    : '';
+  const tabs = catline(M.ADMIN_SUBMENUS.concept, state.conceptTab, 'concept-tab', '', makeBtn);
   const head = `<div class="pagehead"><h2>${esc(M.menuName('concept'))}</h2>${yearSelHtml()}${subjectSel()}</div>${tabs}`;
 
   if (state.conceptTab === 'library')
@@ -2061,19 +2190,24 @@ function pageNotice(){
   const isNew = state.noticeSel === 'new';
   if (!isNew && !list.some(n => n.id === state.noticeSel)) state.noticeSel = list[0]?.id ?? null;
 
-  // 상단: 글 목록(최근 5개, 더 있으면 더보기). 제목 옆에 조회·좋아요·댓글 수(선생님 지시 2026-11-01).
+  /* 상단: 글 목록(최근 5개, 더 있으면 더보기).
+     '목록' 아래에 표 제목줄을 하나 둔다(선생님 지시 2026-11-02: "목록 아래에 제목줄 하나 생성해줘.
+     제목 조회 좋아요 댓글 이렇게 하면 될듯?"). 그래서 숫자 셋을 아이콘으로 한 덩이에 붙여 적던 것을
+     칸 셋으로 갈라 세로로 맞췄다: 글이 여러 개일 때 위아래로 비교가 된다. */
   const MAX = 5, showAll = state.noticeListAll;
   const shown = showAll ? list : list.slice(0, MAX);
+  const lhead = `<div class="nlhead"><span class="grow">제목</span>
+    <span class="nlc">조회</span><span class="nlc">좋아요</span><span class="nlc">댓글</span></div>`;
   const lrow = x => { const st = M.noticeStats(x.id); const on = !isNew && x.id === state.noticeSel;
     return `<div class="row nlrow ${on?'on':''}">
       <div class="grow rowlink" data-act="notice-sel" data-v="${esc(x.id)}"><div class="t">${x.pinned?`<span class="npin">${icon('pin',13)}</span>`:''}${esc(x.title)}</div></div>
-      <span class="nlstat">${icon('eye',13)} ${st.reads} · ${icon('heart',13)} ${st.likes} · ${icon('message-circle',13)} ${st.comments}</span></div>`; };
+      <span class="nlc mono">${st.reads}</span><span class="nlc mono">${st.likes}</span><span class="nlc mono">${st.comments}</span></div>`; };
   const more = list.length > MAX
     ? (showAll ? `<button class="btn-link" data-act="notice-list-less">접기</button>`
                : `<button class="btn-link" data-act="notice-list-more">더보기 (${list.length - MAX})</button>`)
     : '';
   const listSec = list.length
-    ? `<section class="notice-list"><div class="sectionlabel nl-head">목록</div>${shown.map(lrow).join('')}${more ? `<div class="nl-more">${more}</div>` : ''}</section>`
+    ? `<section class="notice-list"><div class="sectionlabel nl-head">목록</div>${lhead}${shown.map(lrow).join('')}${more ? `<div class="nl-more">${more}</div>` : ''}</section>`
     : (isNew ? '' : `<div class="empty">공지사항이 없습니다. 오른쪽 위 추가로 글을 올리세요.</div>`);
 
   // 아래: 고른 글(또는 새 글)의 2단 — 왼쪽 제목·내용, 오른쪽 반응(조회·좋아요·댓글).
@@ -2096,12 +2230,58 @@ function noticeTools(n){
       <button class="ib ib-primary" data-act="notice-save" data-v="${esc(n.id)}" title="저장" aria-label="저장">${icon('check',16)}</button>
       <button class="ib ib-danger" data-act="notice-del" data-v="${esc(n.id)}" title="삭제" aria-label="삭제">${icon('trash-2',16)}</button></div>`;
 }
-// 제목·내용 칸(왼쪽 단). 반응은 오른쪽 단(noticeSocial)이 따로 맡는다.
+/* 제목과 내용 칸(왼쪽 단). 반응은 오른쪽 단(noticeSocial)이 따로 맡는다.
+   이름표를 칸 왼쪽(.gen-label, 150px)에 세우던 것을 칸 위로 올렸다(선생님 지시 2026-11-02:
+   "제목 내용 여백이 너무 넓어. 텍스트에어리어를 넓게 빼주고"). 이름표가 비켜서니 글 칸이
+   단 너비를 그대로 쓴다. 줄간격도 늘렸다(.nt-body, admin.css). */
 function noticeForm(n){
-  return `<div class="row"><div class="t gen-label">제목</div>
-      <input class="f grow" id="nt-title" value="${esc(n?.title || '')}" aria-label="제목"></div>
-    <div class="row row-top"><div class="t gen-label">내용</div>
-      <textarea class="f grow ta" id="nt-body" rows="12" aria-label="내용">${esc(n?.body || '')}</textarea></div>`;
+  return `<div class="nt-form">
+    <label class="nt-lab" for="nt-title">제목</label>
+    <input class="f" id="nt-title" value="${esc(n?.title || '')}" aria-label="제목">
+    <label class="nt-lab" for="nt-body">내용</label>
+    ${noticeEditorBar()}
+    <div class="nt-body" id="nt-body" contenteditable="true" role="textbox" aria-multiline="true"
+      aria-label="내용" data-ph="내용을 적어 주세요.">${M.noticeBodyHtml(n)}</div>
+  </div>`;
+}
+
+/* 공지 내용 서식 도구줄(선생님 지시 2026-11-02: "정렬, 굵기, 글색상을 바꿀 수 있게").
+   내용 칸을 textarea에서 contenteditable로 바꾸고 document.execCommand로 서식을 건다.
+   execCommand는 옛 API이지만 크롬, 사파리, 파이어폭스가 다 지원하고, 선택 영역을 직접 다루는
+   코드를 짜면 몇 백 줄이 된다. 브라우저가 무엇을 내놓든 저장은 M.sanitizeRich를 지나므로
+   들어가는 모양은 아는 태그와 아는 스타일뿐이다.
+   단추를 눌러도 글 칸의 선택이 풀리지 않게 mousedown을 막는다(아래 전역 mousedown 리스너). */
+const NOTICE_COLORS = [
+  { v:'#041E42', name:'기본(네이비)' },
+  { v:'#D00F31', name:'레드' },
+  { v:'#2E6FA8', name:'밝은 네이비' },
+  { v:'#68727F', name:'회색' },
+  { v:'#1F7A4D', name:'초록' },
+];
+function noticeEditorBar(){
+  const b = (cmd, label, ic) => `<button type="button" class="ib ib-sm" data-act="nt-cmd" data-cmd="${cmd}"
+    title="${esc(label)}" aria-label="${esc(label)}">${icon(ic,15)}</button>`;
+  const sw = NOTICE_COLORS.map(c => `<button type="button" class="nt-sw" data-act="nt-color" data-v="${c.v}"
+    style="background:${c.v}" title="글자색: ${esc(c.name)}" aria-label="글자색 ${esc(c.name)}"></button>`).join('');
+  return `<div class="nt-bar">
+    ${b('bold','굵게','bold')}
+    <span class="nt-sep"></span>
+    ${b('justifyLeft','왼쪽 정렬','align-left')}
+    ${b('justifyCenter','가운데 정렬','align-center')}
+    ${b('justifyRight','오른쪽 정렬','align-right')}
+    ${b('justifyFull','양쪽 정렬','align-justify')}
+    <span class="nt-sep"></span>
+    <span class="nt-sws">${sw}</span>
+  </div>`;
+}
+
+/* 서식 걸기. styleWithCSS를 켜 두면 굵게가 <b> 대신 style="font-weight"로 나와
+   정렬과 색과 같은 방식(스타일)으로 모인다: 걸러 낼 것이 하나로 줄어든다. */
+function noticeExec(cmd, arg = null){
+  const box = document.getElementById('nt-body'); if (!box) return;
+  if (!box.contains(document.activeElement) && document.activeElement !== box) box.focus();
+  try { document.execCommand('styleWithCSS', false, true); } catch(_){}
+  try { document.execCommand(cmd, false, arg); } catch(_){ toast('이 브라우저에서는 서식을 걸 수 없습니다.'); }
 }
 // 공지 반응 관리(선생님 지시 2026-11-01): 조회·좋아요·댓글 수 + 댓글 목록(삭제·학생 차단).
 function noticeSocial(n){
@@ -2122,7 +2302,8 @@ function noticeSocial(n){
   </div>`;
 }
 function saveNotice(id){
-  const payload = { title: val('nt-title'), body: document.getElementById('nt-body')?.value ?? '' };
+  // 내용 칸은 contenteditable이라 value가 아니라 innerHTML을 읽는다. 걸러 내는 일은 M이 맡는다
+  const payload = { title: val('nt-title'), body: document.getElementById('nt-body')?.innerHTML ?? '' };
   try {
     if (id){ M.updateNotice(id, payload); toast('저장했습니다.'); }
     else { const n = M.addNotice(state.year, state.subject, payload); state.noticeSel = n.id; toast('글을 올렸습니다.'); }
@@ -2679,6 +2860,12 @@ function render(){
 }
 
 // ── 이벤트 위임 ──
+/* 공지 서식 도구줄은 눌러도 글 칸의 선택이 풀리지 않아야 한다(선택이 풀리면 굵게와 색이
+   어디에 걸릴지 알 수 없다). mousedown을 막으면 포커스가 옮겨 가지 않는다(2026-11-02). */
+document.getElementById('shell').addEventListener('mousedown', e => {
+  if (e.target.closest('[data-act="nt-cmd"], [data-act="nt-color"]')) e.preventDefault();
+});
+
 document.getElementById('shell').addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el) return;
   const act = el.dataset.act, k = el.dataset.k, id = el.dataset.id, v = el.dataset.v, no = el.dataset.no;
@@ -2798,12 +2985,9 @@ document.getElementById('shell').addEventListener('click', e => {
       break;
     }
 
-    case 'lesson-add': {
-      const title = val('l-title'); if (!title){ toast('강의 제목을 적어 주세요.'); return; }
-      const num = val('l-num'); if (!num){ toast('강 번호를 적어 주세요.'); return; }
-      const l = M.addLesson(title, num); state.lessonId = l.id; state.lessonTab = 'edit'; render(); break;
-    }
-    case 'lesson-from-worksheet': createLessonFromWorksheet(); break;   // 활동지 하나로 강의 통째로 만들기
+    // 강의 만들기: 서브 탭 줄 오른쪽 끝 단추를 누르면 창에서 길 둘(활동지 올리기 / 빈 강의)을 고른다.
+    // 전에 목록 위에 있던 폼 둘(lesson-add, lesson-from-worksheet)은 그 창으로 옮겼다(2026-11-02)
+    case 'lesson-make-open': openLessonMakeModal(); break;
     case 'lesson-open': state.lessonId = id; state.lessonTab = 'edit'; render(); break;
     case 'lesson-close': state.lessonId = null; render(); break;
     /* 강의 삭제. 강의실 삭제와 달리 내용 자체가 없어지므로
@@ -2974,6 +3158,9 @@ document.getElementById('shell').addEventListener('click', e => {
     // 공지사항: 미션 활동과 같은 길(고르기, 새 글, 저장, 삭제)
     case 'notice-subject': state.subject = v; state.noticeSel = null; render(); break;
     case 'notice-sel': state.noticeSel = v; render(); break;
+    // 공지 내용 서식(굵게, 정렬, 글자색). 다시 그리지 않는다: 글 칸 안에서만 바뀌는 일이다
+    case 'nt-cmd': noticeExec(el.dataset.cmd); break;
+    case 'nt-color': noticeExec('foreColor', v); break;
     case 'notice-list-more': state.noticeListAll = true; render(); break;
     case 'notice-list-less': state.noticeListAll = false; render(); break;
     case 'notice-add-open': state.noticeSel = 'new'; render(); document.getElementById('nt-title')?.focus(); break;
@@ -3285,6 +3472,8 @@ document.getElementById('shell').addEventListener('change', e => {
     wirePageOverflow();   // 저장될 때마다 화면 넘침 경고를 다시 잰다(다시 그리지 않으므로 여기서 갱신)
   } else if (el.dataset.act === 'lesson-num'){   // 강의 번호/라벨(머리줄 번호표가 바뀌게 다시 그린다)
     M.setLessonNum(el.dataset.id, el.value); render();
+  } else if (el.dataset.act === 'lesson-title'){   // 강의 제목(강의 편집). 머리줄 제목이 바뀌게 다시 그린다
+    run(() => M.setLessonTitle(el.dataset.id, el.value));
   } else if (el.dataset.act === 'axis-question'){   // 슬라이드 오늘의 질문 편집(질문, 설명문)
     M.setQuestion(el.dataset.id, { [el.dataset.f]: el.value });
   } else if (el.dataset.act === 'deck-cover'){   // 축 편집기 표지: 학습 주제, 단원, 교과서 쪽수

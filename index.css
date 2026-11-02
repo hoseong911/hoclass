@@ -53,8 +53,11 @@ html:not(.lms-ready) #app{display:none}
   max-height:calc(100vh - 32px);overflow:auto;padding:18px 20px 22px}
 .notice .mhead{display:flex;align-items:flex-start;gap:8px;margin-bottom:12px}
 .notice h2{flex:1;min-width:0;font-size:var(--fs-head);margin:4px 0 0;letter-spacing:-.2px}
-.notice .nbody{font-size:var(--fs-body);line-height:1.7;white-space:pre-wrap;
+/* 글 내용: 이제 서식이 든 HTML이다(2026-11-02). 줄바꿈이 <br>로 들어오므로 pre-wrap을 걷었다
+   (안 걷으면 태그 사이 줄바꿈까지 빈 줄로 보인다). 줄간격은 어드민 글 칸과 같이 1.9로 */
+.notice .nbody{font-size:var(--fs-body);line-height:1.9;overflow-wrap:break-word;
   border-top:1px solid var(--line);padding-top:14px}
+.notice .nbody div,.notice .nbody p{margin:0}
 
 /* 공지 좋아요·댓글(학생, 선생님 지시 2026-11-01) */
 .nlike-row{display:flex;align-items:center;gap:12px;margin-top:14px}

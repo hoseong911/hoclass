@@ -19,7 +19,11 @@ html:not(.lms-ready) #shell{display:none}
 #shell{display:flex;height:100%}
 .side{width:220px;flex:0 0 auto;background:transparent;border-right:1px solid var(--line);padding:16px 10px;
   overflow-y:auto}   /* 메뉴가 길어지면 사이드바 안에서만 내려간다 */
-.side .brand{font-weight:900;font-size:var(--fs-title);padding:6px 12px 18px;letter-spacing:1px;color:var(--navy)}
+/* 브랜드 두 줄(선생님 지시 2026-11-02): 이름은 크게, '관리자 모드'는 그 아래 작게.
+   이름만 네이비 굵은 글씨고 아래 줄은 보조 글씨다. 좁은 화면에서는 아래 미디어 쿼리가 숨긴다 */
+.side .brand{display:flex;flex-direction:column;gap:1px;padding:6px 12px 18px}
+.side .brand-nm{font-weight:900;font-size:var(--fs-title);letter-spacing:1px;color:var(--navy);line-height:1.2}
+.side .brand-sub{font-size:var(--fs-meta);color:var(--sub);font-weight:600;letter-spacing:.3px}
 .side .mi{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid transparent;border-radius:var(--r);color:var(--sub);
   font-size:var(--fs-body);cursor:pointer;margin-bottom:2px}
 .side .mi:hover{background:var(--hover);color:var(--ink)}
@@ -461,11 +465,21 @@ div.selrow{cursor:default}
 /* 제목과 설명을 함께 담는 줄 링크: 가로로 눕지 않게 */
 .rowlink.stack{display:block}
 .badge{font-size:var(--fs-meta);background:var(--navy-100);border-radius:3px;padding:2px 8px;color:var(--navy-600)}
-/* 강의 번호표(강의 라이브러리 목록, 머리줄): 제목 앞에 작은 레드 글씨로 "1강"/"[OT]" */
-.lnum{color:var(--red);font-weight:700;margin-right:2px}
+/* 강의 번호표(강의 라이브러리 목록, 머리줄): 제목 앞에 "1강"/"[OT]".
+   레드였는데 제목과 색을 맞췄다(선생님 지시 2026-11-02: "29강은 왜 빨간 글씨인지? 걍 맞추셈").
+   번호와 제목을 가르는 것은 색이 아니라 굵기와 마침표다 */
+.lnum{color:inherit;font-weight:700;margin-right:2px}
 /* 학번처럼 자리를 맞춰야 하는 숫자. 글꼴은 Pretendard 그대로 두고 숫자 폭만 고정한다
    (선생님 지시 2026-10-29: 학번 글꼴이 본문과 달라 보인다). 고정폭 글꼴로 바꾸지 말 것 */
 .mono{font-family:var(--font);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+/* 강의 라이브러리 목록의 칸 배지(선생님 지시 2026-11-02: "개념 노트 이런거는 배지로 만들어서
+   한줄로 정렬해줘"). 전에는 제목 아래 둘째 줄에 "개념 노트, 미션 활동"으로 적혀 줄이 둘이 됐다.
+   색은 칸마다 정해진 것(--concept 등)을 --lb로 받아 글자와 테두리에만 쓴다 */
+.lbadges{flex:0 0 auto;display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.lbadge{font-size:var(--fs-meta);font-weight:600;line-height:1.4;white-space:nowrap;
+  border:1px solid var(--lb,var(--line-strong));color:var(--lb,var(--sub));border-radius:3px;padding:1px 7px}
+.lbadge.lb-empty{border-style:dashed;border-color:var(--line-strong);color:var(--sub);font-weight:400}
+@media (max-width:700px){ .lbadges{display:none} }   /* 좁으면 제목만 (줄이 둘로 접히지 않게) */
 
 /* 액션 아이콘 버튼: 테두리는 진짜 액션 버튼에만, 모서리 8px, 알약 금지 */
 .ib{display:inline-grid;place-items:center;width:var(--h-ctl);height:var(--h-ctl);border:1px solid var(--line);
@@ -510,6 +524,8 @@ input[type=number]{-moz-appearance:textfield}
 /* 강의 편집기 */
 .editor{display:flex;gap:18px;flex-wrap:wrap}
 .deck{flex:1;min-width:280px}
+/* 강의 번호, 제목 줄의 이름표는 일반 설정(150px)보다 좁다: 왼쪽 단이 좁아 150px을 주면 글 칸이 눌린다 */
+.editor .row .gen-label{flex:0 0 84px}
 /* 목록 줄과 같이 테두리는 위아래만(선생님 지시 2026-10-29) */
 .partrow{display:flex;align-items:center;gap:10px;border:0;border-top:1px solid var(--line);
   border-bottom:1px solid var(--line);border-radius:0;
@@ -565,6 +581,18 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .btn-danger:hover{background:var(--red-dark);border-color:var(--red-dark)}
 .btn-danger:disabled{opacity:.4;cursor:default}
 
+/* 강의 만들기 창의 길 고르기(선생님 지시 2026-11-02): 큰 칸 둘을 나란히. 아이콘, 이름, 한 줄 설명.
+   세그먼트(.seg)가 아니라 카드로 둔 까닭: 둘은 고르고 나면 다음 칸이 다른 '길'이지 '필터'가 아니다 */
+.m-pick{display:flex;gap:10px;margin:4px 0 14px}
+.m-card{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+  border:1px solid var(--line);border-radius:var(--r);background:transparent;cursor:pointer;
+  padding:16px 14px;text-align:left;font-family:inherit;color:var(--ink)}
+.m-card:hover{border-color:var(--accent);background:var(--accent-fade)}
+.m-card-i{display:inline-grid;color:var(--accent)}
+.m-card-t{font-size:var(--fs-body);font-weight:700}
+.m-card-s{font-size:var(--fs-meta);color:var(--sub);line-height:1.5}
+@media (max-width:560px){ .m-pick{flex-direction:column} }
+
 /* 생성 팝업: 세그먼트로 무엇을 만들지 고르고, 폼은 팝업 안에서만 */
 .seg{display:flex;gap:4px;background:transparent;border:1px solid var(--line);border-radius:var(--r);
   padding:3px;margin:4px 0 16px}
@@ -590,8 +618,15 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .nlrow.on{background:var(--accent-fade)}
 .nlrow .t{display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .npin{display:inline-grid;color:var(--accent);flex:0 0 auto}
-.nlstat{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;color:var(--sub);font-size:var(--fs-meta);white-space:nowrap}
-.nlstat svg{vertical-align:-2px}
+/* 표 제목줄(선생님 지시 2026-11-02): 제목 | 조회 | 좋아요 | 댓글. 줄이 아니라 이름표라
+   테두리 없이 작은 보조 글씨만 두고, 아래 첫 글 줄의 윗선이 이 줄과 글을 가른다 */
+.nlhead{display:flex;align-items:center;gap:12px;padding:6px 13px 4px;
+  font-size:var(--fs-meta);color:var(--sub);font-weight:600}
+.nlhead .grow{flex:1;min-width:0}
+/* 숫자 칸 셋: 폭을 고정해 글이 여러 개여도 세로로 맞아 떨어진다 */
+.nlc{flex:0 0 52px;text-align:center;color:var(--sub);font-size:var(--fs-meta)}
+.nlrow .nlc{color:var(--ink)}
+@media (max-width:560px){ .nlc{flex-basis:40px} }
 /* 글을 고르면 아래 2단: 왼쪽 제목·내용, 오른쪽 반응 */
 .notice-detail{display:flex;gap:24px;align-items:flex-start;margin-top:22px;
   border-top:1px solid var(--line-strong);padding-top:18px}
@@ -607,6 +642,31 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .ncm:first-child{border-top:0}
 .ncm-who{font-size:var(--fs-meta);color:var(--sub);font-weight:600}
 .ncm-text{font-size:var(--fs-body);color:var(--ink);word-break:break-word;margin-top:2px}
+/* 공지 글 쓰는 칸(선생님 지시 2026-11-02): 이름표를 칸 위로 올려 글 칸이 단 너비를 다 쓴다.
+   전에는 이름표가 왼쪽 150px(.gen-label)을 차지해 오른쪽 글 칸이 좁고 왼쪽이 휑했다 */
+.nt-form{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.nt-form .f{width:100%}
+.nt-lab{font-size:var(--fs-meta);color:var(--sub);font-weight:700;margin-top:10px}
+/* 서식 도구줄: 글 칸 바로 위에 붙는다(칸과 한 덩이로 보이게 아래 모서리를 펴고 밑선을 없앤다).
+   바탕은 깔지 않는다(화면 규칙: 바탕이 비치고 선으로만 나눈다) */
+.nt-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;
+  border:1px solid var(--line);border-bottom:0;border-radius:var(--r) var(--r) 0 0;
+  padding:5px 6px;background:transparent}
+.nt-sep{width:1px;align-self:stretch;margin:2px 4px;background:var(--line-strong)}
+.nt-sws{display:flex;align-items:center;gap:5px;margin-left:2px}
+/* 글자색 고르개: 색 동그라미. 아이콘으로는 무슨 색인지 보이지 않는다 */
+.nt-sw{width:19px;height:19px;border-radius:50%;border:1px solid var(--line-strong);
+  cursor:pointer;padding:0;flex:0 0 auto}
+/* 마우스를 올리면 테두리만 레드로 두꺼워진다. outline은 쓰지 않는다(화면 규칙) */
+.nt-sw:hover{border:2px solid var(--accent)}
+/* 글 칸: 줄간격을 1.5에서 1.9로 늘렸다(선생님 지시: "내용 쪽 줄간격이 너무 좁은듯 늘려줘") */
+.nt-body{border:1px solid var(--line);border-radius:0 0 var(--r) var(--r);
+  padding:12px 14px;min-height:260px;font-size:var(--fs-body);line-height:1.9;
+  color:var(--ink);background:transparent;overflow-y:auto;overflow-wrap:break-word}
+.nt-body:focus{outline:none;border-color:var(--accent)}
+/* 빈 칸 안내 글(입력 칸의 placeholder와 같은 구실). contenteditable에는 placeholder가 없다 */
+.nt-body:empty::before{content:attr(data-ph);color:var(--sub)}
+
 .sel-full{width:100%}
 .m-label{font-size:var(--fs-meta);color:var(--sub);font-weight:700;margin-top:6px}
 .m-two{display:flex;gap:10px}
@@ -695,6 +755,8 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .axpane-body::-webkit-scrollbar{display:none}
 .axpane-body .ce-add{margin-top:12px}
 .axpane-body > .row:first-child{border-top:0}
+/* 강의 편집의 첫 줄(강의 번호)도 머리줄 밑선과 겹치지 않게 윗선을 뺀다(선생님 지시: 구분선은 하나씩만) */
+.axpane-body .editor .deck > .row:first-child{border-top:0}
 
 /* 문항 하나를 묶은 칸(전시학습확인, 동기 유발). 머리에 번호와 도구, 아래에 이름표 붙은 칸들.
    한 묶음이 카드 하나라는 규칙(2026-10-28)에 맞춰 묶음 사이는 얇은 선으로만 나눈다 */
