@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261102c';
+import * as M from './model.js?v=20261102d';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -146,7 +146,9 @@ function toast(msg){
 /* 확인 창: 브라우저 기본 confirm을 쓰지 않는다(코드 규칙).
    되돌릴 수 없는 삭제에만 쓴다. 보통 입력은 인라인 폼으로 받는다(요구사항 66).
    needText를 주면 그 글자를 그대로 쳐야 확인 버튼이 켜진다(강의실 삭제, 화면 규칙 2026-10-25). */
-function confirmDelete({ title, bodyHtml = '', needText = null, okText = '삭제' }){
+/* 확인 창. 되돌릴 수 없는 삭제가 쓰던 것이라 이름이 confirmDelete이고 확인 단추가 레드(.btn-danger)다.
+   okCls로 그 색을 바꿀 수 있다: 지우는 일이 아니면(예: 강의 한꺼번에 공개) 주 버튼 색(.btn-text)으로. */
+function confirmDelete({ title, bodyHtml = '', needText = null, okText = '삭제', okCls = 'btn-danger' }){
   return new Promise(resolve => {
     const back = document.createElement('div');
     back.className = 'modal-back';
@@ -157,7 +159,7 @@ function confirmDelete({ title, bodyHtml = '', needText = null, okText = '삭제
       <div class="m-err" id="m-err"></div>
       <div class="m-acts">
         <button class="btn-ghost" data-m="cancel">취소</button>
-        <button class="btn-danger" data-m="ok" ${needText ? 'disabled' : ''}>${esc(okText)}</button>
+        <button class="${okCls}" data-m="ok" ${needText ? 'disabled' : ''}>${esc(okText)}</button>
       </div></div>`;
     document.body.appendChild(back);
 
@@ -444,21 +446,28 @@ function pageProgress(){
   const yearSel = `<select class="sel" id="year-sel" data-act="year-pick" aria-label="학년도">
     ${years.map(y => `<option value="${y.year}" ${y.year===state.year?'selected':''}>${y.year}학년도</option>`).join('')}
   </select>`;
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('progress'))}</h2>${years.length?yearSel:''}${years.length?subjectSel():''}</div>`;
+  /* 머리줄 오른쪽 끝의 [수업일자가 된 강의 공개](선생님 지시 2026-11-02: "진도 일자에 맞춰서
+     전체 공개하는 기능"). 진도 관리에 둔 까닭: 수업일자를 반 전체로 보고 고치는 자리가 여기다.
+     공개할 것이 있을 때만 레드로 켜지고 수를 괄호로 적는다. 없으면 꺼 둔다. */
+  const due = years.length ? M.dueToOpen(state.year, curSubject()) : [];
+  const openBtn = years.length
+    ? `<button class="btn-chip ${due.length ? 'on' : ''}" data-act="prog-open-due" ${due.length ? '' : 'disabled'}
+        title="수업일자가 오늘이거나 지난 강의를 학생에게 한꺼번에 공개합니다">${icon('eye',13)}수업일자가 된 강의 공개${due.length ? ` (${due.length})` : ''}</button>`
+    : '';
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('progress'))}</h2>${years.length?yearSel:''}${years.length?subjectSel():''}${openBtn}</div>`;
   if (!years.length) return `${head}<div class="empty">학년도가 없습니다.</div>`;
 
   const all = M.getCourses(state.year);
   if (!all.length) return `${head}<div class="empty">강의실이 없습니다.</div>`;
 
-  // 과목 탭에서 그 과목의 반 탭으로 좁힌다. 둘 다 있는 것만(요구사항 3).
-  const subjects = [...new Set(all.map(c => c.subject))].sort((a,b) => a.localeCompare(b,'ko'));
-  if (!subjects.includes(state.subject)) state.subject = subjects[0];
+  // 과목은 머리줄 드롭다운 하나로 전 메뉴가 같이 쓴다(curSubject). 전에는 이 화면만 강의실에서
+  // 과목 목록을 따로 뽑아 state.subject를 또 맞췄는데, 머리줄 단추가 쓰는 값과 어긋날 수 있었다
   // hoistory의 [+ 강의 추가]는 과목 탭 줄 오른쪽 끝에 둔다(선생님 지시 2026-10-29).
   // 누르면 줄 아래에 제목 입력 줄이 열린다(요구사항 66 인라인).
   // 강의 추가는 강의 라이브러리에서만 한다(선생님 지시 2026-11-01). 진도 관리에선 추가 단추를 없앴다.
   const tabs = '';
 
-  const rooms = all.filter(c => c.subject === state.subject)
+  const rooms = all.filter(c => c.subject === curSubject())
     .slice().sort((a,b) => a.grade - b.grade || a.classNo - b.classNo);
 
   const { placed, lessons } = placedLessons(rooms);
@@ -1225,7 +1234,10 @@ function pageLessons(){
      슬라이드랑 비슷하게 해줘. 강의 편집, 강의실 콘텐츠를 왼쪽 메뉴로 빼주고 눌러서 넘어가게").
      왼쪽 줄자(.axrail)에서 고르면 오른쪽 칸(.axpane)이 바뀐다. 클래스는 슬라이드 편집기 것을
      그대로 쓴다: 어드민 안에서 두 화면이 같은 모양으로 보인다. 탭 줄(catline)은 걷었다. */
-  const menus = [{ k:'edit', name:'강의 편집' }, { k:'place', name:'강의실 콘텐츠' }];
+  /* 왼쪽 줄자 둘. '강의실 콘텐츠'였던 둘째 칸을 '반 연결과 공개'로 바꿨다(2026-11-02):
+     선생님이 강의 편집 안의 칸 목록을 '강의실 연결 콘텐츠'라고 부르라고 하셔서 이름이 겹친다.
+     둘째 칸이 하는 일은 반마다 연결과 공개를 켜고 끄는 것이라 그 말이 더 정확하다. */
+  const menus = [{ k:'edit', name:'강의 편집' }, { k:'place', name:'반 연결과 공개' }];
   if (!menus.some(m => m.k === state.lessonTab)) state.lessonTab = 'edit';
   const cur = menus.find(m => m.k === state.lessonTab);
   const rail = menus.map(m => { const on = m.k === state.lessonTab;
@@ -1298,7 +1310,7 @@ function lessonEditor(l){
     ? `<button class="btn-chip on" data-act="lesson-tab" data-v="place"
          title="어느 반에도 연결되지 않아 학생 화면에 뜨지 않습니다">${icon('eye',13)}연결 안 됨</button>`
     : `<button class="btn-chip ${opened ? '' : 'on'}" data-act="lesson-tab" data-v="place"
-         title="${opened ? '강의실 콘텐츠에서 연결과 공개를 바꿉니다' : '공개한 반이 없어 학생 화면에 뜨지 않습니다'}">${icon('eye',13)}연결 ${linked}반, 공개 ${opened}반</button>`;
+         title="${opened ? '반 연결과 공개에서 바꿉니다' : '공개한 반이 없어 학생 화면에 뜨지 않습니다'}">${icon('eye',13)}연결 ${linked}반, 공개 ${opened}반</button>`;
 
   return `<div class="pb-form">
     <div class="row"><div class="t gen-label">강의 번호</div>
@@ -1309,7 +1321,7 @@ function lessonEditor(l){
       <input class="f grow" data-act="lesson-title" data-id="${l.id}" value="${esc(l.title || '')}"
         placeholder="강의 제목" aria-label="강의 제목"></div>
 
-    <div class="sectionlabel">이 강의의 칸</div>
+    <div class="sectionlabel">강의실 연결 콘텐츠</div>
     ${partsHtml}
 
     <div class="lfoot">
@@ -1322,8 +1334,10 @@ function lessonEditor(l){
   </div>`;
 }
 
-/* 칸 한 줄. 있는 칸은 상태와 [고치기], 순서 화살표, 빼기. 없는 칸은 흐린 줄에 [넣기]만.
-   opts.i가 있으면 있는 칸이다(순서 화살표를 그릴 자리를 안다). */
+/* 칸 한 줄. 있는 칸은 상태(쪽 수나 O, X)와 수정, 순서 화살표, 빼기. 없는 칸은 흐린 줄에 [넣기]만.
+   opts.i가 있으면 있는 칸이다(순서 화살표를 그릴 자리를 안다).
+   없는 칸의 '없음'과 있는 칸의 X는 다른 말이다: 앞은 칸 자체가 이 강의에 없는 것,
+   뒤는 칸은 있는데 안 채운 것이다. 그래서 앞은 [넣기], 뒤는 수정 단추가 선다. */
 function partRow(l, k, slides, opts = {}){
   const d = M.partDef(k);
   const has = opts.i != null;
@@ -1341,8 +1355,8 @@ function partRow(l, k, slides, opts = {}){
   const gated = k === 'formative' && !opts.linked;
   return `<div class="partrow">
     <span class="dot" style="background:var(--${k})"></span>
-    <div class="grow"><div class="t">${esc(d.name)}${d.portfolio ? '' : ' <span class="unit">성적 무관</span>'}</div></div>
-    <span class="pstate ${st.empty ? 'empty' : ''}">${esc(st.text)}</span>
+    <div class="grow"><div class="t">${esc(d.name)}</div></div>
+    <span class="pstate">${st.html}</span>
     <div class="tools">
       <button class="ib ib-sm ${st.empty ? 'ib-primary' : ''}" data-act="part-go" data-k="${k}" data-id="${l.id}"
         ${gated ? 'disabled' : ''}
@@ -1363,21 +1377,24 @@ const PART_GO = {
 };
 function partGoWhere(k){ return PART_GO[k] || '고치는 자리로 갑니다'; }
 
-/* 칸에 내용이 들었는지 한 마디로. { text, empty } 를 돌려준다(empty면 붉은 글씨에 [고치기]를 강조).
-   개념 노트와 미션 활동은 실제로 선 쪽 수를 센다: "내용 있음"보다 "슬라이드 3쪽"이 훨씬 말이 된다.
+/* 칸에 내용이 들었는지. { html, empty }를 돌려준다(empty면 수정 단추를 레드로 강조한다).
+   글로 적지 않는다(선생님 지시 2026-11-02: "슬라이드 7쪽 이런 말이 좀 구려 질문 적힘 이런말도 좀 구리고").
+     **빈 칸은 어디서나 X**(레드). 성적 조회의 달성 OX와 같은 모양, 같은 색이다(.ox)
+     센 수가 있으면 그 수만: 개념 노트와 미션 활동은 쪽 수, 형성평가는 문항 수
+     오늘의 질문은 하나뿐이라 셀 것이 없어 O다(선생님 지시: "적혀 있으면 O, 없으면 X")
    쪽을 세는 기준은 학생이 보는 덱 그 자체(buildSlides)라 화면에 뜨는 수와 어긋나지 않는다. */
+const OX_NO = `<span class="ox bad">X</span>`;
 function partState(l, k, slides){
   if (k === 'formative'){
     const n = (l.parts?.formative?.items || []).length;
-    return n ? { text:`${n}문항`, empty:false } : { text:'비어 있음', empty:true };
+    return n ? { html:`${n}문항`, empty:false } : { html:OX_NO, empty:true };
   }
   if (k === 'question'){
-    // 질문은 하나뿐이라 셀 것이 없다. 채웠으면 아무 말도 안 적는다(빈 것만 알리면 된다)
     const q = String(l.parts?.question?.question || '').trim();
-    return q ? { text:'', empty:false } : { text:'비어 있음', empty:true };
+    return q ? { html:`<span class="ox good">O</span>`, empty:false } : { html:OX_NO, empty:true };
   }
   const n = slides.filter(s => s.step === k).length;
-  return n ? { text:`${n}쪽`, empty:false } : { text:'비어 있음', empty:true };
+  return n ? { html:`${n}쪽`, empty:false } : { html:OX_NO, empty:true };
 }
 
 /* 머리줄 드롭다운으로 고른 과목의 강의실, 학년과 반 순서. 강의 편집과 강의실 콘텐츠가 같이 쓴다 */
@@ -3400,6 +3417,27 @@ document.getElementById('shell').addEventListener('click', e => {
       M.saveGradeConfig(bands)
         .then(() => { toast('저장했습니다.'); render(); })
         .catch(() => toast('저장하지 못했습니다. 다시 시도해 주세요.'));
+      break;
+    }
+
+    /* 수업일자가 된 강의를 한꺼번에 공개(2026-11-02). 학생에게 보이기 시작하는 일이라 확인을 받는다.
+       지우는 일이 아니므로 확인 단추는 레드 채움이 아니라 주 버튼 색이다(okCls). */
+    case 'prog-open-due': {
+      const subject = curSubject();
+      const due = M.dueToOpen(state.year, subject);
+      if (!due.length){ toast('수업일자가 된 강의가 없습니다.'); break; }
+      const rooms = new Set(due.map(cl => cl.courseId)).size;
+      confirmDelete({
+        title: '수업일자가 된 강의 공개',
+        bodyHtml: `반 ${rooms}개의 강의 ${due.length}개를 학생에게 공개합니다.`
+          + `<ul><li>수업일자가 오늘이거나 지난 것만 켭니다</li>`
+          + `<li>이미 공개한 것과 앞날 강의, 수업일자가 없는 강의는 그대로 둡니다</li></ul>`,
+        okText: '공개', okCls: 'btn-text',
+      }).then(ok => {
+        if (!ok) return;
+        const n = M.openDueLessons(state.year, subject);
+        toast(`${n}개를 공개했습니다.`); render();
+      });
       break;
     }
 

@@ -651,6 +651,21 @@ export function placeLesson(courseId, lessonId){
   const cl = { id:nid('cl'), courseId, lessonId, order, isOpen:false, date:'' };
   DEMO.courseLessons.push(cl); put(COLLECTIONS.courseLessons, cl); return cl;
 }
+/* 수업일자가 오늘이거나 지난 연결 강의를 한 번에 공개한다(선생님 지시 2026-11-02:
+   "진도 일자에 맞춰서 전체 공개하는 기능"). 전에는 그런 기능이 없어 반마다 눈 단추를 손으로 눌렀다.
+   건드리지 않는 것: 이미 공개한 것, 수업일자가 없는 것, 앞날 것. 즉 **켜기만 하고 끄지 않는다**
+   (날짜가 지났다고 저절로 닫히면 지난 수업을 못 보게 되는데 그건 선생님이 정할 일이다).
+   dueToOpen은 셀 때와 켤 때가 같은 기준을 보게 따로 뗀 것이다(확인 창에 숫자를 보여 주려고). */
+export function dueToOpen(year, subject){
+  const ids = new Set(getCourses(year).filter(c => c.subject === subject).map(c => c.id));
+  return DEMO.courseLessons.filter(cl => ids.has(cl.courseId) && !cl.isOpen
+    && (dateStatus(cl.date) === 'today' || dateStatus(cl.date) === 'past'));
+}
+export function openDueLessons(year, subject){
+  const list = dueToOpen(year, subject);
+  list.forEach(cl => { cl.isOpen = true; put(COLLECTIONS.courseLessons, cl); });
+  return list.length;
+}
 export function toggleCourseLessonOpen(id){
   const cl = DEMO.courseLessons.find(c => c.id === id);
   if (cl){ cl.isOpen = !cl.isOpen; put(COLLECTIONS.courseLessons, cl); }
