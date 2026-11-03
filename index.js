@@ -403,14 +403,20 @@ function scoreCard(c){
   const sc = M.studentGrade(c.id, state.sno);
   if (!sc.has)
     return `<div class="score"><div class="h">실시간 성적</div>
-      <div class="row"><span>아직 반영된 강의가 없습니다.</span></div></div>`;
+      <div class="empty-inline">아직 반영된 강의가 없습니다.</div></div>`;
+  // 총점 달성 바(Heritage Blue). 비율은 이미 계산된 총점/만점에서 바로 뽑는다(새 데이터가 아니다).
+  const pct = sc.maxScore ? Math.round(sc.total / sc.maxScore * 100) : 0;
   const rows = M.GRADE_AREAS.map(a => {
     const it = sc.areas[a.key];
-    const v = it.total ? `${it.score}점 <small>${it.pct}%</small>` : '미실시';
+    const v = it.total ? `${it.score}점 <small>${it.pct}%</small>` : '<span class="na">미실시</span>';
     return `<div class="row"><span>${esc(a.name)}</span><b>${v}</b></div>`;
   }).join('');
-  return `<div class="score"><div class="h">실시간 성적</div>${rows}
-    <div class="row total"><span>최종</span><b>${sc.total} / ${sc.maxScore}</b></div></div>`;
+  return `<div class="score"><div class="h">실시간 성적</div>
+    <div class="score-hero">
+      <div class="score-total">${sc.total}<span class="of">/ ${sc.maxScore}</span></div>
+      <div class="score-track"><span style="width:${pct}%"></span></div>
+    </div>
+    <div class="score-rows">${rows}</div></div>`;
 }
 
 /* 강의 하나를 연 화면의 제목은 "N강. 강의 주제"다(선생님 지시 2026-10-30, 요구사항 123).

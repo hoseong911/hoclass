@@ -10,9 +10,10 @@
      여기까지 왔으면 위의 CSS도 다 온 것이다. 지우지 말 것. */
   --lms-css-ok:1;
 
-  /* ── 브랜드 두 색 ── */
-  --navy:#041E42;
-  --red:#D00F31;
+  /* ── 브랜드 세 색 (선생님 지시 2026-11-03: 롯데 자이언츠 공식 3색을 그대로) ── */
+  --navy:#041E42;       /* Classic Navy (메인, Pantone 289 C) */
+  --sky:#6CACE4;        /* Heritage Blue (보조, Pantone 284 C). 밝아서 흰 글자 대신 옅은 바탕·선택 틴트·달성 바에 쓴다 */
+  --red:#D00F31;        /* Energetic Red (강조, Pantone 199 C) */
 
   /* 네이비에서 뽑은 단계: 진한 쪽부터 */
   --navy-800:#0A2B55;
@@ -21,6 +22,7 @@
   --navy-100:#E8EDF4;   /* 켜진 메뉴 같은 옅은 바탕 */
   --red-dark:#A60B27;
   --red-100:#FCEAEE;
+  --sky-soft:#E9F2FB;   /* Heritage Blue 옅은 바탕(달성 바 트랙, 선택 틴트) */
 
   /* ── 바탕과 글자 ── */
   --bg:#F4F5F7;         /* 화면 바탕 */

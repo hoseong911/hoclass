@@ -1,4 +1,4 @@
-@import url("shared/theme.css?v=20261031a");
+@import url("shared/theme.css?v=20261103a");
 /* 2027 LMS 학생 화면: 제로베이스 뼈대 (2026-10-26, 색 2026-10-27, 큰 틀 2026-10-27)
    색은 shared/theme.css 한 곳에서. 기조는 플랫 + 미니멀(그림자, 그라데이션, 알약 없음).
 
@@ -11,6 +11,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:var(--fs-body);line-height:1.5;
+  font-variant-numeric:tabular-nums;   /* 차수·점수·카운트 숫자가 어느 줄에서나 세로로 맞는다 */
   -webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
 
 .boot{position:fixed;inset:0;display:grid;place-items:center;color:var(--sub);font-size:var(--fs-body)}
@@ -18,12 +19,12 @@ html.lms-ready .boot{display:none}
 html:not(.lms-ready) #app{display:none}
 
 /* 폰에서는 가장자리 여백을 줄이고, 넓어지면 가운데로 모은다 */
-#app{max-width:860px;margin:0 auto;padding:14px 14px calc(56px + env(safe-area-inset-bottom));
-  padding-left:max(14px, env(safe-area-inset-left));padding-right:max(14px, env(safe-area-inset-right))}
-@media (min-width:700px){ #app{padding:22px 20px 80px} }
+#app{max-width:860px;margin:0 auto;padding:16px 16px calc(56px + env(safe-area-inset-bottom));
+  padding-left:max(16px, env(safe-area-inset-left));padding-right:max(16px, env(safe-area-inset-right))}
+@media (min-width:700px){ #app{padding:24px 20px 80px} }
 
 /* ── 위쪽 줄 ── */
-.topbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;min-height:44px}
+.topbar{display:flex;align-items:center;gap:8px;margin-bottom:16px;min-height:44px}
 .topbar h1{font-size:var(--fs-head);margin:0;flex:1;min-width:0;letter-spacing:-.2px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .topbar .who{font-size:var(--fs-meta);color:var(--sub);white-space:nowrap}
@@ -35,8 +36,8 @@ html:not(.lms-ready) #app{display:none}
 .iconbtn:hover{background:var(--hover);color:var(--ink)}
 
 /* ── 공지사항 글 목록 (선생님 지시 2026-10-30) ── 강의실 안 맨 위. 가로 구분선만 있는 목록 줄 */
-.notices{margin-bottom:0;padding-bottom:18px;border-bottom:1px solid var(--line-strong)}
-.sechead{font-size:var(--fs-head);font-weight:700;margin:0 0 8px}
+.notices{margin-bottom:0;padding-bottom:20px;border-bottom:1px solid var(--line-strong)}
+.sechead{font-size:var(--fs-head);font-weight:600;margin:0 0 8px}
 .nrow{display:flex;align-items:center;gap:8px;min-height:var(--h-row);padding:0 2px;cursor:pointer;
   border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .nrow + .nrow{border-top:0}
@@ -64,23 +65,23 @@ html:not(.lms-ready) #app{display:none}
 /* 공지 좋아요·댓글(학생, 선생님 지시 2026-11-01) */
 .nlike-row{display:flex;align-items:center;gap:12px;margin-top:14px}
 .nlike{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;
-  color:var(--sub);border-radius:999px;padding:6px 14px;cursor:pointer;font-family:inherit;font-size:var(--fs-meta)}
+  color:var(--sub);border-radius:var(--r-btn);padding:8px 12px;cursor:pointer;font-family:inherit;font-size:var(--fs-meta)}
 .nlike:hover{border-color:var(--accent)}
 .nlike.on{border-color:var(--accent);color:var(--accent);background:var(--accent-fade)}
 .nlike.on svg{fill:var(--accent)}
 .nstat{display:inline-flex;align-items:center;gap:5px;color:var(--sub);font-size:var(--fs-meta)}
 .ncm-wrap{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
-.ncm-head{font-size:var(--fs-meta);color:var(--sub);font-weight:700;margin-bottom:8px}
+.ncm-head{font-size:var(--fs-meta);color:var(--sub);font-weight:600;margin-bottom:8px}
 .ncm-list{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
 .ncm{position:relative;padding:2px 2px}
-.ncm-who{font-size:var(--fs-meta);color:var(--sub);font-weight:700}
+.ncm-who{font-size:var(--fs-meta);color:var(--sub);font-weight:600}
 .ncm-text{font-size:var(--fs-body);white-space:pre-wrap;word-break:break-word;margin-top:1px}
 .ncm-del{position:absolute;top:0;right:0;border:0;background:transparent;color:var(--sub);cursor:pointer;padding:2px;display:grid}
 .ncm-del:hover{color:var(--accent)}
 .ncm-empty,.ncm-off{color:var(--sub);font-size:var(--fs-meta);padding:4px 2px}
 .ncm-form{display:flex;gap:8px;align-items:center}
 .ncm-input{flex:1;min-width:0;border:1px solid var(--line);border-radius:var(--r-btn);background:transparent;
-  color:var(--ink);font-family:inherit;font-size:var(--fs-body);padding:9px 12px}
+  color:var(--ink);font-family:inherit;font-size:var(--fs-body);padding:8px 12px}
 .ncm-input:focus{outline:none;border-color:var(--accent)}
 .ncm-send{flex:0 0 auto;border:0;background:var(--accent);color:#fff;border-radius:var(--r-btn);
   width:40px;height:40px;display:grid;place-items:center;cursor:pointer}
@@ -90,7 +91,7 @@ html:not(.lms-ready) #app{display:none}
    강의실 안의 세 묶음은 공지사항, 강의 보기와 성적, 나머지 메뉴다.
    묶음끼리 진한 1px 선(--line-strong)으로 가른다. 공지 글 줄에 쓰는 --line보다 진해서
    "목록 안의 줄"과 "묶음을 가르는 선"이 헷갈리지 않는다. 선 위아래 여백은 18px로 같게 둔다. */
-.grid.menus{padding:18px 0 0}
+.grid.menus{padding:20px 0 0}
 .grid.menus + .grid.menus{border-top:1px solid var(--line-strong)}
 
 /* ── 카드 ── 폰에서는 한 줄, 넓어지면 두 줄 */
@@ -98,8 +99,8 @@ html:not(.lms-ready) #app{display:none}
 @media (min-width:640px){ .grid{grid-template-columns:1fr 1fr} }
 /* 칸이 둘로 늘어나는 격자라 네 변 테두리를 둔다(쌓인 목록 줄이 아니다).
    흰 바탕만 걷어 바탕이 비치게 한다(선생님 지시 2026-10-29) */
-.card{background:transparent;border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;
-  cursor:pointer;display:flex;align-items:center;gap:12px;min-height:60px}
+.card{background:transparent;border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;
+  cursor:pointer;display:flex;align-items:center;gap:12px;min-height:64px}
 .card:hover{border-color:var(--accent)}
 .card:active{background:var(--accent-fade)}
 .card .ic{width:40px;height:40px;display:grid;place-items:center;color:#fff;flex:0 0 auto}
@@ -107,13 +108,16 @@ html:not(.lms-ready) #app{display:none}
    같은 날 "모든 메뉴의 강의차수 글씨 크기를 동일하게" 해서 학생 화면의 차수는 전부 이 한 줄이다
    (강의 보기, 개념 노트, 미션 활동, 오늘의 질문, 형성평가). 따로 크기를 주는 클래스를 만들지 않는다.
    크기는 18px(--fs-head)로 못박았다(선생님 지시 2026-10-30: "강의 차수 글씨는 18로") */
-.card .no{flex:0 0 auto;min-width:48px;font-size:var(--fs-head);font-weight:700;color:var(--navy)}
+/* 차수 숫자(1강, 2강): 화면의 단 하나뿐인 시그니처. 전광판처럼 또렷하게 Bold + 고정폭 숫자.
+   정렬이 어긋나지 않게 오른쪽 맞춤(min-width 안에서 숫자 꼬리가 한 줄로 선다) */
+.card .no{flex:0 0 auto;min-width:48px;font-size:var(--fs-head);font-weight:700;color:var(--navy);
+  font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 /* 메뉴 카드 아이콘 바탕: 묶음마다 브랜드 두 색 중 하나다(선생님 지시 2026-10-30).
    첫 묶음(강의 보기, 성적)은 네이비, 나머지 메뉴 묶음은 레드. 칸마다 색을 따로 주지 않는다. */
 .card.menu .ic{background:var(--accent)}
 .menus-main .card.menu .ic{background:var(--navy)}
 .card .body{flex:1;min-width:0}
-.card .t{font-weight:700;font-size:var(--fs-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .t{font-weight:600;font-size:var(--fs-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card .s{font-size:var(--fs-meta);color:var(--sub);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card .chev{color:var(--sub);flex:0 0 auto}
 .card.room .t{font-size:var(--fs-head)}
@@ -131,14 +135,14 @@ html:not(.lms-ready) #app{display:none}
 .login .guide{text-align:center;color:var(--sub);font-size:var(--fs-meta);margin:0 0 16px;line-height:1.6}
 .login .err{color:var(--red);font-size:var(--fs-meta);margin:10px 0 0;text-align:center}
 .login .fieldlabel{font-size:var(--fs-meta);color:var(--sub);margin:0 0 4px}
-.field{width:100%;border:1px solid var(--line);border-radius:var(--r);padding:13px;font-size:16px;margin-bottom:8px;
+.field{width:100%;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;font-size:16px;margin-bottom:8px;
   background:transparent;color:var(--ink);font-family:inherit}
 /* 입력 칸만 16px 고정이다(네 단계 글자 크기의 유일한 예외).
    15px로 내리면 사파리가 칸을 누를 때 화면을 확대한다. admin.css의 좁은 화면 규칙도 같다 */
 .field::placeholder{color:var(--sub)}
 .field:focus{outline:none;border-color:var(--accent)}
-.primary{background:var(--accent);color:#fff;border:none;border-radius:var(--r-btn);padding:13px 18px;
-  font-size:var(--fs-body);font-weight:700;cursor:pointer;font-family:inherit;min-height:46px;
+.primary{background:var(--accent);color:#fff;border:none;border-radius:var(--r-btn);padding:12px 18px;
+  font-size:var(--fs-body);font-weight:600;cursor:pointer;font-family:inherit;min-height:46px;
   display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .primary:hover{background:var(--red-dark)}
 .primary.wide{width:100%;margin-top:12px}
@@ -151,12 +155,12 @@ html:not(.lms-ready) #app{display:none}
   font-size:var(--fs-body);color:var(--sub);cursor:pointer}
 .autoline input{width:18px;height:18px;margin:0;accent-color:var(--accent);cursor:pointer}
 
-.savedcard{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:13px 14px;
+.savedcard{display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:12px 16px;
   border:1px solid var(--line);border-radius:var(--r)}
 .savedcard .ava{width:40px;height:40px;flex:0 0 auto;display:grid;place-items:center;
-  background:var(--navy);color:#fff;font-size:var(--fs-head);font-weight:700}
+  background:var(--navy);color:#fff;font-size:var(--fs-head);font-weight:600}
 .savedcard .body{flex:1;min-width:0}
-.savedcard .t{font-weight:700;font-size:var(--fs-head)}
+.savedcard .t{font-weight:600;font-size:var(--fs-head)}
 .savedcard .s{font-size:var(--fs-meta);color:var(--sub);margin-top:2px}
 /* 저장 카드 아래 둘째 버튼: 테두리 없이 글자만(액션 버튼이 아니다) */
 .plainbtn{width:100%;margin-top:10px;border:0;background:none;color:var(--sub);
@@ -173,10 +177,22 @@ html:not(.lms-ready) #app{display:none}
 /* ── 성적 ── */
 /* 상세 패널 성격이라 양옆 테두리 없이 아주 연한 네이비 바탕(선생님 지시 2026-10-29) */
 .score{background:transparent;border:0;border-top:1px solid var(--line);
-  border-bottom:1px solid var(--line);border-radius:0;padding:14px 16px}
-.score .h{font-weight:700;font-size:var(--fs-head);margin-bottom:10px}
-.score .row{display:flex;justify-content:space-between;font-size:var(--fs-body);margin:8px 0}
-.score .row.total{border-top:1px solid var(--line);padding-top:10px;margin-top:10px;font-weight:700;color:var(--navy)}
+  border-bottom:1px solid var(--line);border-radius:0;padding:16px}
+.score .h{font-weight:600;font-size:var(--fs-head);margin-bottom:12px}
+/* 성적 카드의 유일한 크래프트 장면(선생님 지시 2026-11-03 방향):
+   큰 총점 + Heritage Blue 달성 바. 차수 숫자와 함께 화면에서 또렷한 두 숫자 자리다. */
+.score-hero{margin-bottom:16px}
+.score-total{font-size:var(--fs-title);font-weight:700;color:var(--navy);letter-spacing:-.3px}
+.score-total .of{font-size:var(--fs-body);font-weight:400;color:var(--sub);margin-left:4px}
+.score-track{height:8px;margin-top:10px;background:var(--sky-soft);border-radius:4px;overflow:hidden}
+.score-track span{display:block;height:100%;background:var(--sky);border-radius:4px}
+.score-rows .row{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fs-body);
+  padding:10px 0;border-top:1px solid var(--line)}
+.score-rows .row:first-child{border-top:0}
+.score-rows .row b{font-weight:600;color:var(--navy)}
+.score-rows .row small{color:var(--sub);font-weight:400;margin-left:6px;font-size:var(--fs-meta)}
+.score .na{color:var(--sub);font-weight:400}
+.score .empty-inline{color:var(--sub);padding:6px 0}
 
 /* ── 강의 뷰어 ── */
 /* 칸이 많으면 가로로만 밀린다. overflow:auto면 세로 스크롤바가 같이 생겨 줄 오른쪽에 삐져나온다 */
@@ -193,7 +209,7 @@ html:not(.lms-ready) #app{display:none}
   border-bottom:1px solid var(--line);border-radius:0;padding:18px;min-height:240px}
 @media (min-width:700px){ .partview{padding:22px} }
 .partview .pt{font-size:var(--fs-meta);color:var(--sub);display:flex;align-items:center;gap:6px}
-.partview .bigt{font-size:var(--fs-title);font-weight:700;margin:6px 0 14px;letter-spacing:-.2px}
+.partview .bigt{font-size:var(--fs-title);font-weight:600;margin:6px 0 14px;letter-spacing:-.2px}
 .partview .prompt{font-size:var(--fs-body);margin:0 0 10px;line-height:1.7}
 .partview .placeholder{color:var(--sub);font-size:var(--fs-body);border:1px dashed var(--line);border-radius:var(--r);
   padding:24px 16px;text-align:center;line-height:1.7}
@@ -203,12 +219,12 @@ html:not(.lms-ready) #app{display:none}
 
 /* 오늘의 질문·형성평가 공용 목록 카드: 큰 차수 + 강의명 */
 .bigcard{align-items:center}
-.bigcard .t.big{font-size:var(--fs-head);font-weight:700;white-space:normal}
+.bigcard .t.big{font-size:var(--fs-head);font-weight:600;white-space:normal}
 
 /* 오늘의 질문 */
-.q-big{font-size:var(--fs-title);font-weight:700;margin:4px 0 14px;line-height:1.5;letter-spacing:-.2px}
+.q-big{font-size:var(--fs-title);font-weight:600;margin:4px 0 14px;line-height:1.5;letter-spacing:-.2px}
 .q-guide{border:1px solid var(--line);border-radius:var(--r);background:var(--hover);
-  padding:13px 15px;margin:0 0 14px;font-size:var(--fs-body);line-height:1.7;white-space:pre-wrap;color:var(--ink)}
+  padding:12px 16px;margin:0 0 16px;font-size:var(--fs-body);line-height:1.7;white-space:pre-wrap;color:var(--ink)}
 .q-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
 .q-count{font-size:var(--fs-meta);color:var(--sub)}
 .btn-mini{background:var(--accent);color:#fff;border:none;border-radius:var(--r-btn);
@@ -222,32 +238,32 @@ html:not(.lms-ready) #app{display:none}
 .fm-item.correct{box-shadow:inset 3px 0 0 var(--green);padding-left:12px}
 .fm-item.wrong{box-shadow:inset 3px 0 0 var(--red);padding-left:12px}
 .fm-q{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:10px}
-.fm-qnum{flex:0 0 auto;font-weight:700;color:var(--navy);font-size:var(--fs-body)}
+.fm-qnum{flex:0 0 auto;font-weight:600;color:var(--navy);font-size:var(--fs-body)}
 .fm-qtext{flex:1;min-width:0;font-size:var(--fs-body);line-height:1.6;white-space:pre-wrap}
 .fm-type{flex:0 0 auto;font-size:var(--fs-meta);color:#fff;background:var(--formative);border-radius:3px;padding:2px 7px;align-self:center}
-.fm-mark{flex:0 0 auto;font-size:var(--fs-meta);font-weight:700;align-self:center}
+.fm-mark{flex:0 0 auto;font-size:var(--fs-meta);font-weight:600;align-self:center}
 .fm-mark.ok{color:var(--green)} .fm-mark.no{color:var(--red)}
 .fm-passage,.fm-options{border:1px solid var(--line);border-radius:var(--r);background:var(--hover);
-  padding:11px 13px;margin-bottom:10px;font-size:var(--fs-body);line-height:1.6;white-space:pre-wrap}
+  padding:12px;margin-bottom:12px;font-size:var(--fs-body);line-height:1.6;white-space:pre-wrap}
 .fm-options{background:transparent}
 .fm-ox{display:flex;gap:12px}
 .fm-oxb{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
-  border:1px solid var(--line);border-radius:var(--r);padding:12px;font-weight:700;font-size:var(--fs-body);color:var(--ink)}
+  border:1px solid var(--line);border-radius:var(--r);padding:12px;font-weight:600;font-size:var(--fs-body);color:var(--ink)}
 .fm-oxb:has(:checked){border-color:var(--accent);color:var(--accent);background:var(--accent-fade)}
 .fm-oxb.sel{border-color:var(--accent)}
 .fm-choices{display:flex;flex-direction:column;gap:8px}
-.fm-choice{display:flex;align-items:flex-start;gap:9px;cursor:pointer;
-  border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;font-size:var(--fs-body);line-height:1.5}
+.fm-choice{display:flex;align-items:flex-start;gap:8px;cursor:pointer;
+  border:1px solid var(--line);border-radius:var(--r);padding:12px;font-size:var(--fs-body);line-height:1.5}
 .fm-choice:has(:checked){border-color:var(--accent);background:var(--accent-fade)}
 .fm-choice input{margin-top:3px;flex:0 0 auto}
-.fm-letter{flex:0 0 auto;font-weight:700;color:var(--navy-600)}
+.fm-letter{flex:0 0 auto;font-weight:600;color:var(--navy-600)}
 .fm-ctext{flex:1;min-width:0;white-space:pre-wrap}
 .fm-choice.ans{border-color:var(--green);background:rgba(27,127,59,.08)}
 .fm-choice.ans .fm-letter{color:var(--green)}
 .fm-input{width:100%;border:1px solid var(--line);border-radius:var(--r);padding:12px;
   font-size:16px;font-family:inherit;color:var(--ink);background:transparent}
 .fm-input:focus{outline:none;border-color:var(--accent)}
-.fm-reveal{margin-top:8px;font-size:var(--fs-meta);color:var(--green);font-weight:700}
+.fm-reveal{margin-top:8px;font-size:var(--fs-meta);color:var(--green);font-weight:600}
 /* 한 문제씩 푸는 스텝 */
 .fm-progress{font-size:var(--fs-meta);color:var(--sub);text-align:right;margin-bottom:8px}
 .fmstep .fm-qtext{font-size:var(--fs-head)}
