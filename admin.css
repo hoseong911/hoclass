@@ -1,4 +1,4 @@
-@import url("shared/theme.css?v=20261031a");
+@import url("shared/theme.css?v=20261103a");
 /* 2027 LMS 어드민: 형태만 여기서. 색과 글자 크기는 shared/theme.css 한 곳에서.
    기조: 플랫 + 미니멀: 그림자, 그라데이션, 알약 테두리 없음. 선은 1px, 모서리는 작게.
    글자 크기는 네 단계(--fs-title/head/body/meta)만 쓴다. 어중간한 px 금지(선생님 지시 2026-10-27).
@@ -11,20 +11,20 @@ html,body{margin:0;height:100%}
    맨 끝에 붙지 않는다. 좁은 화면에서는 아래 미디어 쿼리가 이것을 도로 푼다 */
 body{overflow:hidden}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:var(--fs-body);
-  line-height:1.5;-webkit-font-smoothing:antialiased}
+  line-height:1.5;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 .boot{position:fixed;inset:0;display:grid;place-items:center;color:var(--sub)}
 html.lms-ready .boot{display:none}
 html:not(.lms-ready) #shell{display:none}
 
 #shell{display:flex;height:100%}
-.side{width:220px;flex:0 0 auto;background:transparent;border-right:1px solid var(--line);padding:16px 10px;
+.side{width:220px;flex:0 0 auto;background:transparent;border-right:1px solid var(--line);padding:16px 12px;
   overflow-y:auto}   /* 메뉴가 길어지면 사이드바 안에서만 내려간다 */
 /* 브랜드 두 줄(선생님 지시 2026-11-02): 이름은 크게, '관리자 모드'는 그 아래 작게.
    이름만 네이비 굵은 글씨고 아래 줄은 보조 글씨다. 좁은 화면에서는 아래 미디어 쿼리가 숨긴다 */
-.side .brand{display:flex;flex-direction:column;gap:1px;padding:6px 12px 18px}
-.side .brand-nm{font-weight:900;font-size:var(--fs-title);letter-spacing:1px;color:var(--navy);line-height:1.2}
+.side .brand{display:flex;flex-direction:column;gap:2px;padding:8px 12px 20px}
+.side .brand-nm{font-weight:700;font-size:var(--fs-title);letter-spacing:.5px;color:var(--navy);line-height:1.2}
 .side .brand-sub{font-size:var(--fs-meta);color:var(--sub);font-weight:600;letter-spacing:.3px}
-.side .mi{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid transparent;border-radius:var(--r);color:var(--sub);
+.side .mi{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid transparent;border-radius:var(--r);color:var(--sub);
   font-size:var(--fs-body);cursor:pointer;margin-bottom:2px}
 .side .mi:hover{background:var(--hover);color:var(--ink)}
 .side .mi.on{background:none;color:var(--accent);font-weight:700;border-color:var(--accent)}
@@ -189,7 +189,7 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 /* 학생 카드 펼침: 포트폴리오 (레벨, 경험치, 포인트 칸은 2026-10-29에 뺐다) */
 .score-detail{border:0;border-bottom:1px solid var(--line);border-radius:0;
   background:transparent;margin:-6px 0 6px;padding:10px 14px}
-.sc-k{font-size:var(--fs-meta);color:var(--sub);font-weight:700}
+.sc-k{font-size:var(--fs-meta);color:var(--sub);font-weight:600}
 .sc-port .sc-k{margin-bottom:4px}
 .score-line{display:flex;justify-content:space-between;font-size:var(--fs-body);padding:4px 0;border-bottom:1px dashed var(--line)}
 .score-line:last-child{border-bottom:0}
@@ -261,7 +261,7 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 .gstats{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px}
 .gchip{display:inline-flex;align-items:center;gap:6px;background:var(--hover);border-radius:var(--r-btn);
   padding:5px 10px;font-size:var(--fs-meta);color:var(--ink)}
-.gchip b{color:var(--sub);font-weight:700}
+.gchip b{color:var(--sub);font-weight:600}
 .gradetable td,.gradetable th{padding:6px 8px}
 .gradetable td.lname,.gradetable th.lname{min-width:190px;white-space:nowrap}
 .gradetable td.lname{display:table-cell}
@@ -299,7 +299,7 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 .fmform-tools{display:flex;align-items:center;gap:8px;margin-top:14px}
 .fmradio{width:16px;height:16px;flex:none;accent-color:var(--accent)}
 .fmox{display:flex;align-items:center;gap:22px}
-.fmoxb{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:var(--fs-body);font-weight:700;color:var(--ink)}
+.fmoxb{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:var(--fs-body);font-weight:600;color:var(--ink)}
 .fmoxb:has(:checked){color:var(--accent)}
 .fmchoices{display:flex;flex-direction:column;gap:6px}
 .fmchoice{display:flex;align-items:center;gap:9px}
@@ -385,7 +385,7 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 .scoretable td.lname,.scoretable th.lname{min-width:150px;text-align:center}
 .scoretable td.num{text-align:center;font-variant-numeric:tabular-nums;color:var(--ink)}
 .scoretable th.num{text-align:center}
-.scoretable td.tot{font-weight:800;color:var(--navy)}
+.scoretable td.tot{font-weight:700;color:var(--navy)}
 .scoretable tr.scrow{cursor:pointer}
 .scoretable tr.scrow:hover td{color:var(--navy-600)}
 /* 고른 학생은 레드 반투명 바탕(목록 줄과 같은 규칙). 학생 열은 sticky라 바탕이 따로 있어
@@ -405,7 +405,7 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 .scvrow{align-items:flex-start;padding-block:8px}
 .scvrow .gnote{margin-left:0}
 .scvrow .s{white-space:pre-wrap}
-.sc-mark{font-size:var(--fs-meta);font-weight:700;color:var(--sub)}
+.sc-mark{font-size:var(--fs-meta);font-weight:600;color:var(--sub)}
 .sc-mark.on{color:var(--accent)}
 /* .ib-sm은 이제 .ib와 같은 크기다(높이 통일, 2026-10-29). 클래스만 남겨 둔다 */
 
@@ -525,7 +525,7 @@ input[type=number]{-moz-appearance:textfield}
   padding:9px 14px;font-size:var(--fs-body);cursor:pointer;font-weight:600;font-family:inherit}
 .btn-text:hover{background:var(--red-dark);border-color:var(--red-dark)}
 
-.sectionlabel{font-size:var(--fs-head);color:var(--ink);font-weight:700;margin:22px 2px 10px;letter-spacing:-.2px}
+.sectionlabel{font-size:var(--fs-head);color:var(--ink);font-weight:600;margin:24px 2px 8px;letter-spacing:-.2px}
 .pane .dcol > .sectionlabel{flex:0 0 auto}   /* 칸 이름은 줄어들지 않고 제자리에 */
 .empty{color:var(--sub);font-size:var(--fs-body);padding:16px 2px}
 .hi-ic{vertical-align:middle}
@@ -618,7 +618,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
   padding:16px 14px;text-align:left;font-family:inherit;color:var(--ink)}
 .m-card:hover{border-color:var(--accent);background:var(--accent-fade)}
 .m-card-i{display:inline-grid;color:var(--accent)}
-.m-card-t{font-size:var(--fs-body);font-weight:700}
+.m-card-t{font-size:var(--fs-body);font-weight:600}
 .m-card-s{font-size:var(--fs-meta);color:var(--sub);line-height:1.5}
 @media (max-width:560px){ .m-pick{flex-direction:column} }
 
@@ -679,7 +679,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
    전에는 이름표가 왼쪽 150px(.gen-label)을 차지해 오른쪽 글 칸이 좁고 왼쪽이 휑했다 */
 .nt-form{display:flex;flex-direction:column;gap:6px;margin-top:4px}
 .nt-form .f{width:100%}
-.nt-lab{font-size:var(--fs-meta);color:var(--sub);font-weight:700;margin-top:10px}
+.nt-lab{font-size:var(--fs-meta);color:var(--sub);font-weight:600;margin-top:10px}
 /* 서식 도구줄: 글 칸 바로 위에 붙는다(칸과 한 덩이로 보이게 아래 모서리를 펴고 밑선을 없앤다).
    바탕은 깔지 않는다(화면 규칙: 바탕이 비치고 선으로만 나눈다) */
 .nt-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;
@@ -701,7 +701,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .nt-body:empty::before{content:attr(data-ph);color:var(--sub)}
 
 .sel-full{width:100%}
-.m-label{font-size:var(--fs-meta);color:var(--sub);font-weight:700;margin-top:6px}
+.m-label{font-size:var(--fs-meta);color:var(--sub);font-weight:600;margin-top:6px}
 .m-two{display:flex;gap:10px}
 .m-two>div{flex:1;display:flex;flex-direction:column;gap:6px}
 
@@ -745,7 +745,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .main:has(.axwrap) > .axwrap{flex:1 1 auto;min-height:0}
 .axhead{display:flex;align-items:center;gap:10px;margin:0 0 14px;
   background:var(--bg);padding:10px 0;border-bottom:1px solid var(--line)}
-.axpick{flex:0 1 460px;min-width:0;font-weight:700;padding:0 38px 0 16px;background-position:right 14px center}
+.axpick{flex:0 1 460px;min-width:0;font-weight:600;padding:0 38px 0 16px;background-position:right 14px center}
 /* 아이콘 단추 넷(저장, 미리보기, 활동지 올리기, 활동지 지우기)은 오른쪽 끝으로 밀어 둔다 */
 .axhead .tools{margin-left:auto}
 
@@ -808,7 +808,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .rvpage-head + .row{border-top:0}
 /* 페이지 표시: 전시학습확인, 동기 유발, 개념 노트, 미션 활동 모두 'N페이지'로 통일한다
    (선생님 지시 2026-11-01, 전체 슬라이드 기준 번호). 줄바꿈 없이 제자리를 지킨다 */
-.rvpage-title{font-size:var(--fs-body);font-weight:700;color:var(--navy);white-space:nowrap}
+.rvpage-title{font-size:var(--fs-body);font-weight:600;color:var(--navy);white-space:nowrap}
 .pghead .pgnum{flex:0 0 auto}
 .rvpage .axitem:first-child{border-top:0}
 /* 문항 카드(선생님 지시 2026-10-31): 번호를 한 줄 통째로 먹지 않게 맨 왼쪽에 두고, 유형 줄과 높이를 맞춘다.
@@ -816,7 +816,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .rvq{display:flex;align-items:flex-start;gap:8px;border-top:1px solid var(--line);padding:8px 0}
 .rvq:first-child{border-top:0}
 .rvq-n{flex:0 0 auto;width:26px;min-height:var(--h-ctl);display:flex;align-items:center;justify-content:center;
-  font-size:var(--fs-head);font-weight:800;color:var(--navy)}
+  font-size:var(--fs-head);font-weight:700;color:var(--navy)}
 .rvq-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .rvq-main .row{border-top:0;margin:0}
 .rvq-top{display:flex;align-items:center;gap:8px}
@@ -827,7 +827,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 /* 다른 메뉴에서 온 내용을 읽기만 하는 칸(오늘의 질문, 미션 제목).
    고칠 수 없는 자리라 입력 칸으로 그리지 않는다 */
 .axread{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 2px}
-.axread .axq{font-size:var(--fs-head);font-weight:700;line-height:1.5}
+.axread .axq{font-size:var(--fs-head);font-weight:600;line-height:1.5}
 .axread .axg{font-size:var(--fs-body);color:var(--sub);line-height:1.7;margin-top:8px;white-space:pre-wrap}
 
 /* ── 콘텐츠 탭의 번호는 이 모양 하나다 (선생님 지시 2026-10-30) ──
@@ -858,7 +858,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .pgblock{border-top:1px solid var(--line);padding:14px 0 16px}
 .pgblock:first-child{border-top:0;padding-top:6px}
 .pghead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.pgtitle{flex:0 1 420px;min-width:0;font-weight:700}
+.pgtitle{flex:0 1 420px;min-width:0;font-weight:600}
 /* 화면 넘침 경고(선생님 지시 2026-11-01): 넘치는 페이지 번호 옆에 작은 칩으로만 알린다
    (가장자리 강조 띠는 금지라 쓰지 않는다). 측정은 admin.js의 wirePageOverflow가 한다. */
 .pg-over-warn{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;
@@ -873,7 +873,7 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .pgrow{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
 .pgrow-top{display:flex;align-items:flex-start;gap:8px}
 .pgrow textarea.f{resize:vertical;font:inherit;line-height:1.6;field-sizing:content;min-height:var(--h-ctl)}
-.pgrow .pglabel{font-weight:700}
+.pgrow .pglabel{font-weight:600}
 /* 내용 칸: 단계 들여쓰기를 빈칸으로 보여 주므로(indentText) 빈칸 폭이 고른 편이 단계가 가지런하다.
    글은 양쪽정렬로 보여 준다(선생님 지시 2026-11-01: 개념 노트 편집기 글칸에 실리는 글은 다 양쪽정렬) */
 .pgtext{white-space:pre-wrap;tab-size:4;width:100%;text-align:justify}
