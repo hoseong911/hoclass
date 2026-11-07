@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOCLASS 동시 보기</title>
+<!--
+  개발용 런처(2026-11-08). 학생 화면(index.html)과 어드민(admin.html)을 각각 별도 창으로 띄워
+  나란히 본다. 인증 흐름(학생이 인증 → 어드민에서 검토)을 한눈에 확인할 때 쓴다.
+  로컬에서 이 파일을 열어 쓴다(배포 대상 아님). 주소는 이 파일 위치 기준 상대경로라 어디 두어도 된다.
+-->
+<style>
+  :root{ --navy:#041E42; --red:#D00F31; --bg:#F4F5F7; --card:#fff; --line:#DDE2E9; --sub:#68727F; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg);
+    color:var(--navy); font-family:Pretendard,system-ui,sans-serif; }
+  .wrap{ width:min(440px,92vw); padding:32px 28px; }
+  h1{ font-size:22px; margin:0 0 4px; letter-spacing:.5px; }
+  p.lead{ margin:0 0 24px; color:var(--sub); font-size:13px; line-height:1.6; }
+  .btns{ display:flex; flex-direction:column; gap:12px; }
+  button{ font-family:inherit; font-size:16px; font-weight:600; cursor:pointer; border-radius:8px;
+    padding:14px 18px; border:1px solid var(--line); background:var(--card); color:var(--navy);
+    display:flex; align-items:center; gap:10px; text-align:left; }
+  button:hover{ border-color:var(--navy); }
+  button.primary{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  button.primary:hover{ background:#06284f; }
+  button small{ font-weight:400; font-size:12px; opacity:.75; margin-left:auto; }
+  .hint{ margin-top:18px; font-size:12px; color:var(--sub); line-height:1.6; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>HOCLASS 동시 보기</h1>
+    <p class="lead">학생 화면과 어드민 화면을 각각 별도 창으로 띄웁니다. 인증을 내고 바로 검토하는 흐름을 나란히 확인할 때 씁니다.</p>
+    <div class="btns">
+      <button class="primary" id="both">둘 다 열기 <small>좌우로 나란히</small></button>
+      <button id="student">학생 화면만 <small>index.html</small></button>
+      <button id="admin">어드민 화면만 <small>admin.html</small></button>
+    </div>
+    <p class="hint">창이 안 열리면 브라우저의 팝업 차단을 이 페이지에서 허용해 주세요.</p>
+  </div>
+<script>
+  // 화면을 좌우 절반으로 나눠 띄운다(두 번째 창은 겹치지 않게 오른쪽으로).
+  function openAt(url, side){
+    const W = screen.availWidth, H = screen.availHeight;
+    const w = Math.floor(W / 2) - 8, h = H - 40;
+    const left = side === 'right' ? Math.floor(W / 2) + 2 : 2;
+    return window.open(url, '_blank', `popup=yes,width=${w},height=${h},left=${left},top=10`);
+  }
+  document.getElementById('student').onclick = () => openAt('index.html', 'left');
+  document.getElementById('admin').onclick   = () => openAt('admin.html', 'right');
+  document.getElementById('both').onclick    = () => {
+    openAt('index.html', 'left');
+    openAt('admin.html', 'right');
+  };
+</script>
+</body>
+</html>

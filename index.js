@@ -12,8 +12,9 @@
 // 지금은 데모 데이터로 돈다(model.js). 로그인도 데모: 학번만 맞으면 입장.
 // 규칙: 인라인 onclick/window 노출 없이 data-act + 이벤트 위임. 상태는 state 하나.
 
-import * as M from './model.js?v=20261102g';
+import * as M from './model.js?v=20261108a';
 import { icon } from './shared/icons.js?v=20261102a';
+import { verifyMileageCert } from './shared/mileage-check.js?v=20261108a';
 
 const YEAR = 2027;
 const $app = document.getElementById('app');
@@ -37,6 +38,12 @@ const state = {
 
   // 형성평가: 한 문제씩 푼다. { lessonId, idx, result:{given,correct}|null }
   fm: null,
+
+  // 열공 마일리지(인증 화면, 2026-11-08). 전체 재그림에도 사진·글이 안 날아가게 state에 쥔다.
+  mlDraft: null,          // 고른 사진 { dataUrl, base64, mediaType, hash } (없으면 null)
+  mlForm: { content:'', feeling:'' },  // 입력 중인 글(재그림 사이 보존)
+  mlBusy: false,          // 검증 중(제출 막고 안내)
+  mlEdit: false,          // 오늘 인증이 있어도 '다시 올리기'로 폼을 열었는가
 
   // 자동 로그인 (선생님 지시 2026-10-30)
   saved: null,            // 이 기기에 저장된 학생 { sno, name } (없으면 null)
@@ -356,6 +363,7 @@ function viewMenu(){
 
   if (m.kind === 'lessons') return head + lessonCards();
   if (m.kind === 'score')   return head + scoreCard(c);
+  if (m.kind === 'mileage') return head + mileageView(c);
 
   // 칸 모아 보기: 강의마다 그 칸 하나씩. 최신 강의가 맨 위(요구사항 112)
   const items = M.getPartItems(state.courseId, m.key).reverse();
@@ -417,6 +425,145 @@ function scoreCard(c){
       <div class="score-track"><span style="width:${pct}%"></span></div>
     </div>
     <div class="score-rows">${rows}</div></div>`;
+}
+
+/* ── 열공 마일리지(학생 인증 화면, 2026-11-08) ──
+   과목(강의실)마다 돈다. 공부한 사진 한 장 + 오늘 공부한 내용 + 느낀 점을 내면
+   검증 엔진(shared/mileage-check.js)이 통과/보류로 가린다(실패 없음). 하루 1건(덮어쓰기).
+   시간대 게이트(평일 15~24, 주말·공휴일 6~24)는 model.mileageGateReason이 본다.
+   누적·연속 '일수'만 보여 준다(포인트 환산은 추후 연동). */
+function mileageView(c){
+  const subject = c.subject;
+  const today = M.mileageToday();
+  const cert = M.getMileageCert(subject, state.sno, today);
+  const st = M.mileageStats(subject, state.sno);
+  const gate = M.mileageGateReason();
+
+  // 머리 띠: 연속·누적 일수.
+  const stats = `<div class="ml-stats">
+      <div class="ml-stat"><b>${st.streak}</b><span>연속 일수</span></div>
+      <div class="ml-stat"><b>${st.days}</b><span>누적 일수</span></div>
+    </div>`;
+
+  // 검증 중.
+  if (state.mlBusy)
+    return stats + `<div class="ml-busy">${icon('hourglass',20)}<span>사진과 내용을 확인하고 있어요…</span></div>`;
+
+  // 오늘 이미 냈고 '다시 올리기'를 누르지 않았으면 결과를 보여 준다.
+  if (cert && !state.mlEdit) return stats + mileageResultCard(cert);
+
+  // 시간대가 닫혀 있으면 폼 대신 안내만(일수는 위에 보인다).
+  if (gate) return stats + `<div class="ml-closed">${icon('clock',18)}<span>${esc(gate)}</span></div>`;
+
+  // 인증 폼.
+  const photo = state.mlDraft
+    ? `<img class="ml-preview" src="${state.mlDraft.dataUrl}" alt="고른 사진">`
+    : `<div class="ml-pick-ph">${icon('image',26)}<span>오늘 공부한 사진을 올려요</span></div>`;
+  const resub = cert ? `<p class="ml-note">오늘 이미 인증했어요. 다시 올리면 새 사진·내용으로 바뀝니다.</p>` : '';
+  return stats + `<div class="ml-form">
+    ${resub}
+    <label class="ml-pick">
+      <input type="file" id="ml-file" accept="image/*" capture="environment" hidden>
+      ${photo}
+    </label>
+    <label class="ml-field"><span>오늘 공부한 내용</span>
+      <textarea id="ml-content" rows="3" placeholder="">${esc(state.mlForm.content)}</textarea></label>
+    <label class="ml-field"><span>느낀 점</span>
+      <textarea id="ml-feeling" rows="2" placeholder="">${esc(state.mlForm.feeling)}</textarea></label>
+    <button class="primary wide" data-act="ml-submit">${icon('check',18)}<span>인증하기</span></button>
+  </div>`;
+}
+
+// 오늘 낸 인증의 결과 카드(통과/보류 + 사진 + 내용). '다시 올리기'로 폼을 다시 열 수 있다.
+function mileageResultCard(cert){
+  const pass = M.mileageResult(cert) === 'pass';
+  const badge = pass
+    ? `<div class="ml-badge pass">${icon('circle-check',18)}<span>오늘 인증 통과</span></div>`
+    : `<div class="ml-badge pending">${icon('clock',18)}<span>선생님 확인을 기다려요</span></div>`;
+  const reason = (!pass && cert.reason) ? `<p class="ml-reason">${esc(cert.reason)}</p>` : '';
+  const photo = cert.photoURL ? `<img class="ml-preview" src="${esc(cert.photoURL)}" alt="오늘 인증 사진">` : '';
+  return `<div class="ml-result">
+    ${badge}${reason}
+    ${photo}
+    ${cert.content ? `<p class="ml-said">${esc(cert.content)}</p>` : ''}
+    <button class="plainbtn" data-act="ml-edit">다시 올리기</button>
+  </div>`;
+}
+
+/* 고른 사진 파일을 인증용으로 다듬는다: 장변 1024로 줄여 JPEG(0.7) base64로 만들고(문서에 바로 담고 AI에도 보냄),
+   평균 해시(aHash)로 중복 비교용 지문을 뽑는다. 큰 원본을 그대로 담아 Firestore 1MB를 넘기지 않게 한다. */
+function fileToMileagePhoto(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('img'));
+      img.onload = () => {
+        const max = 1024, scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = cv.toDataURL('image/jpeg', 0.7);
+        resolve({ dataUrl, base64: dataUrl.split(',')[1], mediaType:'image/jpeg', hash: aHash(img) });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+// 평균 해시: 8x8 흑백으로 줄여 평균보다 밝으면 1. 64비트를 16진수 16자리로.
+function aHash(img){
+  const n = 8, cv = document.createElement('canvas'); cv.width = n; cv.height = n;
+  const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, n, n);
+  const d = cx.getImageData(0, 0, n, n).data, g = [];
+  for (let i = 0; i < n * n; i++) g.push(0.299 * d[i*4] + 0.587 * d[i*4+1] + 0.114 * d[i*4+2]);
+  const avg = g.reduce((a, b) => a + b, 0) / g.length;
+  let hex = '';
+  for (let i = 0; i < 64; i += 4){ let nib = 0; for (let j = 0; j < 4; j++) nib = (nib << 1) | (g[i+j] > avg ? 1 : 0); hex += nib.toString(16); }
+  return hex;
+}
+
+// 지금 폼에 쳐 둔 글을 state에 담아 둔다(재그림에도 안 날아가게). 사진 고를 때·제출할 때 부른다.
+function captureMileageForm(){
+  const cEl = document.getElementById('ml-content'), fEl = document.getElementById('ml-feeling');
+  if (cEl) state.mlForm.content = cEl.value;
+  if (fEl) state.mlForm.feeling = fEl.value;
+}
+
+// 인증 제출: 검증 엔진을 돌려 통과/보류를 받고 저장한다. 검증 중에는 안내를 띄운다.
+async function submitMileage(){
+  const c = M.getCourse(state.courseId); if (!c) return;
+  captureMileageForm();
+  const content = state.mlForm.content.trim(), feeling = state.mlForm.feeling.trim();
+  if (!state.mlDraft){ alertBox('오늘 공부한 사진을 올려 주세요.'); return; }
+  if (content.length < 10){ alertBox('오늘 공부한 내용을 조금 더 적어 주세요.'); return; }
+  const gate = M.mileageGateReason(); if (gate){ alertBox(gate); return; }
+
+  const subject = c.subject, today = M.mileageToday(), draft = state.mlDraft;
+  state.mlBusy = true; render();
+
+  const scope = M.mileageScope(c.year, subject);
+  const existing = M.getMileageCerts(subject)
+    .map(x => ({ date:x.date, studentNo:x.studentNo, content:x.content, photoHash:x.photoHash }));
+  let v;
+  try {
+    v = await verifyMileageCert({
+      today, photoBase64:draft.base64, mediaType:draft.mediaType, content, feeling,
+      photoHash:draft.hash, scopeTitles:scope.titles, scopeNote:scope.note,
+      subject, grade:c.grade, existingCerts:existing, studentNo:state.sno,
+    });
+  } catch (e){
+    v = { result:'pending', reason:'지금은 자동 확인을 못 했어요. 선생님이 직접 확인할게요.', checks:{}, photoDate:'' };
+  }
+  M.saveMileageCert({
+    subject, year:c.year, studentNo:state.sno, name:state.name, date:today,
+    photoURL:draft.dataUrl, content, feeling, photoHash:draft.hash,
+    result:v.result, checks:v.checks, reason:v.reason, photoDate:v.photoDate,
+  });
+  state.mlBusy = false; state.mlDraft = null; state.mlEdit = false;
+  state.mlForm = { content:'', feeling:'' };
+  render();
 }
 
 /* 강의 하나를 연 화면의 제목은 "N강. 강의 주제"다(선생님 지시 2026-10-30, 요구사항 123).
@@ -708,7 +855,10 @@ $app.addEventListener('click', e => {
       refreshNoticeModal(); break;
 
     case 'open-lesson': state.lessonId = el.dataset.lid; state.partKey = null; state.fm = null; state.view = 'lesson'; render(); break;
-    case 'open-menu': state.menuKey = el.dataset.k; state.fm = null; state.view = 'menu'; render(); break;
+    case 'open-menu':
+      state.menuKey = el.dataset.k; state.fm = null;
+      state.mlDraft = null; state.mlEdit = false; state.mlBusy = false; state.mlForm = { content:'', feeling:'' };
+      state.view = 'menu'; render(); break;
     case 'open-part':
       state.lessonId = el.dataset.lid; state.partKey = el.dataset.k; state.fm = null; state.view = 'part'; render(); break;
 
@@ -730,6 +880,10 @@ $app.addEventListener('click', e => {
 
     case 'submit-demo': alertBox('제출되었습니다. (데모)'); break;
     case 'open-ext': openMissionApp(el.dataset.url); break;
+
+    // 열공 마일리지
+    case 'ml-submit': submitMileage(); break;
+    case 'ml-edit': state.mlEdit = true; render(); break;
 
     case 'fm-check': {
       const items = M.getLesson(el.dataset.lid)?.parts?.formative?.items || [];
@@ -759,6 +913,18 @@ $app.addEventListener('input', e => {
   if (e.target.id !== 'q-answer') return;
   const n = e.target.value.replace(/\s/g, '').length;
   const c = document.getElementById('q-count'); if (c) c.textContent = `${n}자`;
+});
+
+// 열공 마일리지 사진 고르기: 줄이고 base64·지문을 뽑아 쥔 뒤 미리보기로 다시 그린다.
+// 다시 그리기 전에 쳐 둔 글을 state에 담아(captureMileageForm) 글이 날아가지 않게 한다.
+$app.addEventListener('change', async e => {
+  if (e.target.id !== 'ml-file') return;
+  const file = e.target.files && e.target.files[0]; if (!file) return;
+  captureMileageForm();
+  try {
+    state.mlDraft = await fileToMileagePhoto(file);
+  } catch (err){ alertBox('사진을 읽지 못했어요. 다른 사진으로 해 주세요.'); return; }
+  render();
 });
 
 function shiftPart(dir){

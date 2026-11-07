@@ -14,7 +14,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 import { db, collection, getDocs, doc, getDoc, setDoc, deleteDoc } from './shared/fb.js?v=20261028a';
-import { CLAUDE_PROXY_URL, kstDate } from './shared/util.js?v=20261028f';
+import { CLAUDE_PROXY_URL, kstDate, loadHolidays, studyClosedReason } from './shared/util.js?v=20261028f';
 // 슬라이드 축과 덱 모양은 shared/slide-axis.js 한 곳에서. 아래에서 그대로 다시 내보낸다
 import { normalizeDeck, toPages, fromPages, blankDeck, AXIS_ORDER, pagesFilled } from './shared/slide-axis.js?v=20261101f';
 
@@ -91,6 +91,8 @@ export const STUDENT_MENUS = [
   { key:'score',   name:'성적',      icon:'bar-chart-3', kind:'score',   group:'main' },
   ...PART_TYPES.map(p => ({ key:p.key, name:p.name, icon:p.icon, kind:'part', group:'part' })),
   // 복습은 일단 뺐다(선생님 지시 2026-10-30, 요구사항 120). 되살릴 때 kind:'review'로 다시 넣는다.
+  // 열공 마일리지: 과목(강의실)마다 도는 매일 공부 인증(2026-11-08 학생 화면 붙임). 첫 묶음에 둔다.
+  { key:'mileage', name:'열공 마일리지', icon:'flame', kind:'mileage', group:'main' },
 ];
 
 // 어드민 왼쪽 메뉴
@@ -182,6 +184,7 @@ export const TEXT_FIELDS = [
 ];
 let siteTexts = {};   // 관리자가 고친 값만. loadCore가 settings/general에서 채운다.
 let slideDesign = {}; // 슬라이드 글자 크기(디자인 탭). 전체 공통, settings/general의 slideDesign 맵.
+let HOLIDAYS = [];    // 공휴일 날짜 배열. loadCore가 settings/holidays에서 채운다(인증 시간대 게이트용).
 export function getText(key){
   const v = siteTexts[key];
   if (v != null && v !== '') return v;
@@ -295,7 +298,7 @@ function del(coll, id){ deleteDoc(doc(db, coll, id)).catch(e => console.error('d
 
 export async function loadCore(){
   const C = COLLECTIONS;
-  const [ys, cs, ss, rs, cls, ls, subs, grs, mas, nts, gen, grc, sjs, nrd, ncm, nbn, mct, mcf] = await Promise.all([
+  const [ys, cs, ss, rs, cls, ls, subs, grs, mas, nts, gen, grc, sjs, nrd, ncm, nbn, mct, mcf, hol] = await Promise.all([
     getDocs(collection(db, C.schoolYears)),
     getDocs(collection(db, C.courses)),
     getDocs(collection(db, C.courseStudents)),
@@ -317,6 +320,8 @@ export async function loadCore(){
     // 열공 마일리지(인증, 과목별 설정). 규칙 미배포여도 로드를 깨지 않게 각각 catch.
     getDocs(collection(db, C.mileageCerts)).catch(() => ({ docs: [] })),
     getDocs(collection(db, C.mileageConfig)).catch(() => ({ docs: [] })),
+    // 공휴일 목록(인증 시간대 게이트가 쓴다). 못 읽어도 기본 목록으로 돈다.
+    loadHolidays(db, { doc, getDoc }),
   ]);
   const rows = snap => snap.docs.map(d => ({ ...d.data(), id:d.id }));
   DEMO.years       = rows(ys).sort((a,b) => b.year - a.year);
@@ -335,6 +340,7 @@ export async function loadCore(){
   DEMO.noticeBans  = rows(nbn);
   DEMO.mileageCerts  = rows(mct);
   DEMO.mileageConfig = rows(mcf);
+  HOLIDAYS = Array.isArray(hol) ? hol : HOLIDAYS;
   siteTexts       = gen.exists() ? (gen.data().texts || {}) : {};
   menuOrder        = gen.exists() ? (gen.data().menuOrder || null) : null;
   slideDesign      = gen.exists() ? (gen.data().slideDesign || {}) : {};
@@ -1856,6 +1862,23 @@ export function getSubjectLessons(year, subject){
     .sort((a,b) => firstOrder.get(a.id) - firstOrder.get(b.id));
 }
 
+// 인증 시간대 게이트. 닫혀 있으면 안내 문구, 열려 있으면 null(평일 15~24, 주말·공휴일 6~24).
+// loadCore가 공휴일을 미리 읽어 두므로 화면에서 바로(동기) 물어볼 수 있다.
+export function mileageGateReason(ms = Date.now()){ return studyClosedReason(ms, HOLIDAYS); }
+
+// 오늘 날짜(KST, YYYY-MM-DD). 하루 1건 판정과 문서 id가 쓴다.
+export function mileageToday(){ return kstDate(); }
+
+/* 검증 엔진에 넘길 범위 실마리: 그 과목 인증 범위로 고른 강의 제목들 + 메모.
+   설정에서 범위를 안 골랐으면 그 과목 강의실의 전체 강의 제목을 쓴다(느슨하게). */
+export function mileageScope(year, subject){
+  const cfg = getMileageConfig(subject);
+  const all = getSubjectLessons(year, subject);
+  const picked = (cfg.scopeLessonIds || []);
+  const lessons = picked.length ? all.filter(l => picked.includes(l.id)) : all;
+  return { titles: lessons.map(l => l.title).filter(Boolean), note: cfg.note || '' };
+}
+
 // 인증 문서 id(하루 1건). 과목과 학번, 날짜를 두 밑줄로 잇는다(과목 이름에 밑줄이 섞여도 안 겹치게).
 export function mileageCertId(subject, studentNo, date){ return `${subject}__${studentNo}__${date}`; }
 
@@ -1912,7 +1935,7 @@ export function saveMileageCert(data){
     id, subject, year:+data.year || null, studentNo, name: data.name || '',
     date, photoURL: data.photoURL || '', content: data.content || '', feeling: data.feeling || '',
     result: data.result || 'pending', checks: data.checks || {}, reason: data.reason || '',
-    photoDate: data.photoDate || '',
+    photoDate: data.photoDate || '', photoHash: data.photoHash || '',
     tries: (prev?.tries || 0) + 1,
     ts: Date.now(), createdAt: prev?.createdAt ?? Date.now(),
   };

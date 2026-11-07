@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261102g';
+import * as M from './model.js?v=20261108a';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -2932,7 +2932,7 @@ function mileageCertRow(c){
     ${photo}
     <div class="grow mi-body">
       <div class="t"><span class="mono">${esc(c.studentNo)}</span> ${esc(c.name)}
-        <span class="s">${esc(c.date)}</span></div>
+        <span class="s">${esc(c.date)}${c.photoDate && c.photoDate !== c.date ? ` (사진 ${esc(c.photoDate)})` : ''}</span></div>
       ${c.content ? `<div class="s">${esc(c.content)}</div>` : ''}${feeling}${reason}
     </div>
     <div class="tools">
