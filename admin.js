@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261108d';
+import * as M from './model.js?v=20261108e';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -731,21 +731,17 @@ function scoreSettingPanel(rooms){
       <button class="ib ib-sm ib-danger" data-act="sc-fb-del" data-i="${i}" title="삭제" aria-label="삭제">${icon('trash-2',14)}</button>
     </div>`).join('') || '<div class="empty">템플릿이 없습니다. 추가하세요.</div>';
   const fbSel = state.fbSel != null ? fbList[state.fbSel] : null;
-  const fbMaster = `<div class="sectionlabel">목록</div>${fbItems}`;
-  // 추가 버튼은 세부 내용 제목 옆에 둔다(선생님 지시 2026-11-08).
-  const fbDetail = `<div class="sectionlabel between">세부 내용
-      <button class="btn-chip" data-act="sc-fb-add">${icon('plus',13)}추가</button></div>${fbSel
+  /* 추가와 저장 단추를 둘 다 목록 제목 옆에 둔다(선생님 지시 2026-11-08).
+     저장 하나가 급간 표와 피드백 템플릿을 같이 쓴다(둘이 같은 settings/grade 문서라, 전에
+     단추가 둘이던 때는 한쪽만 누르면 다른 쪽 글이 날아갔다. 그래서 하나로 합쳤다).
+     반영할 강의 체크는 누르는 즉시 저장되므로 이 단추와 상관없다. */
+  const fbMaster = `<div class="sectionlabel between">목록<span class="tools">
+      <button class="btn-chip" data-act="sc-fb-add">${icon('plus',13)}추가</button>
+      <button class="btn-chip" data-act="sc-setting-save">${icon('check',13)}저장</button></span></div>${fbItems}`;
+  const fbDetail = `<div class="sectionlabel">세부 내용</div>${fbSel
     ? `<input class="f" id="sc-fb-label" value="${esc(fbSel.label)}" aria-label="템플릿 이름">
        <textarea class="f fbtmpl" id="sc-fb-detail" rows="6" aria-label="세부 내용">${esc(fbSel.detail)}</textarea>`
     : `<div class="empty">왼쪽에서 항목을 고르거나 추가하세요.</div>`}`;
-
-  /* 저장 단추는 **하나**다(2026-11-02). 전에는 급간 표와 피드백 템플릿에 하나씩 둘이었는데,
-     둘이 같은 문서(settings/grade) 하나를 쓰기 때문에 한쪽만 누르면 **다른 쪽에 적던 글이
-     날아갔다**(저장한 뒤 다시 그리면서 옛 값으로 돌아온다). 이제 한 단추가 둘을 같이 저장한다.
-     반영할 강의 체크는 누르는 즉시 저장되므로 이 단추와 상관없다. */
-  const save = `<div class="lfoot"><div class="tools">
-      <button class="btn-chip" data-act="sc-setting-save">${icon('check',13)}저장</button>
-    </div></div>`;
 
   // 급간 표는 가운데 정렬(선생님 지시 2026-11-08): bandtable-c가 달성률·점수 칸을 모두 중앙으로 민다.
   const bandTable = `<div class="prog-wrap"><table class="prog bandtable bandtable-c">
@@ -762,7 +758,7 @@ function scoreSettingPanel(rooms){
     <div class="gen-cols fb-cols">
       <div class="gen-col">${fbMaster}</div>
       <div class="gen-col">${fbDetail}</div>
-    </div>${save}`;
+    </div>`;
 }
 
 /* 성적 조회: 반별로 학생의 영역 점수와 총점. 학생을 누르면 강의별 내역이 뜬다.
