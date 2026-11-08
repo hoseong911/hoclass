@@ -1479,21 +1479,36 @@ export function toggleSubShared(subId){
      지연 제출         : 달성은 주고 기한만 깎는다
      그 밖             : 통과
    hoistory의 이탈(cheatCount) 규칙은 학생 화면에 이탈 감시가 아직 없어 다음 단계로 둔다. */
+/* 오늘의 질문 판정(선생님 지시 2026-11-08: 공통 루브릭 40점제로 개편).
+   점수는 네 항목 각 0~10, 합 0~40: ①관련성 ②자기 생각 ③근거·구체성(AI) + ④성의·분량(글자수로 코드 산정).
+   통과선 20점(미만은 미흡, 포인트 0). 관련성 0(무관·장난)이면 합과 무관하게 미흡.
+   지연 제출은 미흡으로 적되 성적 달성은 유지한다(종전과 같음). 교사 수동 판정이 가장 세다. */
+export const QUESTION_PASS_MIN = 20;        // 40점 만점 중 통과 기준선
 export function questionVerdict(sub){
   const cl = DEMO.courseLessons.find(x => x.id === sub?.clId);
   const due = (() => { const d = resolveMmdd(cl?.date); return d ? d.getTime() + 24*60*60*1000 - 1 : null; })();
   const at = +sub?.at || 0;
   const onTime = (!due || !at) ? true : at <= due;
   const len = (sub?.answer == null) ? (sub?.textLength || 0) : String(sub.answer).trim().length;
-  let verdict, achieved;
-  if (len < 50){ verdict = '미흡(50자 미만)'; achieved = false; }
-  // 정확히 '조금 미흡'(AI 품질 미달)만 잡는다. '미흡(지연 제출)'까지 걸면 지연 제출의 달성이 꺼진다.
-  else if (sub?.graded && sub?.aiVerdict === '조금 미흡'){ verdict = '조금 미흡'; achieved = false; }
-  else if (!onTime){ verdict = '미흡(지연 제출)'; achieved = true; }
-  else { verdict = '통과'; achieved = true; }
-  if (sub?.verdict === 'pass'){ verdict = '통과(교사)'; achieved = true; }
-  if (sub?.verdict === 'fail'){ verdict = '미흡(교사)'; achieved = false; }
-  return { verdict, achieved, onTime, length:len };
+  const total = +sub?.aiTotal || 0;
+  const base = { onTime, length:len, total: sub?.graded ? total : null };
+  // 교사 수동 판정이 가장 세다
+  if (sub?.verdict === 'pass') return { verdict:'통과(교사)', achieved:true, ...base };
+  if (sub?.verdict === 'fail') return { verdict:'미흡(교사)', achieved:false, ...base };
+  if (sub?.graded){
+    // 옛 데이터(40점 루브릭 이전 채점): aiTotal이 없다. 저장돼 있던 판정을 그대로 존중한다(재채점 전까지).
+    if (sub.aiTotal == null){
+      const old = String(sub.aiVerdict || '통과');
+      const fail = old.includes('미흡') && !old.includes('지연');   // 지연 제출은 달성 유지
+      return { verdict:old, achieved:!fail, ...base };
+    }
+    if ((sub.aiRubric?.relevance ?? 1) === 0) return { verdict:'미흡(무관)', achieved:false, ...base };
+    if (total < QUESTION_PASS_MIN) return { verdict:'미흡', achieved:false, ...base };
+    if (!onTime) return { verdict:'미흡(지연 제출)', achieved:true, ...base };
+    return { verdict:'통과', achieved:true, ...base };
+  }
+  // 아직 AI 채점 전: 제출만 했으면 잠정 통과(교사가 AI 채점하면 다시 매긴다)
+  return { verdict: len ? '미채점' : '미제출', achieved: len > 0, ...base };
 }
 // 통과/미흡을 손으로 못박는다(같은 값을 다시 누르면 자동 판정으로 되돌린다).
 export function setSubVerdict(subId, v){
@@ -1503,16 +1518,16 @@ export function setSubVerdict(subId, v){
   return s;
 }
 
-/* AI 채점 (hoistory/lms 생각 Check 채점 모달의 thRunGrading 이식) ──────────────────
-   아직 채점 안 된 제출만 매긴다(채점된 것은 고정). 결과는 제출 문서에 그대로 남긴다:
-   graded, aiScore(품질 0~100), aiVerdict, aiPt.
-     50자 미만        : 미흡(50자 미만), 0pt. AI에 보내지 않는다
-     품질 40 미만      : 조금 미흡, 5pt (성적 달성도 꺼진다, questionVerdict)
-     그 밖            : 통과 또는 미흡(지연 제출), 10~30pt
-   hoistory는 여기서 경험치를 바로 줬다. 2027은 경험치(course_xp)가 아직 없어
-   aiPt만 적어 둔다. 이탈(cheatCount)은 학생 화면에 이탈 감시가 없어 뺐다. */
-const QUESTION_MAX_PT = 30;
-const QUESTION_FULL_Q = 94;   // 이 품질부터 만점(hoistory THINK_FULL_Q)
+/* AI 채점(선생님 지시 2026-11-08: 공통 루브릭 40점제로 개편) ──────────────────
+   아직 채점 안 된 제출만 매긴다(채점된 것은 고정). 네 항목을 매겨 제출 문서에 남긴다:
+     graded, aiRubric {relevance, thought, evidence, effort}(각 0~10), aiTotal(0~40),
+     aiScore(=aiTotal 호환), aiVerdict, aiPt(통과면 aiTotal, 미흡이면 0).
+   ①관련성 ②자기 생각 ③근거·구체성은 AI가, ④성의·분량은 글자수로 코드가 산정한다(15자당 1점,
+   150자에서 만점 10). 합이 그 답변 점수다. 판정과 성적 달성은 questionVerdict가 결정한다(위).
+   이탈(cheatCount)은 학생 화면에 감시가 없어 뺐다. */
+const QUESTION_EFFORT_PER_CHAR = 15;   // 성의·분량: 몇 글자당 1점인가 (×10점 = 150자에서 만점)
+function questionEffortScore(len){ return Math.max(0, Math.min(10, Math.floor((+len || 0) / QUESTION_EFFORT_PER_CHAR))); }
+const clampTen = n => { const v = Math.round(Number(n)); return isFinite(v) ? Math.max(0, Math.min(10, v)) : 0; };
 
 export async function gradeQuestionsAI(clId, onStatus = () => {}){
   const cl = DEMO.courseLessons.find(x => x.id === clId);
@@ -1523,55 +1538,47 @@ export async function gradeQuestionsAI(clId, onStatus = () => {}){
   const ungraded = getQuestionSubs(clId).filter(s => !s.graded);
   if (!ungraded.length) return 0;
 
-  const short = [], needAi = [];
-  ungraded.forEach(s => (questionVerdict({ ...s, verdict:null }).length < 50 ? short : needAi).push(s));
-
-  const quality = {};
-  if (needAi.length){
-    onStatus(`${needAi.length}개 답변을 채점하고 있습니다.`);
-    const who = course ? `${course.subject} 수업(중학교 ${course.grade}학년)` : '수업';
-    const prompt = `${who}의 질문에 대한 학생 답변을 채점합니다. 학생 답변은 보통 공백 제외 150자 안팎으로 짧습니다. 길이가 짧다는 이유로 감점하지 마세요. "질문 취지에 맞게 자기 생각을 근거와 함께 썼는가"를 봅니다. 중학생 눈높이에서 격려하는 태도로 보되, 점수는 실제 품질에 따라 분명히 구분해서 매기세요. 성의 있게 자기 생각을 쓴 보통 수준의 답은 75~85 구간이 기본입니다. 자기 입장이 분명하고 근거나 구체적 사례를 갖춘 답에는 90점 이상을 주는 데 인색하지 마세요.
-- 90~100: 자기 입장이 분명하고 이유, 근거나 구체적 사례를 갖춰 설득력이 있음
-- 75~89: 질문 취지에 맞게 자기 생각을 성의 있게 씀 (성실한 답의 대부분이 여기)
-- 60~74: 자기 생각은 있으나 근거 없이 단편적이거나 질문과 살짝 어긋남
-- 45~59: 관련은 있으나 한두 문장으로 성의가 뚜렷이 부족
-- 0~44: 질문과 완전히 무관, 무의미한 반복이나 복붙, 장난 답변
+  onStatus(`${ungraded.length}개 답변을 채점하고 있습니다.`);
+  const who = course ? `${course.subject} 수업(중학교 ${course.grade}학년)` : '수업';
+  const prompt = `${who}의 '오늘의 질문'에 대한 중학생 답변을 아래 세 항목으로 채점합니다. 각 항목 0~10 정수.
+분량(길이)은 이 채점에 넣지 마세요. 짧다고 감점하지 마세요(분량은 따로 계산합니다).
+① relevance 관련성(0~10): 질문 취지에 맞게 답했는가. 10=질문에 정확히 응답, 5=주제는 맞으나 빗나감, 0=질문과 무관하거나 장난·복붙(이때는 반드시 0).
+② thought 자기 생각(0~10): 자기 입장이나 생각이 드러나는가. 10=입장이 분명함, 5=생각은 있으나 밋밋한 일반론, 0=사실 나열만 자기 생각 없음.
+③ evidence 근거·구체성(0~10): 이유, 근거, 구체적 사례가 있는가. 10=이유+구체적 사례/경험, 5=이유를 한두 줄, 0=근거 전혀 없음.
 질문: "${q.question || ''}"
 ${q.guide ? `수업 참고: "${String(q.guide).slice(0, 300)}"` : ''}
-답변 목록(JSON): ${JSON.stringify(needAi.map(s => ({ subId:s.id, text:s.answer || '' })))}
-응답은 JSON 배열만 출력(다른 텍스트 없이): [{"subId":"...","quality":0~100 정수}]`;
-    const res = await fetch(CLAUDE_PROXY_URL, {
-      method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1024, messages:[{ role:'user', content:prompt }] })
-    });
-    if (!res.ok) throw new Error(`채점에 실패했습니다. (API ${res.status})`);
-    const data = await res.json();
-    const arr = JSON.parse((data.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim());
-    arr.forEach(r => { const n = Math.round(Number(r.quality)); if (isFinite(n)) quality[r.subId] = Math.max(0, Math.min(100, n)); });
-  }
+답변 목록(JSON): ${JSON.stringify(ungraded.map(s => ({ subId:s.id, text:s.answer || '' })))}
+응답은 JSON 배열만 출력(다른 텍스트 없이): [{"subId":"...","relevance":0~10,"thought":0~10,"evidence":0~10}]`;
+  const res = await fetch(CLAUDE_PROXY_URL, {
+    method:'POST', headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1024, messages:[{ role:'user', content:prompt }] })
+  });
+  if (!res.ok) throw new Error(`채점에 실패했습니다. (API ${res.status})`);
+  const data = await res.json();
+  const arr = JSON.parse((data.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim());
+  const byId = {};
+  arr.forEach(r => { if (r && r.subId != null) byId[r.subId] = r; });
 
   onStatus('채점 결과를 저장하고 있습니다.');
-  const commit = (s, pt, verdict, score) => {
-    Object.assign(s, { graded:true, aiPt:pt, aiVerdict:verdict, aiScore:score == null ? null : score });
+  ungraded.forEach(s => {
+    const r = byId[s.id] || {};
+    const relevance = clampTen(r.relevance), thought = clampTen(r.thought), evidence = clampTen(r.evidence);
+    const effort = questionEffortScore(String(s.answer || '').trim().length);
+    const rubric = { relevance, thought, evidence, effort };
+    const total = relevance + thought + evidence + effort;
+    Object.assign(s, { graded:true, aiRubric:rubric, aiTotal:total, aiScore:total });
+    const v = questionVerdict({ ...s, verdict:null });   // 위 규칙으로 통과/미흡 결정
+    Object.assign(s, { aiVerdict:v.verdict, aiPt: v.achieved ? total : 0 });
     put(COLLECTIONS.courseSubmissions, s);
-  };
-  short.forEach(s => commit(s, 0, '미흡(50자 미만)', null));
-  needAi.forEach(s => {
-    const n = quality[s.id];
-    if (n == null || n < 40){ commit(s, 5, '조금 미흡', n); return; }
-    const pt = Math.max(10, Math.min(QUESTION_MAX_PT,
-      Math.round(10 + (n - 40) / (QUESTION_FULL_Q - 40) * (QUESTION_MAX_PT - 10))));
-    const late = !questionVerdict({ ...s, verdict:null }).onTime;
-    commit(s, pt, late ? '미흡(지연 제출)' : '통과', n);
   });
   onStatus('');
-  return short.length + needAi.length;
+  return ungraded.length;
 }
 
 // 재채점: 그 강의의 채점 결과와 손으로 정한 통과/미흡을 지운 뒤 다시 매긴다.
 export async function regradeQuestionsAI(clId, onStatus){
   getQuestionSubs(clId).filter(s => s.graded).forEach(s => {
-    Object.assign(s, { graded:false, aiPt:null, aiScore:null, aiVerdict:null, verdict:null });
+    Object.assign(s, { graded:false, aiPt:null, aiScore:null, aiTotal:null, aiRubric:null, aiVerdict:null, verdict:null });
     put(COLLECTIONS.courseSubmissions, s);
   });
   return gradeQuestionsAI(clId, onStatus);

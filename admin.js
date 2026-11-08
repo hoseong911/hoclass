@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261108e';
+import * as M from './model.js?v=20261108f';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -2579,8 +2579,11 @@ function questionAnswers(rooms, placed, lessons){
    세 탭(채점, 통과, 미흡)이 모두 같은 답변 줄(answerRow)을 쓴다: 통과와 미흡에서 명단만
    보이던 것을 선생님 지시로 고쳤다(2026-10-28). 미제출 학생만 답변 없이 이름 줄로 선다. */
 function answerRow(s, v){
+  // 채점 결과: 판정 + 총점(40점 만점) + 항목별 점수(관련/생각/근거/성의)를 보여 준다(선생님 지시 2026-11-08).
+  const rb = s.aiRubric;
+  const breakdown = rb ? `<span class="gsub">관련 ${rb.relevance} 생각 ${rb.thought} 근거 ${rb.evidence} 성의 ${rb.effort}</span>` : '';
   const res = s.graded
-    ? `<span class="gnote ${verdictCls(s.aiVerdict)}">${esc(s.aiVerdict || '')} / ${s.aiPt ?? 0}pt</span>`
+    ? `<span class="gnote ${verdictCls(s.aiVerdict)}">${esc(s.aiVerdict || '')} ${s.aiTotal ?? 0}/40</span>${breakdown}`
     : `<span class="gnote muted">미채점</span>`;
   return `<div class="row">
     <div class="grow"><div class="t"><span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name)}${res}
@@ -2637,11 +2640,11 @@ function questionGrade(targets, subs, one){
       ? passing.map(({ s, v }) => answerRow(s, v)).join('')
       : `<div class="empty">통과한 학생이 없습니다.</div>`;
   } else if (state.questionGradeTab === 'fail'){
-    // 미흡 사유별로 묶는다(hoistory: 미제출, 50자 미만, AI 분석 미흡).
+    // 미흡 사유별로 묶는다(40점 루브릭 개편, 2026-11-08: 미제출, 점수 미달, 무관/장난, 선생님).
     const groups = [
       ['미제출', absent.map(st => absentRow(st))],
-      ['50자 미만', failing.filter(x => x.v.verdict === '미흡(50자 미만)').map(({ s, v }) => answerRow(s, v))],
-      ['AI 채점 미흡', failing.filter(x => x.v.verdict === '조금 미흡').map(({ s, v }) => answerRow(s, v))],
+      ['점수 미달', failing.filter(x => x.v.verdict === '미흡').map(({ s, v }) => answerRow(s, v))],
+      ['무관/장난', failing.filter(x => x.v.verdict === '미흡(무관)').map(({ s, v }) => answerRow(s, v))],
       ['선생님 미흡', failing.filter(x => x.v.verdict === '미흡(교사)').map(({ s, v }) => answerRow(s, v))],
     ].filter(g => g[1].length);
     body = groups.length
