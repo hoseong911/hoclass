@@ -38,7 +38,8 @@
 - 필요해 보이는 것이 있으면 만들지 말고 끝에 한 줄로 묻는다.
 
 ## 배포
-- GitHub Pages(`main` 브랜치 루트). 주소 `https://hoseong911.github.io/lms2027/`. 빌드 없음, 바닐라 HTML/CSS/JS.
+- GitHub Pages(`main` 브랜치 루트). 주소 `https://hoseong911.github.io/hoclass/`. 빌드 없음, 바닐라 HTML/CSS/JS.
+  (2026-10-25에 레포를 `hoclass`로 독립시키면서 Pages 주소도 `/lms2027/`에서 `/hoclass/`로 바뀌었다. `/lms2027/`은 이제 404다.)
 - 캐시 무효화는 `?v=YYYYMMDDx`를 손으로 올린다(`index.html`, `admin.html`의 css/js, js 안의 `model.js` import).
 
 ## hoistory/lms에서 이식한 것 (선생님 지시 2026-10-28)
