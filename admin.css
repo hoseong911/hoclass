@@ -365,6 +365,9 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 .bandtable td.lname,.bandtable th.lname{min-width:120px}
 .bandtable td.num .dateinput{width:64px;text-align:right}
 .bandtable tfoot td{font-weight:700;color:var(--navy)}
+/* 급간 표 가운데 정렬(선생님 지시 2026-11-08): 달성률 칸과 점수 칸, 입력칸까지 전부 중앙으로 */
+.bandtable-c th,.bandtable-c td{text-align:center}
+.bandtable-c td.num .dateinput{text-align:center}
 
 /* 미션 앱 팝업: 아카이브 칸이 있어 조금 넓다 */
 .modal-wide{max-width:560px}
@@ -382,6 +385,11 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 /* 점수는 뚜렷하게(--fs-head), 달성률은 그 아래에 깐다(선생님 지시 2026-10-29) */
 .scnum{display:block;font-size:var(--fs-head);font-weight:700;color:var(--ink);line-height:1.2}
 .gsub.blk{display:block;margin-left:0;margin-top:2px}
+/* 성적 조회는 한 학생을 한 줄로(선생님 지시 2026-11-08): 점수와 달성/총을 세로로 쌓지 않고
+   나란히 둬 줄바꿈을 없앤다(0/30이 아랫줄로 떨어지던 것 포함) */
+.scoretable .scnum{display:inline-block;font-size:var(--fs-body);vertical-align:baseline}
+.scoretable .gsub{display:inline-block;margin-left:5px}
+.scoretable td.num,.scoretable td.tot{white-space:nowrap}
 .scoretable td.lname,.scoretable th.lname{min-width:150px;text-align:center}
 .scoretable td.num{text-align:center;font-variant-numeric:tabular-nums;color:var(--ink)}
 .scoretable th.num{text-align:center}

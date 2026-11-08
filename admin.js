@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261108b';
+import * as M from './model.js?v=20261108c';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -71,6 +71,8 @@ const state = {
   scCourseId: null,                // 반 탭(강의실)
   scClId: null,                    // 성적 입력에서 고른 연결 강의
   scOpenNo: null,                  // 성적 조회에서 강의별 내역을 펼친 학생(학번)
+  fbDraft: null,                   // 피드백 템플릿 편집 초안 [{label, detail}] (저장 전까지)
+  fbSel: null,                     // 성적 설정에서 고른 피드백 템플릿 index
 
   // 열공 마일리지 (hismile 재설계 이식, 2026-11-02)
   mileageTab: 'review',            // 서브 메뉴 'review'(인증 검토) | 'config'(설정)
@@ -661,7 +663,7 @@ function scoreInputPanel(c){
         data-id="${cl.id}" data-no="${s.studentNo}" aria-label="피드백 템플릿" ${templates.length?'':'disabled'}
         title="${templates.length?'피드백 템플릿':'성적 설정에서 피드백 템플릿을 적으면 고를 수 있습니다.'}">
         <option value=""></option>
-        ${templates.map((t, i) => `<option value="${i}">${esc(t)}</option>`).join('')}</select>`;
+        ${templates.map((t, i) => `<option value="${i}">${esc(t.label)}</option>`).join('')}</select>`;
     return `<tr class="${g.absent?'absent':''}">
       <td class="lname">
         <input type="checkbox" class="gcb" data-act="sc-row-all" data-id="${cl.id}" data-no="${s.studentNo}"
@@ -696,14 +698,13 @@ function scoreSettingPanel(rooms){
      줄만 눌러도 바뀌면 모르고 빼게 된다(화면 규칙 2026-10-29. 강의실 등록과 같은 자리다).
      칸이 하나도 없는 강의는 보조 글씨를 안 적는다: "성적에 드는 칸이 없습니다" 같은 설명문을
      줄마다 붙이지 않는다(작은 글씨 설명 금지). 빈 자리 자체가 그 말을 한다. */
+  // 강의차수만 적는다(선생님 지시 2026-11-08): 제목과 가진 영역 글씨는 빼고 "29강"만 선다.
   const list = lessons.length ? numberedNewest(lessons).map(({ x:l, no }) => {
     const on = picked.has(l.id);
-    const parts = M.GRADE_AREAS.filter(a => M.partWeight(l.id, a.key)).map(a => a.name).join(', ');
     return `<div class="row compact selrow ${on?'on':''}">
       <input type="checkbox" data-act="sc-pick-lesson" data-lid="${l.id}" ${on?'checked':''}
         aria-label="${esc(lnumPlain(l, no))} 성적 반영">
-      <span class="grow"><span class="t">${lessonNo(l, no)} ${esc(l.title)}</span>
-        ${parts ? `<span class="s">${esc(parts)}</span>` : ''}</span></div>`;
+      <span class="grow"><span class="t">${esc(lnumPlain(l, no))}</span></span></div>`;
   }).join('') : `<div class="empty">연결된 강의가 없습니다.</div>`;
 
   const bands = M.getBands();
@@ -717,9 +718,23 @@ function scoreSettingPanel(rooms){
   const top = bands[0] || {};
   const full = M.GRADE_AREAS.reduce((n, a) => n + (+top[a.key] || 0), 0);
 
-  // 피드백 템플릿: 한 줄에 하나. 성적 입력의 피드백 칸 옆 고르개가 이 목록을 쓴다.
-  const tmpl = `<div class="sectionlabel">피드백 템플릿</div>
-    <textarea class="f fbtmpl" id="sc-fb-tmpl" rows="6" aria-label="피드백 템플릿">${esc(M.getFeedbackTemplates().join('\n'))}</textarea>`;
+  /* 피드백 템플릿(마스터-디테일, 선생님 지시 2026-11-08): 왼쪽은 목록(이름), 오른쪽은 고른 항목의
+     세부 내용. 저장 전까지 state.fbDraft에 담아 두고, 성적 입력의 고르개는 이름으로 보이되 고르면
+     세부 내용이 피드백 칸에 들어간다. */
+  const fbList = state.fbDraft || M.getFeedbackTemplates();
+  if (state.fbSel != null && state.fbSel >= fbList.length) state.fbSel = fbList.length ? fbList.length - 1 : null;
+  if (state.fbSel == null && fbList.length) state.fbSel = 0;
+  const fbItems = fbList.map((t, i) => `<div class="row selrow ${i===state.fbSel?'on':''}" data-act="sc-fb-sel" data-i="${i}">
+      <span class="grow"><span class="t">${t.label ? esc(t.label) : '(이름 없음)'}</span></span>
+      <button class="ib ib-sm ib-danger" data-act="sc-fb-del" data-i="${i}" title="삭제" aria-label="삭제">${icon('trash-2',14)}</button>
+    </div>`).join('') || '<div class="empty">템플릿이 없습니다. 추가하세요.</div>';
+  const fbSel = state.fbSel != null ? fbList[state.fbSel] : null;
+  const fbMaster = `<div class="sectionlabel between">목록
+      <button class="btn-chip" data-act="sc-fb-add">${icon('plus',13)}추가</button></div>${fbItems}`;
+  const fbDetail = `<div class="sectionlabel">세부 내용</div>${fbSel
+    ? `<input class="f" id="sc-fb-label" value="${esc(fbSel.label)}" aria-label="템플릿 이름">
+       <textarea class="f fbtmpl" id="sc-fb-detail" rows="6" aria-label="세부 내용">${esc(fbSel.detail)}</textarea>`
+    : `<div class="empty">왼쪽에서 항목을 고르거나 추가하세요.</div>`}`;
 
   /* 저장 단추는 **하나**다(2026-11-02). 전에는 급간 표와 피드백 템플릿에 하나씩 둘이었는데,
      둘이 같은 문서(settings/grade) 하나를 쓰기 때문에 한쪽만 누르면 **다른 쪽에 적던 글이
@@ -729,13 +744,22 @@ function scoreSettingPanel(rooms){
       <button class="btn-chip" data-act="sc-setting-save">${icon('check',13)}저장</button>
     </div></div>`;
 
-  return `<div class="sectionlabel">성적에 반영할 강의</div>${list}
-    <div class="sectionlabel">포트폴리오 점수 급간</div>
-    <div class="prog-wrap"><table class="prog bandtable">
+  // 급간 표는 가운데 정렬(선생님 지시 2026-11-08): bandtable-c가 달성률·점수 칸을 모두 중앙으로 민다.
+  const bandTable = `<div class="prog-wrap"><table class="prog bandtable bandtable-c">
       <thead><tr><th class="lname">달성률</th>${M.GRADE_AREAS.map(a => `<th class="num">${esc(a.name)}</th>`).join('')}</tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td class="lname">만점</td><td class="num" colspan="${M.GRADE_AREAS.length}">${full}점</td></tr></tfoot>
-    </table></div>` + tmpl + save;
+    </table></div>`;
+
+  // 반영 강의 + 급간을 2단, 피드백 템플릿(목록 + 세부 내용)을 2단으로 나란히(선생님 지시 2026-11-08).
+  return `<div class="gen-cols">
+      <div class="gen-col"><div class="sectionlabel">성적에 반영할 강의</div>${list}</div>
+      <div class="gen-col"><div class="sectionlabel">포트폴리오 점수 급간</div>${bandTable}</div>
+    </div>
+    <div class="gen-cols">
+      <div class="gen-col">${fbMaster}</div>
+      <div class="gen-col">${fbDetail}</div>
+    </div>${save}`;
 }
 
 /* 성적 조회: 반별로 학생의 영역 점수와 총점. 학생을 누르면 강의별 내역이 뜬다.
@@ -756,17 +780,17 @@ function scoreViewPanel(c){
   const body = students.map(s => {
     const g = M.studentGrade(c.id, s.studentNo);
     const open = state.scOpenNo === s.studentNo;
-    // 점수는 크고 뚜렷하게, 달성률은 그 아래에 깐다(선생님 지시 2026-10-29)
+    // 한 학생이 한 줄에 들어오게 점수와 달성률을 나란히 둔다(선생님 지시 2026-11-08: 전에는 세로 2줄).
     const cells = M.GRADE_AREAS.map(a => {
       const it = g.areas[a.key];
       return `<td class="num">${it.total
-        ? `<span class="scnum">${it.score}</span><span class="gsub blk">${it.achieved}/${it.total} ${it.pct}%</span>`
+        ? `<span class="scnum">${it.score}</span><span class="gsub">${it.achieved}/${it.total} ${it.pct}%</span>`
         : '<span class="gsub">미실시</span>'}</td>`;
     }).join('');
     const row = `<tr class="scrow ${open?'on':''}" data-act="sc-open" data-no="${s.studentNo}">
       <td class="lname">${WIDE.matches ? '' : `<span class="chev">${icon(open?'chevron-down':'chevron-right',14)}</span>`}
         <span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name)}</td>
-      ${cells}<td class="num tot"><span class="scnum">${g.total}</span><span class="gsub blk">/ ${g.maxScore}</span></td></tr>`;
+      ${cells}<td class="num tot"><span class="scnum">${g.total}</span><span class="gsub">/ ${g.maxScore}</span></td></tr>`;
     // 좁은 화면만 줄 아래로 펼친다(넓은 화면은 오른쪽 칸이 받는다)
     return (open && !WIDE.matches) ? row + `<tr class="sc-lines"><td colspan="${M.GRADE_AREAS.length + 2}">
       <div class="detail">${scoreLines(g)}</div></td></tr>` : row;
@@ -3030,6 +3054,20 @@ function keepGeneralDraft(){
   document.querySelectorAll('[data-text-key]').forEach(inp => { d[inp.dataset.textKey] = inp.value; });
   state.genDraft = d;
 }
+/* 피드백 템플릿(마스터-디테일): 다시 그리기 전에 지금 보이는 이름/세부 내용을 초안에 담아 둔다.
+   항목을 고르거나 추가/삭제하면 화면을 다시 그리므로, 적던 글이 날아가지 않게 붙잡는다. */
+function syncFbDraft(){
+  const d = (state.fbDraft || M.getFeedbackTemplates()).map(x => ({ ...x }));
+  const i = state.fbSel;
+  if (i != null && d[i]){
+    const lab = document.getElementById('sc-fb-label');
+    const det = document.getElementById('sc-fb-detail');
+    if (lab) d[i].label = lab.value;
+    if (det) d[i].detail = det.value;
+  }
+  state.fbDraft = d;
+  return d;
+}
 
 /* 안에서 내려가는 목록(.dscroll, .split-list)은 스크롤바를 감췄으므로, 더 있다는 것을 끝의 흐림으로
    알린다(선생님 지시 2026-10-29). 끝에 닿으면 그쪽 흐림은 걷히고, 내려갈 것이 없으면 아예 안 생긴다.
@@ -3461,7 +3499,15 @@ document.getElementById('shell').addEventListener('click', e => {
     }
 
     // 성적
-    case 'sc-tab': state.scTab = v; state.scOpenNo = null; render(); break;
+    case 'sc-tab': state.scTab = v; state.scOpenNo = null; state.fbDraft = null; state.fbSel = null; render(); break;
+    // 피드백 템플릿(마스터-디테일): 항목 고르기 / 추가 / 삭제. 저장 전까지 state.fbDraft에만 둔다.
+    case 'sc-fb-sel': syncFbDraft(); state.fbSel = +el.dataset.i; render(); break;
+    case 'sc-fb-add': { const d = syncFbDraft(); d.push({ label:'', detail:'' }); state.fbSel = d.length - 1; render(); break; }
+    case 'sc-fb-del': {
+      const d = syncFbDraft(); d.splice(+el.dataset.i, 1);
+      state.fbSel = d.length ? Math.min(state.fbSel, d.length - 1) : null;
+      render(); break;
+    }
     case 'sc-room': state.scCourseId = v; state.scClId = null; state.scOpenNo = null; render(); break;
     case 'sc-open':
       state.scOpenNo = (!WIDE.matches && state.scOpenNo === no) ? null : no; render(); break;
@@ -3491,7 +3537,7 @@ document.getElementById('shell').addEventListener('click', e => {
        한쪽만 누르면 다른 쪽에 적던 글이 날아갔다. 그래서 하나로 합쳤다.
        반영 강의 목록은 체크하는 즉시 저장되므로(sc-pick-lesson) 여기서 안 건드린다. */
     case 'sc-setting-save': {
-      M.setFeedbackTemplates(document.getElementById('sc-fb-tmpl')?.value ?? '');
+      M.setFeedbackTemplates(syncFbDraft());   // 지금 보이는 이름/세부 내용까지 담아 저장한다
       const bands = M.getBands().map((b, i) => {
         const out = { min:b.min };
         M.GRADE_AREAS.forEach(a => {
@@ -3500,7 +3546,7 @@ document.getElementById('shell').addEventListener('click', e => {
         return out;
       });
       M.saveGradeConfig(bands)
-        .then(() => { toast('저장했습니다.'); render(); })
+        .then(() => { state.fbDraft = null; toast('저장했습니다.'); render(); })
         .catch(() => toast('저장하지 못했습니다. 다시 시도해 주세요.'));
       break;
     }
@@ -3672,10 +3718,10 @@ document.getElementById('shell').addEventListener('change', e => {
   } else if (el.dataset.act === 'sc-col-all'){   // 머리줄 체크: 그 열의 모든 학생을 한 번에
     const nos = M.getStudentsByCourse(state.scCourseId).map(s => s.studentNo);
     run(() => M.setGradeColAll(el.dataset.id, nos, el.dataset.k, el.dataset.f, el.checked));
-  } else if (el.dataset.act === 'sc-fb-pick'){   // 피드백 템플릿을 고르면 그 글이 칸에 들어간다
+  } else if (el.dataset.act === 'sc-fb-pick'){   // 피드백 템플릿을 고르면 그 세부 내용이 칸에 들어간다
     const t = M.getFeedbackTemplates()[+el.value];
     if (t == null){ el.value = ''; return; }
-    M.setGradeFeedback(el.dataset.id, el.dataset.no, t);
+    M.setGradeFeedback(el.dataset.id, el.dataset.no, t.detail);
     render();
   } else if (el.dataset.act === 'sc-feedback'){
     M.setGradeFeedback(el.dataset.id, el.dataset.no, el.value);

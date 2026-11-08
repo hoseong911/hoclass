@@ -5,54 +5,51 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HOCLASS 동시 보기</title>
 <!--
-  개발용 런처(2026-11-08). 학생 화면(index.html)과 어드민(admin.html)을 각각 별도 창으로 띄워
-  나란히 본다. 인증 흐름(학생이 인증 → 어드민에서 검토)을 한눈에 확인할 때 쓴다.
-  로컬에서 이 파일을 열어 쓴다(배포 대상 아님). 주소는 이 파일 위치 기준 상대경로라 어디 두어도 된다.
+  개발용 동시 보기(2026-11-08). 학생 화면(index.html)과 어드민(admin.html)을 한 창에 좌/우로 나란히 띄운다.
+  인증을 내고 바로 검토하는 흐름을 한눈에 본다. ES 모듈 앱이라 http로 열어야 한다(node dev-server.js → localhost:8777).
+  좁은 화면에서는 위아래로 쌓인다. 배포 대상 아님.
 -->
 <style>
-  :root{ --navy:#041E42; --red:#D00F31; --bg:#F4F5F7; --card:#fff; --line:#DDE2E9; --sub:#68727F; }
+  :root{ --navy:#041E42; --line:#DDE2E9; --sub:#68727F; --bar:38px; }
   *{ box-sizing:border-box; }
-  body{ margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg);
-    color:var(--navy); font-family:Pretendard,system-ui,sans-serif; }
-  .wrap{ width:min(440px,92vw); padding:32px 28px; }
-  h1{ font-size:22px; margin:0 0 4px; letter-spacing:.5px; }
-  p.lead{ margin:0 0 24px; color:var(--sub); font-size:13px; line-height:1.6; }
-  .btns{ display:flex; flex-direction:column; gap:12px; }
-  button{ font-family:inherit; font-size:16px; font-weight:600; cursor:pointer; border-radius:8px;
-    padding:14px 18px; border:1px solid var(--line); background:var(--card); color:var(--navy);
-    display:flex; align-items:center; gap:10px; text-align:left; }
-  button:hover{ border-color:var(--navy); }
-  button.primary{ background:var(--navy); color:#fff; border-color:var(--navy); }
-  button.primary:hover{ background:#06284f; }
-  button small{ font-weight:400; font-size:12px; opacity:.75; margin-left:auto; }
-  .hint{ margin-top:18px; font-size:12px; color:var(--sub); line-height:1.6; }
+  html,body{ margin:0; height:100%; }
+  body{ display:flex; flex-direction:column; background:#fff;
+    font-family:Pretendard,system-ui,sans-serif; color:var(--navy); }
+  .split{ flex:1; display:flex; min-height:0; }
+  .pane{ flex:1; min-width:0; display:flex; flex-direction:column; border-right:1px solid var(--line); }
+  .pane:last-child{ border-right:0; }
+  .pbar{ height:var(--bar); flex:0 0 auto; display:flex; align-items:center; gap:10px;
+    padding:0 12px; background:#F4F5F7; border-bottom:1px solid var(--line); font-size:13px; }
+  .pbar b{ font-weight:600; letter-spacing:.3px; }
+  .pbar .sp{ flex:1; }
+  .pbar button{ font-family:inherit; font-size:12px; cursor:pointer; border:1px solid var(--line);
+    background:#fff; color:var(--sub); border-radius:6px; padding:4px 10px; }
+  .pbar button:hover{ color:var(--navy); border-color:var(--navy); }
+  iframe{ flex:1; width:100%; border:0; background:#fff; }
+  @media (max-width:860px){ .split{ flex-direction:column; } .pane{ border-right:0; border-bottom:1px solid var(--line); } }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>HOCLASS 동시 보기</h1>
-    <p class="lead">학생 화면과 어드민 화면을 각각 별도 창으로 띄웁니다. 인증을 내고 바로 검토하는 흐름을 나란히 확인할 때 씁니다.</p>
-    <div class="btns">
-      <button class="primary" id="both">둘 다 열기 <small>좌우로 나란히</small></button>
-      <button id="student">학생 화면만 <small>index.html</small></button>
-      <button id="admin">어드민 화면만 <small>admin.html</small></button>
+  <div class="split">
+    <div class="pane">
+      <div class="pbar"><b>학생 화면</b><span class="sp"></span>
+        <button data-reload="stu">새로고침</button>
+        <button data-pop="index.html">새 창</button></div>
+      <iframe id="stu" src="index.html" title="학생 화면"></iframe>
     </div>
-    <p class="hint">창이 안 열리면 브라우저의 팝업 차단을 이 페이지에서 허용해 주세요.</p>
+    <div class="pane">
+      <div class="pbar"><b>어드민</b><span class="sp"></span>
+        <button data-reload="adm">새로고침</button>
+        <button data-pop="admin.html">새 창</button></div>
+      <iframe id="adm" src="admin.html" title="어드민"></iframe>
+    </div>
   </div>
 <script>
-  // 화면을 좌우 절반으로 나눠 띄운다(두 번째 창은 겹치지 않게 오른쪽으로).
-  function openAt(url, side){
-    const W = screen.availWidth, H = screen.availHeight;
-    const w = Math.floor(W / 2) - 8, h = H - 40;
-    const left = side === 'right' ? Math.floor(W / 2) + 2 : 2;
-    return window.open(url, '_blank', `popup=yes,width=${w},height=${h},left=${left},top=10`);
-  }
-  document.getElementById('student').onclick = () => openAt('index.html', 'left');
-  document.getElementById('admin').onclick   = () => openAt('admin.html', 'right');
-  document.getElementById('both').onclick    = () => {
-    openAt('index.html', 'left');
-    openAt('admin.html', 'right');
-  };
+  document.addEventListener('click', e => {
+    const r = e.target.dataset.reload, p = e.target.dataset.pop;
+    if (r){ const f = document.getElementById(r); f.src = f.src; }       // 그 쪽만 다시 읽기
+    if (p){ window.open(p, '_blank', 'popup=yes,width=520,height=900'); } // 별도 창이 필요하면
+  });
 </script>
 </body>
 </html>

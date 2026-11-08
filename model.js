@@ -872,14 +872,22 @@ export function toggleGradeLesson(lessonId, on){
   if (!on && i >= 0) list.splice(i, 1);
   return list;
 }
-/* 피드백 템플릿: 성적 설정에서 한 줄에 하나씩 적고, 성적 입력의 피드백 칸 옆 고르개에서 고른다
-   (선생님 지시 2026-10-28). 빈 줄과 중복은 버린다. */
-export function getFeedbackTemplates(){ return [...(DEMO.gradeConf.feedbackTemplates || [])]; }
+/* 피드백 템플릿(마스터-디테일, 선생님 지시 2026-11-08): {label, detail} 목록이다. 성적 설정에서
+   왼쪽에 목록(label), 오른쪽에 세부 내용(detail)을 적고, 성적 입력의 고르개는 label로 보이되
+   고르면 detail이 피드백 칸에 들어간다. 이름 없는 항목과 이름 중복은 버린다.
+   옛 구조(문자열 목록)는 {label:글, detail:글}로 바꿔 읽어 호환한다. */
+export function getFeedbackTemplates(){
+  return (DEMO.gradeConf.feedbackTemplates || []).map(t =>
+    typeof t === 'string'
+      ? { label:t, detail:t }
+      : { label:String(t?.label ?? ''), detail:String(t?.detail ?? '') });
+}
 export function setFeedbackTemplates(list){
   const clean = [];
-  (Array.isArray(list) ? list : String(list ?? '').split('\n')).forEach(t => {
-    const v = String(t ?? '').trim();
-    if (v && !clean.includes(v)) clean.push(v);
+  (Array.isArray(list) ? list : []).forEach(t => {
+    const label = String(t?.label ?? '').trim();
+    const detail = String(t?.detail ?? '').trim();
+    if (label && !clean.some(x => x.label === label)) clean.push({ label, detail });
   });
   DEMO.gradeConf.feedbackTemplates = clean;
   return clean;
