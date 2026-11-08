@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261108a';
+import * as M from './model.js?v=20261108b';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -2892,52 +2892,74 @@ function pageMileage(){
   return head + (state.mileageTab === 'config' ? mileageConfigPanel(subject) : mileageReviewPanel(subject));
 }
 
-/* 설정: 인증 범위 강의와 메모. 범위는 그 과목 강의실에 연결된 강의 중에서 고른다.
-   체크는 누르는 즉시 저장되고(mileage-scope), 메모는 아래 저장 단추로 쓴다(성적 설정과 같은 길). */
+/* 설정: 교사 메모뿐. 인증 범위는 '그 과목 교과 전체'라 강의를 따로 고르지 않는다
+   (선생님 지시 2026-11-08: 역사면 역사, 사회면 사회 교과 내용이면 다 인정).
+   메모는 검증 AI에 실마리로 넘어간다(예: 특정 단원 강조). 아래 저장 단추로 쓴다. */
 function mileageConfigPanel(subject){
   const cfg = M.getMileageConfig(subject);
-  const lessons = M.getSubjectLessons(state.year, subject);
-  const picked = new Set(cfg.scopeLessonIds || []);
-  // 줄을 label로 감싸지 않는다(화면 규칙): 체크박스를 눌러야만 범위가 바뀐다.
-  const list = lessons.length ? numberedNewest(lessons).map(({ x:l, no }) => {
-    const on = picked.has(l.id);
-    return `<div class="row compact selrow ${on?'on':''}">
-      <input type="checkbox" data-act="mileage-scope" data-lid="${l.id}" ${on?'checked':''}
-        aria-label="${esc(lnumPlain(l, no))} 인증 범위">
-      <span class="grow"><span class="t">${lessonNo(l, no)} ${esc(l.title)}</span></span></div>`;
-  }).join('') : `<div class="empty">연결된 강의가 없습니다.</div>`;
-
   const note = state.mileageNoteDraft ?? cfg.note ?? '';
   const save = `<div class="lfoot"><div class="tools">
       <button class="btn-chip" data-act="mileage-config-save">${icon('check',13)}저장</button>
     </div></div>`;
-  return `<div class="sectionlabel">인증 범위 강의</div>${list}
-    <div class="sectionlabel">메모</div>
+  return `<div class="sectionlabel">인증 범위</div>
+    <div class="hint">${esc(subject)} 교과 내용이면 모두 인정합니다. 캡처·인강/영상 시청과 오늘 날짜가 없는 사진은 반려됩니다.</div>
+    <div class="sectionlabel">메모(선택)</div>
     <textarea class="f fbtmpl" id="mileage-note" rows="4" aria-label="메모">${esc(note)}</textarea>${save}`;
 }
 
-/* 검토: 보류 중인 인증을 모아 본다. 사진과 글, 못 미친 사유를 보고 통과를 못박거나 그대로 둔다
-   (보류는 학생이 다시 내거나 선생님이 통과시킬 때까지 남는다). */
+/* 검토: 그 과목 인증을 전부 리스트로 본다(검토가 필요한 보류·애매를 위로 올린다).
+   각 건을 OX 표로 보여 주고, 통과/애매/보류/반려를 손으로 못박는다(같은 값을 다시 누르면 자동 판정으로). */
+const ML_ORDER = { pending:0, ambiguous:1, rejected:2, pass:3 };   // 검토 필요한 것부터
+const ML_BADGE = {
+  pass:      ['통과', 'ml-ok'],
+  ambiguous: ['애매', 'ml-amb'],
+  pending:   ['보류', 'ml-pend'],
+  rejected:  ['반려', 'ml-rej'],
+};
 function mileageReviewPanel(subject){
-  const pending = M.getMileagePending(subject);
-  if (!pending.length) return `<div class="empty">검토할 인증이 없습니다.</div>`;
-  return `<div class="mi-list">${pending.map(mileageCertRow).join('')}</div>`;
+  const certs = M.getMileageCerts(subject);
+  if (!certs.length) return `<div class="empty">인증이 없습니다.</div>`;
+  const sorted = certs.slice().sort((a, b) =>
+    (ML_ORDER[M.mileageResult(a)] - ML_ORDER[M.mileageResult(b)]) || ((b.ts || 0) - (a.ts || 0)));
+  const need = certs.filter(c => { const e = M.mileageResult(c); return e === 'pending' || e === 'ambiguous'; }).length;
+  const head = `<div class="hint">전체 ${certs.length}건 · 검토 필요 ${need}건(보류·애매). 애매는 통과로 집계되며 학생에게는 통과로 보입니다.</div>`;
+  return head + `<div class="mi-list">${sorted.map(mileageCertRow).join('')}</div>`;
+}
+
+// OX 한 칸. true→O, false→X, 'yes'/'no'/'unsure'→O/X/△, 그 밖(판정 안 됨)→–
+function oxMark(v){
+  if (v === true  || v === 'yes')    return `<td><span class="ox good">O</span></td>`;
+  if (v === false || v === 'no')     return `<td><span class="ox bad">X</span></td>`;
+  if (v === 'unsure')                return `<td><span class="ox half">△</span></td>`;
+  return `<td><span class="ox">–</span></td>`;
+}
+function mileageOxTable(ch = {}){
+  const notCap = ch.isScreenCapture === undefined ? undefined : !ch.isScreenCapture;
+  const notVid = ch.isVideoWatching === undefined ? undefined : !ch.isVideoWatching;
+  return `<table class="mi-ox">
+    <tr><th>날짜</th><th>교과</th><th>공부흔적</th><th>실제사진</th><th>영상아님</th><th>글자수</th></tr>
+    <tr>${oxMark(ch.photoDateOk)}${oxMark(ch.subjectRelevant)}${oxMark(ch.studyEvidence)}${oxMark(notCap)}${oxMark(notVid)}${oxMark(ch.charOk)}</tr>
+  </table>`;
 }
 function mileageCertRow(c){
   const eff = M.mileageResult(c);
+  const [label, cls] = ML_BADGE[eff] || ML_BADGE.pending;
   const photo = c.photoURL ? `<img class="mi-photo" src="${esc(c.photoURL)}" alt="인증 사진" loading="lazy">` : '';
-  const reason = c.reason ? `<div class="s">${esc(c.reason)}</div>` : '';
+  const reason  = c.reason ? `<div class="s mi-reason">${esc(c.reason)}</div>` : '';
+  const describe = c.checks?.describe ? `<div class="s mi-desc">AI: ${esc(c.checks.describe)}</div>` : '';
   const feeling = c.feeling ? `<div class="s">${esc(c.feeling)}</div>` : '';
-  return `<div class="row mi-cert ${eff==='pending'?'':'on'}">
+  const btn = (v, t) => `<button class="btn-chip ${eff===v?'on':''}" data-act="mileage-verdict" data-id="${esc(c.id)}" data-v="${v}">${t}</button>`;
+  return `<div class="row mi-cert ${eff}">
     ${photo}
     <div class="grow mi-body">
       <div class="t"><span class="mono">${esc(c.studentNo)}</span> ${esc(c.name)}
+        <span class="mi-badge ${cls}">${label}</span>
         <span class="s">${esc(c.date)}${c.photoDate && c.photoDate !== c.date ? ` (사진 ${esc(c.photoDate)})` : ''}</span></div>
-      ${c.content ? `<div class="s">${esc(c.content)}</div>` : ''}${feeling}${reason}
-    </div>
-    <div class="tools">
-      <button class="btn-chip ${eff==='pass'?'on':''}" data-act="mileage-verdict" data-id="${esc(c.id)}" data-v="pass">${icon('check',13)}통과</button>
-      <button class="btn-chip ${eff==='pending'?'on':''}" data-act="mileage-verdict" data-id="${esc(c.id)}" data-v="pending">보류</button>
+      ${c.content ? `<div class="s">${esc(c.content)}</div>` : ''}${feeling}
+      ${mileageOxTable(c.checks)}${reason}${describe}
+      <div class="tools mi-verdicts">
+        ${btn('pass', `${icon('check',13)}통과`)}${btn('ambiguous','애매')}${btn('pending','보류')}${btn('rejected','반려')}
+      </div>
     </div></div>`;
 }
 
@@ -3485,9 +3507,9 @@ document.getElementById('shell').addEventListener('click', e => {
 
     // 열공 마일리지
     case 'mileage-tab': state.mileageTab = v; state.mileageNoteDraft = null; render(); break;
-    // 인증 검토: 통과/보류를 손으로 못박는다(같은 값을 다시 누르면 자동 판정으로 되돌린다).
+    // 인증 검토: 통과/애매/보류/반려를 손으로 못박는다(같은 값을 다시 누르면 자동 판정으로 되돌린다).
     case 'mileage-verdict': M.setMileageVerdict(id, v); render(); break;
-    // 과목 설정 저장(메모). 인증 범위 체크는 누르는 즉시 저장되므로 여기서 안 건드린다.
+    // 과목 설정 저장(메모).
     case 'mileage-config-save': {
       M.setMileageConfig(curSubject(), { note: document.getElementById('mileage-note')?.value ?? '' });
       state.mileageNoteDraft = null;
@@ -3660,14 +3682,6 @@ document.getElementById('shell').addEventListener('change', e => {
   } else if (el.dataset.act === 'sc-pick-lesson'){   // 성적에 반영할 강의 목록
     M.toggleGradeLesson(el.dataset.lid, el.checked);
     M.saveGradeConfig().catch(() => toast('저장하지 못했습니다. 다시 시도해 주세요.'));
-    render();
-  } else if (el.dataset.act === 'mileage-scope'){   // 열공 마일리지: 인증 범위로 셀 강의
-    // 적던 메모가 다시 그릴 때 날아가지 않게 먼저 챙겨 둔다(저장 전까지 들고 있다가 저장 단추에서 비운다)
-    const ta = document.getElementById('mileage-note'); if (ta) state.mileageNoteDraft = ta.value;
-    const subject = curSubject();
-    const set = new Set(M.getMileageConfig(subject).scopeLessonIds || []);
-    if (el.checked) set.add(el.dataset.lid); else set.delete(el.dataset.lid);
-    M.setMileageConfig(subject, { scopeLessonIds:[...set] });
     render();
   } else if (el.dataset.act === 'q-lesson'){   // 오늘의 질문: 답변을 모아 볼 강의
     state.questionLessonId = el.value; render();

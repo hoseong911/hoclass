@@ -1869,15 +1869,9 @@ export function mileageGateReason(ms = Date.now()){ return studyClosedReason(ms,
 // 오늘 날짜(KST, YYYY-MM-DD). 하루 1건 판정과 문서 id가 쓴다.
 export function mileageToday(){ return kstDate(); }
 
-/* 검증 엔진에 넘길 범위 실마리: 그 과목 인증 범위로 고른 강의 제목들 + 메모.
-   설정에서 범위를 안 골랐으면 그 과목 강의실의 전체 강의 제목을 쓴다(느슨하게). */
-export function mileageScope(year, subject){
-  const cfg = getMileageConfig(subject);
-  const all = getSubjectLessons(year, subject);
-  const picked = (cfg.scopeLessonIds || []);
-  const lessons = picked.length ? all.filter(l => picked.includes(l.id)) : all;
-  return { titles: lessons.map(l => l.title).filter(Boolean), note: cfg.note || '' };
-}
+/* 검증 엔진에 넘길 실마리: 교사 메모뿐. 범위는 '그 과목 교과 전체'라 강의 목록을 넘기지 않는다
+   (선생님 지시 2026-11-08: 역사면 역사, 사회면 사회 교과 내용이면 다 인정). */
+export function mileageScopeNote(subject){ return getMileageConfig(subject).note || ''; }
 
 // 인증 문서 id(하루 1건). 과목과 학번, 날짜를 두 밑줄로 잇는다(과목 이름에 밑줄이 섞여도 안 겹치게).
 export function mileageCertId(subject, studentNo, date){ return `${subject}__${studentNo}__${date}`; }
@@ -1887,29 +1881,34 @@ export function getMileageCerts(subject){
   return DEMO.mileageCerts.filter(c => c.subject === subject)
     .sort((a,b) => (b.ts || createdMs(b)) - (a.ts || createdMs(a)));
 }
-// 교사 검토 대기(보류)만.
-export function getMileagePending(subject){
-  return getMileageCerts(subject).filter(c => effectiveResult(c) === 'pending');
+// 교사 검토 큐: 보류 + 애매(둘 다 교사가 보고 판단한다). 최신 제출순.
+export function getMileageReview(subject){
+  return getMileageCerts(subject).filter(c => { const e = effectiveResult(c); return e === 'pending' || e === 'ambiguous'; });
 }
 // 한 건.
 export function getMileageCert(subject, studentNo, date){
   return DEMO.mileageCerts.find(c => c.id === mileageCertId(subject, studentNo, date)) || null;
 }
 
-// 교사가 손으로 통과/보류를 못박으면(verdict) 그것이 자동 판정을 이긴다.
+/* 판정 네 단계: pass(통과) · ambiguous(애매, 통과로 침) · pending(보류) · rejected(반려).
+   교사가 손으로 못박으면(verdict) 그것이 자동 판정을 이긴다. */
+const MILEAGE_STATES = ['pass', 'ambiguous', 'pending', 'rejected'];
 function effectiveResult(c){
-  if (c?.verdict === 'pass') return 'pass';
-  if (c?.verdict === 'pending') return 'pending';
-  return c?.result || 'pending';
+  if (c?.verdict && MILEAGE_STATES.includes(c.verdict)) return c.verdict;
+  return MILEAGE_STATES.includes(c?.result) ? c.result : 'pending';
 }
 export { effectiveResult as mileageResult };
+// 통과로 치는 상태(집계 포함, 학생에겐 통과로 보인다): 통과·애매.
+export function mileageCountsAsPass(c){ const e = effectiveResult(c); return e === 'pass' || e === 'ambiguous'; }
+// 학생 화면용 상태: 애매는 통과로 숨긴다.
+export function mileageStudentResult(c){ return mileageCountsAsPass(c) ? 'pass' : effectiveResult(c); }
 
 /* 인증 일수와 연속일수. days = 통과한 날 수. streak = 오늘(또는 어제)부터 거꾸로 이어진 통과 날 수.
    포인트 환산은 추후라 수치만 돌려준다. */
 export function mileageStats(subject, studentNo){
   const days = DEMO.mileageCerts
-    .filter(c => c.subject === subject && String(c.studentNo) === String(studentNo) && effectiveResult(c) === 'pass')
-    .map(c => c.date).sort();           // 오름차순 날짜(YYYY-MM-DD)
+    .filter(c => c.subject === subject && String(c.studentNo) === String(studentNo) && mileageCountsAsPass(c))
+    .map(c => c.date).sort();           // 오름차순 날짜(YYYY-MM-DD). 통과·애매를 공부일로 센다
   const set = new Set(days);
   const count = set.size;
   // 연속: 가장 최근 통과 날이 오늘이거나 어제면 거기서부터 하루씩 거슬러 센다.
@@ -1945,7 +1944,7 @@ export function saveMileageCert(data){
   return rec;
 }
 
-// 교사 검토: 통과/보류를 손으로 못박는다(같은 값을 다시 부르면 자동 판정으로 되돌린다).
+// 교사 검토: 통과/애매/보류/반려를 손으로 못박는다(같은 값을 다시 부르면 자동 판정으로 되돌린다).
 export function setMileageVerdict(certId, v){
   const c = DEMO.mileageCerts.find(x => x.id === certId); if (!c) return null;
   c.verdict = (c.verdict === v) ? null : v;

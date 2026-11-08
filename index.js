@@ -12,9 +12,9 @@
 // 지금은 데모 데이터로 돈다(model.js). 로그인도 데모: 학번만 맞으면 입장.
 // 규칙: 인라인 onclick/window 노출 없이 data-act + 이벤트 위임. 상태는 state 하나.
 
-import * as M from './model.js?v=20261108a';
+import * as M from './model.js?v=20261108b';
 import { icon } from './shared/icons.js?v=20261102a';
-import { verifyMileageCert } from './shared/mileage-check.js?v=20261108a';
+import { verifyMileageCert } from './shared/mileage-check.js?v=20261108b';
 
 const YEAR = 2027;
 const $app = document.getElementById('app');
@@ -474,13 +474,16 @@ function mileageView(c){
   </div>`;
 }
 
-// 오늘 낸 인증의 결과 카드(통과/보류 + 사진 + 내용). '다시 올리기'로 폼을 다시 열 수 있다.
+/* 오늘 낸 인증의 결과 카드. 학생 화면 상태는 셋뿐이다(애매는 통과로 숨긴다. M.mileageStudentResult):
+   통과 → 통과 뱃지, 반려 → 사유+다시 올리기, 보류 → 선생님 확인 대기. '다시 올리기'로 폼을 다시 연다. */
 function mileageResultCard(cert){
-  const pass = M.mileageResult(cert) === 'pass';
-  const badge = pass
+  const st = M.mileageStudentResult(cert);   // 'pass' | 'rejected' | 'pending'
+  const badge = st === 'pass'
     ? `<div class="ml-badge pass">${icon('circle-check',18)}<span>오늘 인증 통과</span></div>`
+    : st === 'rejected'
+    ? `<div class="ml-badge rejected">${icon('circle-x',18)}<span>다시 올려 주세요</span></div>`
     : `<div class="ml-badge pending">${icon('clock',18)}<span>선생님 확인을 기다려요</span></div>`;
-  const reason = (!pass && cert.reason) ? `<p class="ml-reason">${esc(cert.reason)}</p>` : '';
+  const reason = (st !== 'pass' && cert.reason) ? `<p class="ml-reason">${esc(cert.reason)}</p>` : '';
   const photo = cert.photoURL ? `<img class="ml-preview" src="${esc(cert.photoURL)}" alt="오늘 인증 사진">` : '';
   return `<div class="ml-result">
     ${badge}${reason}
@@ -537,20 +540,20 @@ async function submitMileage(){
   captureMileageForm();
   const content = state.mlForm.content.trim(), feeling = state.mlForm.feeling.trim();
   if (!state.mlDraft){ alertBox('오늘 공부한 사진을 올려 주세요.'); return; }
-  if (content.length < 10){ alertBox('오늘 공부한 내용을 조금 더 적어 주세요.'); return; }
+  if (content.length < 30){ alertBox('오늘 공부한 내용을 30자 이상 적어 주세요.'); return; }
+  if (feeling.length < 30){ alertBox('느낀 점을 30자 이상 적어 주세요.'); return; }
   const gate = M.mileageGateReason(); if (gate){ alertBox(gate); return; }
 
   const subject = c.subject, today = M.mileageToday(), draft = state.mlDraft;
   state.mlBusy = true; render();
 
-  const scope = M.mileageScope(c.year, subject);
   const existing = M.getMileageCerts(subject)
     .map(x => ({ date:x.date, studentNo:x.studentNo, content:x.content, photoHash:x.photoHash }));
   let v;
   try {
     v = await verifyMileageCert({
       today, photoBase64:draft.base64, mediaType:draft.mediaType, content, feeling,
-      photoHash:draft.hash, scopeTitles:scope.titles, scopeNote:scope.note,
+      photoHash:draft.hash, scopeNote:M.mileageScopeNote(subject),
       subject, grade:c.grade, existingCerts:existing, studentNo:state.sno,
     });
   } catch (e){

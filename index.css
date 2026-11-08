@@ -307,6 +307,7 @@ html:not(.lms-ready) #app{display:none}
   padding:8px 12px;font-size:var(--fs-body);font-weight:600}
 .ml-badge.pass{color:var(--pass);border:1px solid var(--pass)}
 .ml-badge.pending{color:var(--sub);border:1px solid var(--line-strong)}
+.ml-badge.rejected{color:var(--fail);border:1px solid var(--fail)}
 .ml-reason{margin:0;font-size:var(--fs-meta);color:var(--sub);line-height:1.6}
 .ml-said{margin:0;font-size:var(--fs-body);line-height:1.7;white-space:pre-wrap;word-break:break-word}
 .ml-result .ml-preview{border:1px solid var(--line);border-radius:var(--r)}

@@ -964,5 +964,26 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 /* 열공 마일리지 인증 검토 (hismile 재설계 이식, 2026-11-02) */
 .mi-cert{height:auto;min-height:var(--h-row);align-items:flex-start;gap:12px;padding-block:12px}
 .mi-cert .mi-photo{width:84px;height:84px;object-fit:cover;border-radius:4px;flex:0 0 auto}
-.mi-cert .mi-body .t{margin-bottom:4px}
-.mi-cert .tools{flex:0 0 auto;align-self:center}
+.mi-cert .mi-body{min-width:0}
+.mi-cert .mi-body .t{margin-bottom:4px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.mi-desc{color:var(--sub)}
+.mi-reason{color:var(--fail)}
+/* 상태 알약(교사 검토용): 통과·애매·보류·반려 */
+.mi-badge{font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid currentColor;line-height:1.6}
+.mi-badge.ml-ok{color:var(--pass)}
+.mi-badge.ml-amb{color:var(--navy)}
+.mi-badge.ml-pend{color:var(--sub)}
+.mi-badge.ml-rej{color:var(--fail)}
+/* 왼쪽 상태 띠 */
+.mi-cert.pending{box-shadow:inset 3px 0 0 var(--sub)}
+.mi-cert.ambiguous{box-shadow:inset 3px 0 0 var(--navy)}
+.mi-cert.rejected{box-shadow:inset 3px 0 0 var(--fail)}
+.mi-cert.pass{box-shadow:inset 3px 0 0 var(--pass)}
+/* OX 표 */
+.mi-ox{border-collapse:collapse;margin:7px 0 2px;font-size:12px}
+.mi-ox th{color:var(--sub);font-weight:600;padding:2px 10px 2px 0;text-align:center;white-space:nowrap}
+.mi-ox td{padding:1px 10px 1px 0;text-align:center}
+/* 판정 단추 줄(보류·애매·반려를 한 줄에) */
+.mi-verdicts{margin-top:8px;flex-wrap:wrap;align-self:flex-start!important}
+/* 안내 한 줄(마일리지 설정·검토 머리말) */
+.hint{color:var(--sub);font-size:13px;margin:2px 0 10px;line-height:1.5}
