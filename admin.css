@@ -42,6 +42,8 @@ html:not(.lms-ready) #shell{display:none}
    왼쪽 일반, 오른쪽 어드민 메뉴. 좁으면 한 단으로 쌓인다 */
 .gen-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 48px;align-items:start}
 .gen-cols .sectionlabel{margin-top:4px}
+/* 성적 설정의 피드백 템플릿 단(목록/세부 내용) 위에 숨 좀 더 준다(선생님 지시 2026-11-08) */
+.fb-cols{margin-top:24px}
 .gen-label{flex:0 0 150px}
 @media (max-width:1000px){ .gen-cols{grid-template-columns:minmax(0,1fr)} .gen-col + .gen-col{margin-top:18px} }
 /* 미션 활동 두 단(선생님 지시 2026-10-29): 왼쪽 미션 이름 목록(.split-list), 오른쪽 세부 내용 칸(.pane).

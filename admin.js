@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261108c';
+import * as M from './model.js?v=20261108d';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -598,9 +598,11 @@ function scoreInputPanel(c){
   const students = M.getStudentsByCourse(c.id).slice().sort((a,b) => a.studentNo.localeCompare(b.studentNo));
   const nos = students.map(s => s.studentNo);
   const stats = M.gradeStats(cl.id, nos);
+  // 통계 칩은 이름을 짧게(선생님 지시 2026-11-08: 개념 미션 질문). 드롭다운과 같은 줄에 선다.
+  const SHORT_AREA = { concept:'개념', mission:'미션', question:'질문' };
   const statChips = M.GRADE_AREAS.map(a => {
     const st = stats[a.key];
-    return `<span class="gchip"><b>${esc(a.name)}</b>${st ? `${st.done} / ${st.all}` : '미실시'}</span>`;
+    return `<span class="gchip"><b>${esc(SHORT_AREA[a.key] || a.name)}</b>${st ? `${st.done} / ${st.all}` : '미실시'}</span>`;
   }).join('');
 
   const pubBtn = `<button class="btn-chip ${cl.gradePublished?'on':''}" data-act="sc-publish" data-id="${cl.id}">
@@ -612,7 +614,7 @@ function scoreInputPanel(c){
        수업일자 안내  진도 관리와 강의실 관리에서 보고 고치는 값이다. 여기서 또 알릴 일이 아니다
        반영 강의 안내 성적 설정의 반영 강의 목록은 그 화면에서 보면 된다 */
   const bar = `<div class="gradebar">
-    <div class="gradebar-line">${lessonSel}<div class="grow"></div>${autoBtn}${pubBtn}</div>
+    <div class="gradebar-line">${lessonSel}${statChips}<div class="grow"></div>${autoBtn}${pubBtn}</div>
   </div>`;
 
   if (!students.length) return bar + `<div class="empty">학생이 없습니다.</div>`;
@@ -680,7 +682,7 @@ function scoreInputPanel(c){
     </tr>`;
   }).join('');
 
-  return bar + `<div class="gstats">${statChips}</div>
+  return bar + `
     <div class="prog-wrap"><table class="prog gradetable">
       <thead>
         <tr><th class="lname" rowspan="2">학생</th>${head1}<th rowspan="2">자동 감지</th><th class="gfb" rowspan="2">피드백</th></tr>
@@ -729,9 +731,10 @@ function scoreSettingPanel(rooms){
       <button class="ib ib-sm ib-danger" data-act="sc-fb-del" data-i="${i}" title="삭제" aria-label="삭제">${icon('trash-2',14)}</button>
     </div>`).join('') || '<div class="empty">템플릿이 없습니다. 추가하세요.</div>';
   const fbSel = state.fbSel != null ? fbList[state.fbSel] : null;
-  const fbMaster = `<div class="sectionlabel between">목록
-      <button class="btn-chip" data-act="sc-fb-add">${icon('plus',13)}추가</button></div>${fbItems}`;
-  const fbDetail = `<div class="sectionlabel">세부 내용</div>${fbSel
+  const fbMaster = `<div class="sectionlabel">목록</div>${fbItems}`;
+  // 추가 버튼은 세부 내용 제목 옆에 둔다(선생님 지시 2026-11-08).
+  const fbDetail = `<div class="sectionlabel between">세부 내용
+      <button class="btn-chip" data-act="sc-fb-add">${icon('plus',13)}추가</button></div>${fbSel
     ? `<input class="f" id="sc-fb-label" value="${esc(fbSel.label)}" aria-label="템플릿 이름">
        <textarea class="f fbtmpl" id="sc-fb-detail" rows="6" aria-label="세부 내용">${esc(fbSel.detail)}</textarea>`
     : `<div class="empty">왼쪽에서 항목을 고르거나 추가하세요.</div>`}`;
@@ -756,7 +759,7 @@ function scoreSettingPanel(rooms){
       <div class="gen-col"><div class="sectionlabel">성적에 반영할 강의</div>${list}</div>
       <div class="gen-col"><div class="sectionlabel">포트폴리오 점수 급간</div>${bandTable}</div>
     </div>
-    <div class="gen-cols">
+    <div class="gen-cols fb-cols">
       <div class="gen-col">${fbMaster}</div>
       <div class="gen-col">${fbDetail}</div>
     </div>${save}`;
@@ -2755,9 +2758,18 @@ function formativeEditor(l){
         <button class="ib ib-sm ib-danger" data-act="fm-it-del" data-id="${l.id}" data-k="${i}" title="삭제" aria-label="삭제">${icon('trash-2',14)}</button>
       </div></div>`).join('') : `<div class="empty">문항이 없습니다.</div>`;
 
+  // 추가(또는 저장) 버튼은 "문제 만들기" 제목 옆에 둔다(선생님 지시 2026-11-08).
+  const head = `<div class="sectionlabel between">${state.fmEditIdx == null ? '문제 만들기' : `${state.fmEditIdx + 1}번 문항 고치기`}
+      <span class="tools">${fmTools(l)}</span></div>`;
   return `<div class="sectionlabel">문항</div>${deck}
-    <div class="sectionlabel">${state.fmEditIdx == null ? '문제 만들기' : `${state.fmEditIdx + 1}번 문항 고치기`}</div>
-    ${fmTypeLine()}${fmForm(l)}`;
+    ${head}${fmTypeLine()}${fmForm(l)}`;
+}
+// 문제 만들기 칸의 넣기/저장 단추(제목 옆에 선다). 고치는 중이면 저장과 취소 둘.
+function fmTools(l){
+  return state.fmEditIdx == null
+    ? `<button class="btn-add" data-act="fm-it-add" data-id="${l.id}" title="추가" aria-label="추가">${icon('plus',16)}<span>추가</span></button>`
+    : `<button class="btn-add" data-act="fm-it-save" data-id="${l.id}" data-k="${state.fmEditIdx}" title="저장" aria-label="저장">${icon('check',16)}<span>저장</span></button>
+       <button class="btn-chip" data-act="fm-it-cancel">취소</button>`;
 }
 // 문항 목록 줄에 답을 짧게 적는다(열지 않고도 무슨 문제인지 알게).
 function fmAnswerText(it){
@@ -2807,16 +2819,10 @@ function fmForm(l){
     answer = line('정답', `<input class="f grow" id="fm-a" value="${esc(d?.a || '')}" aria-label="정답">`);
   }
 
-  const tools = state.fmEditIdx == null
-    ? `<button class="btn-add" data-act="fm-it-add" data-id="${l.id}" title="추가" aria-label="추가">${icon('plus',16)}<span>추가</span></button>`
-    : `<button class="btn-add" data-act="fm-it-save" data-id="${l.id}" data-k="${state.fmEditIdx}" title="저장" aria-label="저장">${icon('check',16)}<span>저장</span></button>
-       <button class="btn-chip" data-act="fm-it-cancel">취소</button>`;
-
   return `<div class="fmform">
       ${line('문제', `<textarea class="f grow" id="fm-q" rows="2" aria-label="문제">${esc(e?.q || '')}</textarea>`)}
       ${extra}
       ${answer}
-      <div class="fmform-tools">${tools}</div>
     </div>`;
 }
 // 문제 만들기 칸에 적힌 것을 읽는다(유형마다 칸이 다르다). 다듬고 따지는 것은 model.js가 한다.
