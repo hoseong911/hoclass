@@ -218,6 +218,7 @@ function viewLoginSetup(){
     <div class="fieldlabel">비밀번호 확인</div>
     <input class="field" id="f-pw2" type="password">
     <button class="primary" data-act="setup-pw" ${state.loginBusy ? 'disabled' : ''}>비밀번호 생성</button>
+    <p class="pwnote">비밀번호는 4자 이상으로 설정해 주세요. 비밀번호를 잊으면 선생님께 초기화를 요청해야 하니 꼭 기억해 두시길 바랍니다.</p>
     ${state.loginErr ? `<p class="err">${esc(state.loginErr)}</p>` : ''}
   </div>`;
 }

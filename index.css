@@ -134,6 +134,7 @@ html:not(.lms-ready) #app{display:none}
 .login .lead{text-align:center;color:var(--sub);font-size:var(--fs-meta);margin:0 0 22px;letter-spacing:.5px}
 .login .guide{text-align:center;color:var(--sub);font-size:var(--fs-meta);margin:0 0 16px;line-height:1.6}
 .login .err{color:var(--red);font-size:var(--fs-meta);margin:10px 0 0;text-align:center}
+.login .pwnote{color:var(--sub);font-size:var(--fs-meta);margin:12px 0 0;line-height:1.6;text-align:center}
 .login .fieldlabel{font-size:var(--fs-meta);color:var(--sub);margin:0 0 4px}
 .field{width:100%;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;font-size:16px;margin-bottom:8px;
   background:transparent;color:var(--ink);font-family:inherit}
