@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261108f';
+import * as M from './model.js?v=20261108g';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -3033,7 +3033,13 @@ function pageGeneral(){
       <button class="ib ib-sm" data-act="menu-move" data-i="${i}" data-v="1" ${i===last?'disabled':''} title="아래로" aria-label="아래로">${icon('arrow-down',14)}</button>
     </div>`;
   const menuRows = order.map((k, i) => {
-    if (k === M.MENU_SEP) return `<div class="row menu-sep-row"><div class="grow"><div class="menu-sep-line"></div></div>${moveBtns(i)}</div>`;
+    // 구분선 줄: 위아래 이동 + 삭제(선생님 지시 2026-11-08). 추가는 아래 제목 옆 '구분선' 단추로 한다.
+    if (k === M.MENU_SEP) return `<div class="row menu-sep-row"><div class="grow"><div class="menu-sep-line"></div></div>
+      <div class="tools">
+        <button class="ib ib-sm" data-act="menu-move" data-i="${i}" data-v="-1" ${i===0?'disabled':''} title="위로" aria-label="위로">${icon('arrow-up',14)}</button>
+        <button class="ib ib-sm" data-act="menu-move" data-i="${i}" data-v="1" ${i===last?'disabled':''} title="아래로" aria-label="아래로">${icon('arrow-down',14)}</button>
+        <button class="ib ib-sm ib-danger" data-act="menu-sep-del" data-i="${i}" title="구분선 삭제" aria-label="구분선 삭제">${icon('trash-2',14)}</button>
+      </div></div>`;
     const m = M.ADMIN_MENUS.find(x => x.key === k);
     return `<div class="row">
       <span class="menu-ico">${icon(m.icon,16)}</span>
@@ -3051,7 +3057,8 @@ function pageGeneral(){
   return `<div class="pagehead"><h2>${esc(M.menuName('general'))}</h2>
       <button class="btn-add" data-act="general-save" title="저장" aria-label="저장">${icon('check',16)}<span>저장</span></button></div>${tabs}
     <div class="gen-cols">${groups}
-      <div class="gen-col"><div class="sectionlabel">어드민 메뉴</div>${menuRows}</div></div>`;
+      <div class="gen-col"><div class="sectionlabel between">어드민 메뉴
+        <button class="btn-chip" data-act="menu-sep-add">${icon('plus',13)}구분선</button></div>${menuRows}</div></div>`;
 }
 // 다시 그리기 전에 일반 설정 칸에 적던 글을 붙잡아 둔다(메뉴를 옮기면 화면을 다시 그리므로).
 function keepGeneralDraft(){
@@ -3638,6 +3645,17 @@ document.getElementById('shell').addEventListener('click', e => {
       const i = +el.dataset.i, j = i + (+v);
       if (j < 0 || j >= order.length) break;
       [order[i], order[j]] = [order[j], order[i]];
+      keepGeneralDraft(); state.menuDraft = order; render(); break;
+    }
+    // 구분선 추가/삭제(선생님 지시 2026-11-08). 추가는 목록 맨 아래에 한 줄, 이후 위아래로 옮긴다.
+    case 'menu-sep-add': {
+      const order = (state.menuDraft || M.getMenuOrder()).slice();
+      order.push(M.MENU_SEP);
+      keepGeneralDraft(); state.menuDraft = order; render(); break;
+    }
+    case 'menu-sep-del': {
+      const order = (state.menuDraft || M.getMenuOrder()).slice();
+      order.splice(+el.dataset.i, 1);
       keepGeneralDraft(); state.menuDraft = order; render(); break;
     }
     // 일반 설정 서브 탭 전환(학년도·과목 / 화면·문구). 화면·문구 입력 중이면 초안을 지킨다.
