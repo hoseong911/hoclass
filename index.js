@@ -157,15 +157,37 @@ function viewLogin(){
     <h1>HOCLASS</h1>
     <p class="lead">${esc(M.getText('siteName'))}</p>
     <p class="guide">호성쌤 수업에 대한 학습 관리 시스템에 오신 것을 환영합니다.</p>
-    <input class="field" id="f-sno" inputmode="numeric" value="${esc(state.formSno)}">
-    <input class="field" id="f-name" value="${esc(state.formName)}">
-    <input class="field" id="f-pw" type="password">
+    <input class="field" id="f-sno" inputmode="numeric" placeholder="학번" value="${esc(state.formSno)}">
+    <input class="field" id="f-name" placeholder="이름" value="${esc(state.formName)}">
+    <input class="field" id="f-pw" type="password" placeholder="비밀번호">
     <label class="autoline"><input type="checkbox" id="f-auto" ${state.formAuto ? 'checked' : ''}>
       <span>이 기기에서 자동 로그인</span></label>
     <button class="primary" data-act="login" ${state.loginBusy ? 'disabled' : ''}>로그인</button>
     ${state.loginErr ? `<p class="err">${esc(state.loginErr)}</p>` : ''}
     ${loginExtras()}
   </div>`;
+}
+
+/* 학번, 이름을 다 넣으면 첫 접속인지 보고 비밀번호 칸 안내 문구(placeholder)를 바꾼다
+   (선생님 지시 2026-11-08). 비밀번호 문서가 없으면 첫 접속이라 "비밀번호를 설정하세요",
+   있으면 두 번째 이상이라 "비밀번호를 입력하세요"로 둔다.
+   화면을 다시 그리면 치던 값이 날아가므로 render() 대신 placeholder만 직접 고친다.
+   읽기가 끝나는 사이 학번을 또 바꿀 수 있어 토큰으로 마지막 요청만 반영한다. */
+let pwHintToken = 0;
+async function updatePwHint(){
+  const pwEl = document.getElementById('f-pw'); if (!pwEl) return;
+  const sno = (document.getElementById('f-sno')?.value || '').trim();
+  const name = (document.getElementById('f-name')?.value || '').trim();
+  // 둘 다 채워졌고 명단과 맞을 때만 조회한다(아니면 기본값 그대로)
+  if (!sno || !name || !M.getCoursesOfStudent(YEAR, sno).length
+      || !M.matchesRosterName(YEAR, sno, name)){ pwEl.placeholder = '비밀번호'; return; }
+  const my = ++pwHintToken;
+  try {
+    const rec = await M.getAuthRecord(YEAR, sno);
+    if (my !== pwHintToken) return;                 // 그 사이 또 바뀌었으면 버린다
+    const el = document.getElementById('f-pw');       // 다시 그렸을 수 있으니 다시 찾는다
+    if (el) el.placeholder = rec ? '비밀번호를 입력하세요' : '비밀번호를 설정하세요';
+  } catch { /* 못 읽으면 기본 안내 그대로 둔다 */ }
 }
 
 // 이 기기에 저장된 학생이 있을 때(자동 로그인을 켜 두고 간 경우). 비밀번호를 다시 묻지 않는다.
@@ -921,6 +943,8 @@ $app.addEventListener('input', e => {
 // 열공 마일리지 사진 고르기: 줄이고 base64·지문을 뽑아 쥔 뒤 미리보기로 다시 그린다.
 // 다시 그리기 전에 쳐 둔 글을 state에 담아(captureMileageForm) 글이 날아가지 않게 한다.
 $app.addEventListener('change', async e => {
+  // 로그인 화면에서 학번, 이름을 다 넣고 칸을 벗어나면 비밀번호 칸 안내를 맞춰 준다.
+  if (e.target.id === 'f-sno' || e.target.id === 'f-name'){ updatePwHint(); return; }
   if (e.target.id !== 'ml-file') return;
   const file = e.target.files && e.target.files[0]; if (!file) return;
   captureMileageForm();
