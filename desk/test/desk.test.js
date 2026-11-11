@@ -104,6 +104,11 @@ function device() {
     runScripts: "outside-only", url: "https://hoseong911.github.io/hoclass/desk/", pretendToBeVisual: true,
   });
   const w = dom.window, d = w.document;
+  // desk.css 를 직접 꽂는다. jsdom 은 <link> 를 따라가지 않아서,
+  // 이걸 안 하면 "hidden 인데도 보인다" 같은 문제를 못 잡는다.
+  const style = d.createElement("style");
+  style.textContent = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
+  d.head.append(style);
   Object.defineProperty(w, "crypto", { value: webcrypto });
   w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder;
   w.__FB__ = makeFB();
@@ -140,7 +145,17 @@ const allStored = () => [...store.keys()].filter(k => k.startsWith("desk_")).map
 const TODAY = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
+/* hidden 을 붙여도 숨지 않을 수 있다. .gate{display:grid} 같은 규칙이 이기기 때문이다.
+   실제로 그래서 로그인 창이 안 사라지고 수첩 위를 덮었다(2026-11-11).
+   jsdom 은 이 싸움을 그대로 흉내 내지 않아(규칙을 빼도 통과했다) 글자로 확인한다. */
+function checkHiddenRule() {
+  const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
+  assert(/\[hidden\][^{]*\{[^}]*display:\s*none\s*!important/.test(css),
+    "desk.css 에 [hidden] { display: none !important } 가 있어야 한다. 없으면 로그인 창이 수첩 위를 덮는다");
+}
+
 (async () => {
+  checkHiddenRule();
   seedHoclass();
   const A = device();
 

@@ -1,3 +1,8 @@
+/* hidden 을 붙이면 반드시 숨는다.
+   아티팩트판에서는 claude.ai가 페이지를 감쌀 때 이 규칙을 넣어 줬다. 웹판에는 없어서
+   .gate{display:grid}, .seg{display:inline-flex}, .card{display:flex} 같은 규칙이
+   hidden 을 이겨 버렸다. 로그인 창이 안 사라지고 수첩 위를 덮던 까닭이다. */
+[hidden] { display: none !important; }
 /* Layout: 상단 시계 밴드 + 바로가기 줄 / 3열(지금 수업·오늘 시간표 | 우리 반 | 할 일·학사 D-day) / 하단(주간 시간표 + 메모). 밝은 단일 테마. */
 :root {
   --bg: #ECEFEE;
