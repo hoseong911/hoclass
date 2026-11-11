@@ -8,15 +8,19 @@
 //   3) 그 열쇠는 한 시간쯤 지나면 못 쓴다. 파베는 그걸 되살려 주지 않으므로,
 //      만료되면 "다시 연결"을 눌러 받는다. 열쇠는 이 탭에만 둔다(sessionStorage).
 //
-// 선생님이 파베/구글 콘솔에서 켜 주셔야 하는 세 가지
-//   ① Authentication → Settings → 승인된 도메인에 hoseong911.github.io 추가
-//   ② Authentication → Sign-in method → Google 사용 설정
-//   ③ Google Cloud → API 및 서비스 → Google Calendar API 사용 설정
-// 하나라도 빠지면 아래 ERR 로 걸러 안내 문구를 바꾼다.
+// 세 가지가 켜져 있어야 한다. 2026-11-11에 ①과 ③은 관리 API로 켜 두었다.
+//   ① 승인된 도메인에 hoseong911.github.io            → 켜 둠
+//   ③ Google Calendar API                              → 켜 둠
+//   ② Authentication → Sign-in method → Google 켜기    → 콘솔에서만 된다(남음)
+// ②가 API로 안 되는 까닭: 구글 로그인을 켜려면 OAuth 클라이언트(아이디·비밀값)가 필요하고,
+// 그 클라이언트를 만드는 공개 API가 없다. 파베 콘솔은 그걸 한 번에 만들어 준다.
+// 무엇이 빠졌는지는 아래 why() 가 오류를 걸러 알려 준다.
 
 const KEY = "desk-gcal-token";
 const SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 const API = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+// 바로 그 설정 화면
+export const CONSOLE_URL = "https://console.firebase.google.com/project/ho0911seong-56638/authentication/providers";
 
 export function savedToken() {
   try {
@@ -37,7 +41,7 @@ export function forgetToken() { try { sessionStorage.removeItem(KEY); } catch (e
 export function why(e) {
   const c = (e && e.code) || (e && e.message) || "";
   if (/unauthorized-domain/.test(c)) return { step: 1, msg: "이 주소가 파베에 등록돼 있지 않아요. 승인된 도메인에 hoseong911.github.io 를 넣어 주세요." };
-  if (/operation-not-allowed|provider-disabled/.test(c)) return { step: 2, msg: "파베에서 구글 로그인이 꺼져 있어요. Sign-in method 에서 Google 을 켜 주세요." };
+  if (/operation-not-allowed|provider-disabled|configuration-not-found/.test(c)) return { step: 2, msg: "파베에서 구글 로그인이 아직 꺼져 있어요. 아래 주소에서 Google 을 켜 주세요(한 번만 하면 됩니다)." };
   if (/popup-blocked/.test(c)) return { step: 0, msg: "브라우저가 창 띄우기를 막았어요. 주소줄 오른쪽에서 허용해 주세요." };
   if (/popup-closed-by-user|cancelled-popup-request/.test(c)) return { step: 0, msg: "연결을 취소했어요." };
   if (/credential-already-in-use|account-exists/.test(c)) return { step: 0, msg: "그 구글 계정이 다른 곳에 이미 이어져 있어요." };

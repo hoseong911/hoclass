@@ -53,11 +53,16 @@
 Calendar API 를 부른다. 열쇠는 한 시간쯤 살고 파베가 되살려 주지 않으므로, 만료되면
 "다시 연결"을 눌러 받는다. 열쇠는 `sessionStorage`에만 둔다(나갈 때 버린다).
 
-**선생님이 콘솔에서 한 번만 켜 주셔야 하는 세 가지** (안 켜져 있으면 화면이 몇 번째가 빠졌는지 알려 준다):
+**세 가지가 켜져 있어야 한다.** 2026-11-11에 firebase CLI 자격으로 받은 access token 으로
+관리 API를 불러 **①과 ③은 내가 켰다**(확인함). ②만 콘솔에서 해야 한다.
 
-1. 파베 Authentication → Settings → 승인된 도메인에 `hoseong911.github.io` 추가
-2. 파베 Authentication → Sign-in method → Google 사용 설정
-3. 구글 클라우드 → API 및 서비스 → Google Calendar API 사용 설정
+1. ~~승인된 도메인에 `hoseong911.github.io`~~ → **켜 둠** (`identitytoolkit admin/v2 .../config` PATCH)
+2. 파베 Authentication → Sign-in method → **Google 켜기** → **남음. 콘솔에서만 된다**
+3. ~~Google Calendar API~~ → **켜 둠** (`serviceusage .../calendar-json.googleapis.com:enable`)
+
+②가 API로 안 되는 까닭: 구글 로그인을 켜려면 OAuth 클라이언트(아이디·비밀값)가 필요하고
+(`client_id cannot be empty`), 그 클라이언트를 **만드는 공개 API가 없다**. 파베 콘솔은 한 번에 만들어 준다.
+화면이 그 상태를 알아보고 콘솔 바로가기 단추를 띄운다.
 
 타우리 앱에서는 창 띄우기가 막힐 수 있다. 그때는 웹판에서 한 번 연결해 두면 된다.
 

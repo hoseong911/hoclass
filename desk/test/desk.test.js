@@ -118,6 +118,7 @@ function device() {
     connect: async () => { const e = new Error("시험에서는 연결하지 않는다"); throw e; },
     listEvents: async () => [], byDay: () => [],
     why: (e) => ({ step: 0, msg: String((e && e.message) || "") }),
+    CONSOLE_URL: "https://example.invalid/",
   };
   w.URL.createObjectURL = (blob) => { saved.push(blob); return "blob:fake/" + saved.length; };
   w.URL.revokeObjectURL = () => {};

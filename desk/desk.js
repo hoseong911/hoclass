@@ -567,11 +567,12 @@ async function rewrap(secret, newPass) {
 
 let userName = "";
 /* ---------- 구글 캘린더 ---------- */
-// 선생님이 켜 주셔야 하는 세 가지. 안내 문구에서 그대로 쓴다.
+/* 세 가지 중 ①승인된 도메인과 ③Calendar API 는 2026-11-11에 관리 API로 켜 두었다.
+   ②구글 로그인만 콘솔에서 해야 한다(OAuth 클라이언트를 만드는 공개 API가 없다). */
 const GCAL_STEPS = [
-  "파베 Authentication → Settings → 승인된 도메인에 hoseong911.github.io 추가",
-  "파베 Authentication → Sign-in method → Google 켜기",
-  "구글 클라우드 → API 및 서비스 → Google Calendar API 켜기",
+  { done: true,  text: "승인된 도메인에 hoseong911.github.io 넣기" },
+  { done: false, text: "파베 Authentication → Sign-in method → Google 켜기" },
+  { done: true,  text: "구글 클라우드에서 Calendar API 켜기" },
 ];
 let gcalBusy = false, gcalErr = "", gcalStep = 0, gcalDays = [], gcalAt = 0;
 
@@ -612,10 +613,17 @@ function renderGcal() {
   if (gcalErr) {
     const kids = [h("p", { class: "hint", text: gcalErr })];
     if (gcalStep >= 1) {
-      kids.push(h("p", { class: "tip", text: "선생님이 한 번만 켜 주시면 돼요:" }));
-      kids.push(h("ul", { class: "lines" }, ...GCAL_STEPS.map((t, i) =>
-        h("li", { class: "line" + (i + 1 === gcalStep ? "" : " done") },
-          h("div", { class: "top" }, h("span", { class: "ttl", text: (i + 1) + ". " + t }))))));
+      kids.push(h("p", { class: "tip", text: "세 가지가 켜져 있어야 해요. 둘은 제가 켜 두었습니다." }));
+      kids.push(h("ul", { class: "lines" }, ...GCAL_STEPS.map((st, i) =>
+        h("li", { class: "line" + (st.done ? " done" : "") },
+          h("div", { class: "top" },
+            h("span", { class: "ttl", text: (i + 1) + ". " + st.text }),
+            h("span", { class: "tag " + (st.done ? "cls" : "open"), text: st.done ? "켜 둠" : "남음" }))))));
+      if (gcalStep === 2) {
+        kids.push(h("p", { class: "row" },
+          h("a", { class: "btn small", href: GCal.CONSOLE_URL, target: "_blank", rel: "noopener", text: "파베 로그인 설정 열기" })));
+        kids.push(h("p", { class: "tip", text: "그 화면에서 Google 을 누르고 '사용 설정'만 켜면 돼요. 지원 이메일은 선생님 메일을 고르면 됩니다. 켜고 나서 아래 '다시 해 보기'를 눌러 주세요." }));
+      }
     }
     kids.push(h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "다시 해 보기", onclick: () => gcalConnect() })));
     box.replaceChildren(...kids);
