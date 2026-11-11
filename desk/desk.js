@@ -1,4 +1,5 @@
 import { FB } from "./fb-desk.js";
+import { loadHoclass, nameChanges, snapshotNames, clsToRoom, studentNoOf } from "./hoclass.js";
 
 const $ = (id) => document.getElementById(id);
 let booted = false;
@@ -87,10 +88,30 @@ const state = {
 const cfg = () => state.year.years[state.year.current] || { homeroom: "", classes: [] };
 const classLabel = (c) => { const m = /^(\d+)-(\d+)$/.exec(c || ""); return m ? `${m[1]}학년 ${m[2]}반` : (c || ""); };
 
-// 가운데 카드에서 볼 수 있는 반. 담임 반이 맨 앞에 오고 그 뒤로 수업 반이 온다.
+/* ---------- 호클래스에서 읽어 온 것 ---------- */
+let hc = null, hcBusy = false, hcErr = "", hcWarns = [];
+async function loadHc() {
+  if (hcBusy || !signedIn || !state.year.configured) return;
+  hcBusy = true; hcErr = "";
+  try {
+    hc = await loadHoclass(FB, state.year.current);
+    checkNames();
+  } catch (e) {
+    hcErr = "호클래스 명단을 읽지 못했어요. 새로고침해 보세요.";
+  } finally {
+    hcBusy = false;
+    renderClass(); renderBook();
+  }
+}
+// 호클래스가 명단을 들고 있는 반
+const hcClasses = () => (hc && hc.year === String(state.year.current) ? hc.classes : []);
+const hcHas = (cls) => hcClasses().includes(cls);
+
+// 가운데 카드에서 볼 수 있는 반. 담임 반이 맨 앞, 그 뒤로 호클래스 수업 반, 그 뒤로 손으로 넣은 반.
 function cardClasses() {
   const c = cfg(), out = [];
   if (c.homeroom) out.push(c.homeroom);
+  for (const x of hcClasses()) if (x && !out.includes(x)) out.push(x);
   for (const x of c.classes || []) if (x && !out.includes(x)) out.push(x);
   return out;
 }
@@ -410,7 +431,8 @@ function ensureAtt(day, cls) {
   const c = cls || picked();
   if (!c) return;
   if (attDay === day && attCls === c) return;
-  if (docs.att) closeDoc(docs.att);
+  // 떠나는 반의 값을 사본으로 남긴다. 오늘 출결 요약이 그걸 읽는다.
+  if (docs.att) { if (docs.att.ready) attCache.set(docs.att.key, docs.att.value); closeDoc(docs.att); }
   attDay = day; attCls = c;
   docs.att = makeDoc(`y${yearOpen}_att_${day}_${c}`, { enc: true, makeDefault: () => ({ marks: {} }) });
   attach(docs.att);
@@ -435,6 +457,7 @@ function openYearDocs() {
 function afterPlain() {
   openYearDocs();
   if (booted) renderAll();
+  if (signedIn && state.year.configured && !hc && !hcBusy) loadHc();
 }
 
 /* ---------- 잠금 ---------- */
@@ -840,6 +863,7 @@ function renderSet() {
     setOpen = false;
     openYearDocs();
     renderSet(); renderLinks(); renderClass(); renderBook();
+    hc = null; loadHc();
     toast("올해 설정을 저장했어요");
   } },
     h("div", { class: "set-grid" },
@@ -893,8 +917,39 @@ function studentsAll() {
 function attMarks() {
   const v = docs.att.value;
   if (!v.marks || typeof v.marks !== "object") v.marks = {};
+  attCache.set(docs.att.key, v);   // 살아 있는 값을 사본 자리에도 꽂아 둔다
   return v.marks;
 }
+/* 학번에 기록이 붙어 있으므로, 같은 학번의 이름이 달라지면 기록이 다른 학생에게
+   붙었다는 뜻이다. 조용히 엉키지 않게 알려만 주고, 옮길지는 선생님이 정하신다. */
+function checkNames() {
+  const R = docs.roster;
+  if (!hc || !R || !R.ready) { hcWarns = []; return; }
+  R.value.seen = R.value.seen || {};
+  hcWarns = nameChanges(hc, R.value.seen);
+  if (!hcWarns.length) {
+    const snap = snapshotNames(hc);
+    if (JSON.stringify(snap) !== JSON.stringify(R.value.seen)) { R.value.seen = snap; saveEnc(R); }
+  }
+}
+function acceptNames() {
+  const R = docs.roster;
+  if (!hc || !R || !R.ready) return;
+  R.value.seen = snapshotNames(hc);
+  saveEnc(R); hcWarns = [];
+  renderClass(); renderBook();
+  toast("새 이름을 기준으로 삼았어요");
+}
+function warnBanner() {
+  if (!hcWarns.length) return null;
+  const lines = hcWarns.slice(0, 8).map(w => `${w.cls} ${w.no}번: ${w.was} → ${w.now}`);
+  return h("div", { class: "lock-panel" },
+    h("h3", { text: "학번에 붙은 이름이 달라졌어요" }),
+    h("p", { text: "전입·전출로 번호가 밀린 것 같아요. 기록은 학번에 붙어 있으니, 아래 학번의 지난 출결과 상담이 다른 학생 것일 수 있어요." }),
+    h("div", { class: "missing", text: lines.join(" · ") + (hcWarns.length > 8 ? ` 외 ${hcWarns.length - 8}건` : "") }),
+    h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "확인했어요", onclick: () => acceptNames() })));
+}
+
 // 수합·전달사항은 문서 하나에 모아 두고 반 이름으로 갈라 본다.
 // 반 이름이 없는 항목은 1단계에서 담임 반에 적은 것이다.
 const itemCls = (x) => x.cls || cfg().homeroom;
@@ -905,7 +960,8 @@ function stampCls(D) {
   for (const x of D.value.items) if (!x.cls) { x.cls = cfg().homeroom || picked(); n++; }
   if (n) saveEnc(D);
 }
-const roster = () => studentsAll().filter(s => !s.gone).sort((a, b) => a.no - b.no).map(s => ({ id: s.id, n: s.no, name: (s.name || "").trim() }));
+// 가운데 카드가 보는 명단. 호클래스에 있는 반은 호클래스 것, 없는 반은 수첩에 손으로 넣은 것.
+const roster = () => rosterOf(picked());
 const shownName = (st) => hideNames ? "" : st.name;
 const who = (st) => shownName(st) ? `${st.n}번 ${st.name}` : `${st.n}번`;
 
@@ -925,7 +981,7 @@ $("hideBtn").addEventListener("click", () => {
 
 function renderRoster() {
   const box = $("rosterEditor");
-  const can = keyStateNow() === "open" && !!picked() && !!docs.roster && docs.roster.ready;
+  const can = keyStateNow() === "open" && !!picked() && !hcHas(picked()) && !!docs.roster && docs.roster.ready;
   if (!can) rosterOpen = false;
   box.hidden = !rosterOpen;
   $("rosterBtn").textContent = rosterOpen ? "닫기" : "명단 편집";
@@ -938,7 +994,7 @@ function renderRoster() {
   box.replaceChildren(h("div", { class: "roster-editor" },
     h("div", { class: "row" }, h("label", { class: "grow" }, "반", h("input", { type: "text", value: classLabel(picked()), disabled: true })), h("label", null, "학생 수", cntIn)),
     h("label", null, "학생 이름 (붙여넣기 가능)", ta),
-    h("p", { class: "tip", text: "이름은 이 기기에서 암호화한 뒤 저장해요. 전출로 빠진 번호는 줄을 비워 두면 번호가 밀리지 않아요." }),
+    h("p", { class: "tip", text: "이름은 이 기기에서 암호화한 뒤 저장해요. 전출로 빠진 번호는 줄을 비워 두면 번호가 밀리지 않아요. 호클래스에 있는 반은 호클래스 명단을 그대로 쓰니 여기서 고치지 않습니다." }),
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", id: "rSave", text: "저장", onclick: () => {
         const names = ta.value.split(/\r?\n/).map(s => s.replace(/^\s*\d+[.)\s]*/, "").trim());
@@ -968,7 +1024,8 @@ function saveRoster(names, count) {
     const s = prev.find(p => !used.has(p.id) && p.no === i + 1 && (!(p.name || "") || !nameAt(i)));
     if (s) claim(i, s);
   }
-  const next = slots.map((id, i) => ({ id: id || uid(), no: i + 1, name: nameAt(i) }));
+  // 학번(반 + 두 자리 번호)으로 묶는다. 호클래스와 같은 기준이어야 짝이 맞는다.
+  const next = slots.map((id, i) => ({ id: id || studentNoOf(picked(), i + 1), no: i + 1, name: nameAt(i) }));
   const gone = studentsAll().filter(s => s.gone || !used.has(s.id)).map(s => ({ ...s, gone: true }));
   const v = docs.roster.value;
   v.classes = v.classes || {};
@@ -1067,7 +1124,8 @@ function renderClass() {
   $("classPick").hidden = !(open && list.length > 1);
   if (open && list.length > 1) renderPick(list, pick);
   $("classSeg").hidden = !tabs;
-  $("rosterBtn").hidden = !tabs;
+  // 호클래스가 명단을 들고 있는 반은 여기서 고치지 않는다.
+  $("rosterBtn").hidden = !tabs || hcHas(pick);
   $("hideBtn").hidden = !open;
   $("lockBtn").hidden = !open;
   $("hideBtn").textContent = hideNames ? "이름 보이기" : "이름 가리기";
@@ -1081,13 +1139,22 @@ function renderClass() {
   if (ks === "locked") { body.replaceChildren(...unlockView()); return; }
   const rollover = state.year.configured && academicYear() > state.year.current
     ? h("p", { class: "hint", text: `${academicYear()}학년도가 시작됐어요. '올해 설정'에서 담임 반과 수업 반을 새로 넣어 주세요.` }) : null;
-  const wrap = (kids) => body.replaceChildren(...(rollover ? [rollover, ...kids] : kids));
+  const banner = warnBanner();
+  const hcNote = hcErr ? h("p", { class: "hint", text: hcErr })
+    : (hcBusy && !hc) ? h("p", { class: "tip", text: "호클래스 명단을 읽는 중이에요." }) : null;
+  const head = [rollover, banner, hcNote].filter(Boolean);
+  const wrap = (kids) => body.replaceChildren(...[...head, ...kids]);
   if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "올해 담임 반과 수업 반을 넣어 주세요" }), h("p", { text: "담임이 아닌 해에는 담임 반을 비워 두시면 돼요." }), h("div", { class: "row" }, openSetBtn()))]); return; }
   ensureAtt(todayKey(), pick);
   if (!pick) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "올해 들어가는 반이 없어요" }), h("p", { text: "'올해 설정'에서 담임 반이나 수업 반을 넣으면 출결과 수합을 쓸 수 있어요." }), h("div", { class: "row" }, openSetBtn()))]); return; }
   if (encDocs().some(d => d.broken)) { wrap(note("일부 기록을 풀지 못했어요. 페이지를 새로고침한 뒤 다시 열어 주세요. 기록은 그대로 있어요.")); return; }
   if (encDocs().some(d => !d.ready)) { wrap(note("기록을 여는 중이에요.")); return; }
-  if (!roster().length) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "학생 명단이 비어 있어요" }), h("p", { text: "오른쪽 위 '명단 편집'에서 학생 이름을 붙여 넣으면 출결과 수합을 쓸 수 있어요." }))]); return; }
+  if (!roster().length) {
+    wrap([h("div", { class: "lock-panel" }, h("h3", { text: "학생 명단이 비어 있어요" }),
+      h("p", { text: hcHas(pick) ? "호클래스 이 강의실에 학생이 아직 없어요. 호클래스 어드민의 학생 관리에서 넣어 주세요."
+        : "오른쪽 위 '명단 편집'에서 학생 이름을 붙여 넣으면 출결과 수합을 쓸 수 있어요." }))]);
+    return;
+  }
   if (classTab === "att") wrap(attView());
   else if (classTab === "col") wrap(collectView());
   else wrap(noticeView());
@@ -1408,7 +1475,9 @@ function bCls() {
   if (!list.includes(bookCls)) bookCls = picked();
   return bookCls;
 }
+// 호클래스에 있는 반은 호클래스가 정본이다. 없는 반(담임 반 같은 것)만 수첩에 손으로 넣는다.
 function rosterOf(cls) {
+  if (hcHas(cls)) return (hc.byCls[cls] || []).map(s => ({ id: s.id, n: s.n, name: s.name }));
   const v = docs.roster && docs.roster.value;
   const c = v && v.classes && v.classes[cls];
   const list = c && Array.isArray(c.students) ? c.students : [];

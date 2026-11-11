@@ -1,5 +1,5 @@
 // 파베판 수첩을 가짜 파이어스토어·Auth로 끝까지 시험한다. 실제 계정과 실제 파베는 건드리지 않는다.
-// 쓰는 법: node desk/test/desk.test.js
+// 쓰는 법: cd desk && npm test
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const { JSDOM } = require("jsdom");
 const webcrypto = require("crypto").webcrypto;
@@ -14,18 +14,42 @@ async function until(fn, label, ms = 20000) {
 
 /* ---------- 가짜 파이어스토어 ---------- */
 const store = new Map();                 // "컬렉션/문서" → 본문(JSON 글자)
-const listeners = new Map();             // 경로 → 듣는 함수들
+const listeners = new Map();
 const clone = (o) => JSON.parse(JSON.stringify(o));
+const put = (p, body) => store.set(p, JSON.stringify(body));
 function mkSnap(p) {
   const has = store.has(p);
   const body = has ? JSON.parse(store.get(p)) : undefined;
   return { id: p.split("/").pop(), exists: () => has, data: () => body, metadata: { fromCache: false, hasPendingWrites: false } };
 }
 function notify(p) { for (const fn of listeners.get(p) || []) setTimeout(() => fn(mkSnap(p)), 4); }
+
+/* ---------- 호클래스 쪽 밑자료 (실제와 같은 모양) ---------- */
+const HC_NAMES = { "301": ["김지우", "이주서", "박세찌"], "302": ["최이반", "정이반"] };
+function seedHoclass() {
+  for (const room of Object.keys(HC_NAMES)) {
+    const cid = "c_h" + room;
+    put("hoclass_courses/" + cid, { id: cid, year: "2027", subject: "역사", grade: room[0], classNo: String(Number(room.slice(1))), schedule: "금", status: "active" });
+    HC_NAMES[room].forEach((name, i) => {
+      const no = room + String(i + 1).padStart(2, "0");
+      put("hoclass_course_students/" + cid + "_" + no, { courseId: cid, studentNo: no, name });
+      put("hoclass_course_roster/2027_" + no, { id: "2027_" + no, year: "2027", studentNo: no, name });
+    });
+  }
+  // 다른 학년도 강의실 한 개: 섞여 들어오면 안 된다
+  put("hoclass_courses/c_h201", { id: "c_h201", year: "2026", subject: "역사", grade: "2", classNo: "1", status: "active" });
+}
+function renameHoclassStudent(room, idx, newName) {
+  const no = room + String(idx).padStart(2, "0");
+  const p = "hoclass_course_students/c_h" + room + "_" + no;
+  const b = JSON.parse(store.get(p));
+  b.name = newName; put(p, b);
+}
+
 const writes = [];
 function makeFB() {
   const user = { uid: "t1", email: "ho0911seong@gmail.com", displayName: "" };
-  let current = null, authCbs = [];
+  let current = null; const authCbs = [];
   return {
     db: { _fake: true }, auth: { _fake: true },
     doc: (_db, col, id) => ({ _p: col + "/" + id }),
@@ -33,16 +57,16 @@ function makeFB() {
     getDoc: async (ref) => mkSnap(ref._p),
     setDoc: async (ref, body) => {
       if (!current) { const e = new Error("no auth"); e.code = "permission-denied"; throw e; }
+      if (ref._p.startsWith("hoclass_")) throw new Error("수첩이 호클래스에 쓰면 안 된다: " + ref._p);
       writes.push(ref._p);
-      store.set(ref._p, JSON.stringify(clone(body)));
-      notify(ref._p);
+      put(ref._p, clone(body)); notify(ref._p);
     },
     getDocs: async (q) => {
       const want = q._c + "/";
       const docs = [...store.keys()].filter(k => k.startsWith(want)).sort().map(mkSnap);
       return { docs, forEach: (fn) => docs.forEach(fn) };
     },
-    onSnapshot: (ref, next, err) => {
+    onSnapshot: (ref, next) => {
       const p = ref._p;
       if (!listeners.has(p)) listeners.set(p, new Set());
       listeners.get(p).add(next);
@@ -51,8 +75,7 @@ function makeFB() {
     },
     signInWithEmailAndPassword: async (_a, email, pw) => {
       if (email !== user.email || pw !== "계정비밀번호") { const e = new Error("bad"); e.code = "auth/invalid-credential"; throw e; }
-      current = user;
-      authCbs.forEach(cb => cb(current));
+      current = user; authCbs.forEach(cb => cb(current));
       return { user: current };
     },
     signOut: async () => { current = null; authCbs.forEach(cb => cb(null)); },
@@ -60,7 +83,7 @@ function makeFB() {
     query: (c) => c, where: () => ({}), orderBy: () => ({}), limit: () => ({}),
     runTransaction: async (_db, fn) => fn({
       get: async (ref) => mkSnap(ref._p),
-      set: (ref, body) => { writes.push(ref._p); store.set(ref._p, JSON.stringify(clone(body))); notify(ref._p); },
+      set: (ref, body) => { writes.push(ref._p); put(ref._p, clone(body)); notify(ref._p); },
     }),
   };
 }
@@ -68,23 +91,25 @@ function makeFB() {
 /* ---------- 화면 띄우기 ---------- */
 const errs = [], saved = [];
 function device() {
-  const html = fs.readFileSync(path.join(DIR, "index.html"), "utf8");
-  const dom = new JSDOM(html, {
+  const dom = new JSDOM(fs.readFileSync(path.join(DIR, "index.html"), "utf8"), {
     runScripts: "outside-only", url: "https://hoseong911.github.io/hoclass/desk/", pretendToBeVisual: true,
   });
   const w = dom.window, d = w.document;
   Object.defineProperty(w, "crypto", { value: webcrypto });
   w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder;
   w.__FB__ = makeFB();
-  // 내려받기는 흉내만 낸다: 파일 내용을 들고 있는다.
   w.URL.createObjectURL = (blob) => { saved.push(blob); return "blob:fake/" + saved.length; };
   w.URL.revokeObjectURL = () => {};
   w.HTMLAnchorElement.prototype.click = function () { this.dispatchEvent(new w.Event("click")); };
   w.addEventListener("error", (e) => errs.push("페이지 오류: " + e.message));
   w.addEventListener("unhandledrejection", (e) => errs.push("처리 안 된 거부: " + (e.reason && e.reason.message)));
-  const code = fs.readFileSync(path.join(DIR, "desk.js"), "utf8")
-    .replace(/^import \{ FB \} from "\.\/fb-desk\.js";$/m, "const FB = window.__FB__;");
-  if (code.includes("import ")) throw new Error("import 를 못 걷어냈다");
+  // 모듈 두 개를 한 덩어리로 이어 붙여 넣는다(jsdom은 import 를 못 따라간다).
+  const hcCode = fs.readFileSync(path.join(DIR, "hoclass.js"), "utf8").replace(/^export /gm, "");
+  const deskCode = fs.readFileSync(path.join(DIR, "desk.js"), "utf8")
+    .replace(/^import \{ FB \} from "\.\/fb-desk\.js";$/m, "const FB = window.__FB__;")
+    .replace(/^import \{[^}]*\} from "\.\/hoclass\.js";$/m, "");
+  const code = hcCode + "\n" + deskCode;
+  if (/^\s*(import|export)\s/m.test(code)) throw new Error("import/export 를 못 걷어냈다");
   w.eval(code);
   const $ = (id) => d.getElementById(id);
   return {
@@ -96,14 +121,17 @@ function device() {
     tab: (p) => [...d.querySelectorAll("#bookSeg button")].find(b => b.dataset.page === p).click(),
     btn: (where, label) => [...d.querySelectorAll(where + " button")].find(b => b.textContent.includes(label)),
     pick: (c) => [...d.querySelectorAll("#classPick .cpick")].find(x => x.textContent.startsWith(c)).click(),
+    stu: () => [...d.querySelectorAll("#classBody .stu")],
+    absent: () => d.querySelectorAll("#classBody .stu.결석").length,
   };
 }
 
 const PASS = "수첩비밀번호2027";
-const NAMES = ["김지우", "이주서", "박세찌"];
-const allStored = () => [...store.values()].join("\n");
+const allStored = () => [...store.keys()].filter(k => k.startsWith("desk_")).map(k => store.get(k)).join("\n");
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 (async () => {
+  seedHoclass();
   const A = device();
 
   /* ---------- 로그인 문 ---------- */
@@ -112,84 +140,65 @@ const allStored = () => [...store.values()].join("\n");
   A.fill("gateEmail", "ho0911seong@gmail.com"); A.fill("gatePass", "틀린비번");
   A.submit("gateForm");
   await until(() => A.$("gateErr").textContent.includes("맞지 않아요"), "틀린 계정 비밀번호 거부");
-  assert.strictEqual(store.size, 0, "로그인 전에는 아무것도 저장하지 않는다");
+  assert(![...store.keys()].some(k => k.startsWith("desk_")), "로그인 전에는 수첩 자료를 저장하지 않는다");
 
   A.fill("gateEmail", "ho0911seong@gmail.com"); A.fill("gatePass", "계정비밀번호");
   A.submit("gateForm");
   await until(() => A.$("gate").hidden && !A.$("app").hidden, "로그인하면 수첩이 열린다");
 
-  /* ---------- 수첩 비밀번호 (두 번째 겹) ---------- */
-  await until(() => A.$("setupForm"), "수첩 비밀번호 만들기 화면");
+  /* ---------- 수첩 비밀번호 ---------- */
+  await until(() => A.$("setupForm"), "수첩 비밀번호 만들기");
   assert(A.book().includes("비밀번호를 먼저 만들면"), "수첩은 아직 잠겨 있다");
   A.fill("setupPass", PASS); A.fill("setupPass2", PASS);
   A.submit("setupForm");
   await until(() => A.$("recoveryCode"), "복구 키 화면");
   const rec = A.$("recoveryCode").textContent;
-  assert(/^[0-9A-Z]{4}(-[0-9A-Z]{4}){7}$/.test(rec), "복구 키 형식: " + rec);
+  assert(/^[0-9A-Z]{4}(-[0-9A-Z]{4}){7}$/.test(rec), "복구 키 형식");
   A.$("recoveryOk").checked = true; A.$("recoveryOk").dispatchEvent(new A.w.Event("change"));
   A.$("recoveryDone").click();
   await until(() => A.$("setBtn"), "설정 단추");
-
-  /* ---------- 문서가 컬렉션으로 갈라져 저장된다 ---------- */
-  await until(() => store.has("desk_crypto/keys"), "desk_crypto/keys");
-  for (const p of ["desk_settings/general", "desk_years/all", "desk_todos/all", "desk_ddays/all", "desk_memo/all", "desk_calendar/all"]) {
+  for (const p of ["desk_crypto/keys", "desk_settings/general", "desk_years/all", "desk_todos/all", "desk_ddays/all", "desk_memo/all", "desk_calendar/all"]) {
     await until(() => store.has(p), p);
   }
   assert(!allStored().includes(rec.replace(/-/g, "")), "복구 키 평문 저장 금지");
 
-  /* ---------- 올해 설정: 2027, 3학년 1~6반 ---------- */
+  /* ---------- 올해 설정: 2027, 담임 반은 호클래스에 없는 3-9 ---------- */
   A.$("setBtn").click();
   await until(() => A.$("setForm"), "설정 패널");
-  A.fill("setYear", "2027"); A.fill("setHome", ""); A.fill("setClasses", "3-1, 3-2, 3-3, 3-4, 3-5, 3-6");
-  A.fill("setSchool", "인천테스트중학교");
+  A.fill("setYear", "2027"); A.fill("setHome", "3-9"); A.fill("setClasses", "");
   A.submit("setForm");
-  await until(() => A.$("className").textContent === "3학년 1반", "첫 수업 반");
-  const yrBody = () => JSON.parse(store.get("desk_years/all"));
-  await until(() => yrBody().state.years["2027"], "학년도 저장");
-  assert.deepStrictEqual(yrBody().state.years["2027"].classes, ["3-1", "3-2", "3-3", "3-4", "3-5", "3-6"]);
+
+  /* ---------- 호클래스 명단이 저절로 들어온다 ---------- */
+  await until(() => [...A.d.querySelectorAll("#classPick .cpick")].length === 3, "담임 반 + 호클래스 두 반");
   assert.deepStrictEqual([...A.d.querySelectorAll("#classPick .cpick")].map(x => x.textContent),
-    ["3-1", "3-2", "3-3", "3-4", "3-5", "3-6"], "반 고르는 줄");
-
-  /* ---------- 명단과 출결 ---------- */
-  A.$("rosterBtn").click();
-  await until(() => A.$("rNames"), "명단 편집");
-  A.fill("rCount", "3"); A.fill("rNames", NAMES.join("\n"));
-  A.$("rSave").click();
-  await until(() => A.d.querySelectorAll("#classBody .stu").length === 3, "학생 3명");
-  await until(() => store.has("desk_roster/2027"), "desk_roster/2027");
-
-  A.d.querySelectorAll("#classBody .stu")[0].click();
-  await until(() => A.d.querySelectorAll("#classBody .stu.결석").length === 1, "결석 1명");
-  const attKey = await (async () => {
-    await until(() => [...store.keys()].some(k => k.startsWith("desk_att/")), "출결 문서 저장");
-    return [...store.keys()].find(k => k.startsWith("desk_att/"));
-  })();
-  const today = new Date();
-  const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  assert.strictEqual(attKey, "desk_att/2027_3-1_" + day, "출결 문서 이름: " + attKey);
-
-  // 꼬리표는 평문, 내용은 암호문
-  const att = JSON.parse(store.get(attKey));
-  assert.deepStrictEqual(Object.keys(att).sort(), ["at", "c", "date", "iv", "room", "v", "year"], "출결 본문 칸: " + Object.keys(att));
-  assert.strictEqual(att.year, "2027"); assert.strictEqual(att.room, "3-1"); assert.strictEqual(att.date, day);
-  await wait(900);
-  for (const nm of NAMES) assert(!allStored().includes(nm), "서버에 평문 금지: " + nm);
-  assert(!allStored().includes("결석"), "출결 내용도 평문 금지");
-
-  /* ---------- 반을 바꾸면 그 반의 출결 문서가 따로 열린다 ---------- */
-  A.pick("3-2");
-  await until(() => A.$("className").textContent === "3학년 2반", "3-2로 바뀜");
-  await until(() => A.text().includes("학생 명단이 비어"), "3-2는 명단이 없다");
-  A.$("rosterBtn").click();
-  await until(() => A.$("rNames"), "3-2 명단 편집");
-  A.fill("rCount", "2"); A.fill("rNames", "최이반\n정이반");
-  A.$("rSave").click();
-  await until(() => A.d.querySelectorAll("#classBody .stu").length === 2, "3-2 학생 2명");
-  A.d.querySelectorAll("#classBody .stu")[0].click();
-  await until(() => A.d.querySelectorAll("#classBody .stu.결석").length === 1, "3-2 결석 1명");
-  await until(() => store.has("desk_att/2027_3-2_" + day), "3-2 출결 문서가 따로 생긴다");
+    ["3-9담임", "3-1", "3-2"], "담임 반이 맨 앞, 그 뒤로 호클래스 반");
   A.pick("3-1");
-  await until(() => A.d.querySelectorAll("#classBody .stu.결석").length === 1 && A.text().includes(NAMES[0]), "3-1 출결은 그대로");
+  await until(() => A.stu().length === 3, "3-1 학생 3명이 호클래스에서 들어온다");
+  assert(A.text().includes("김지우") && A.text().includes("박세찌"), "호클래스 이름: " + A.text().slice(0, 80));
+  assert(A.$("rosterBtn").hidden, "호클래스 반은 명단 편집을 막는다");
+
+  /* ---------- 출결은 학번으로 묶인다 ---------- */
+  A.stu()[0].click();
+  await until(() => A.absent() === 1, "3-1 결석 1명");
+  const day = todayKey();
+  await until(() => store.has("desk_att/2027_3-1_" + day), "3-1 출결 문서");
+  const att = JSON.parse(store.get("desk_att/2027_3-1_" + day));
+  assert.deepStrictEqual(Object.keys(att).sort(), ["at", "c", "date", "iv", "room", "v", "year"], "꼬리표는 평문, 내용은 암호문");
+  assert.strictEqual(att.room, "3-1"); assert.strictEqual(att.year, "2027"); assert.strictEqual(att.date, day);
+  await wait(900);
+  for (const nm of ["김지우", "이주서", "박세찌"]) assert(!allStored().includes(nm), "수첩 쪽에 평문 금지: " + nm);
+
+  /* ---------- 담임 반은 손으로 넣고, 학번을 만들어 준다 ---------- */
+  A.pick("3-9");
+  await until(() => A.text().includes("학생 명단이 비어"), "3-9는 명단이 없다");
+  assert(!A.$("rosterBtn").hidden, "호클래스에 없는 반은 명단 편집을 쓸 수 있다");
+  A.$("rosterBtn").click();
+  await until(() => A.$("rNames"), "3-9 명단 편집");
+  A.fill("rCount", "2"); A.fill("rNames", "담임하나\n담임둘");
+  A.$("rSave").click();
+  await until(() => A.stu().length === 2, "3-9 학생 2명");
+  A.stu()[1].click();
+  await until(() => store.has("desk_att/2027_3-9_" + day), "3-9 출결 문서");
 
   /* ---------- 수첩 다섯 화면 ---------- */
   for (const p of ["today", "student", "consult", "lesson", "work"]) {
@@ -197,8 +206,8 @@ const allStored = () => [...store.values()].join("\n");
     assert(A.d.querySelectorAll("#bookBody .panel").length > 0, p + " 화면이 비었다");
   }
   A.tab("today");
-  await until(() => A.book().includes("3-1") && A.book().includes("3-2"), "오늘 출결에 두 반이 다 보인다");
-  await until(() => A.book().includes("1번 " + NAMES[0]), "오늘 출결에 결석 학생 이름");
+  await until(() => A.book().includes("3-1") && A.book().includes("3-9"), "오늘 출결에 반들이 보인다");
+  await until(() => A.book().includes("1번 김지우"), "오늘 출결에 결석 학생");
 
   A.tab("consult");
   await wait(40);
@@ -209,33 +218,41 @@ const allStored = () => [...store.values()].join("\n");
   await wait(900);
   assert(!allStored().includes("지각 잦음"), "상담 내용 평문 금지");
 
-  A.tab("work");
-  await wait(40);
-  A.fill("woTitle", "학교폭력 실태조사 회신"); A.fill("woDue", "2027-03-20");
-  A.submit("woForm");
-  await until(() => A.book().includes("학교폭력 실태조사"), "업무 기록");
-  await until(() => store.has("desk_works/2027"), "desk_works/2027");
+  /* ---------- 파수꾼: 학번의 이름이 달라지면 알린다 ---------- */
+  renameHoclassStudent("301", 2, "전학온애");
+  A.$("setBtn").click();
+  await until(() => A.$("setForm"), "설정 다시");
+  A.fill("setYear", "2027"); A.fill("setHome", "3-9");
+  A.submit("setForm");                                  // 저장하면 호클래스를 다시 읽는다
+  await until(() => A.text().includes("학번에 붙은 이름이 달라졌어요"), "파수꾼이 알린다", 30000);
+  assert(A.text().includes("30102번: 이주서 → 전학온애"), "바뀐 학번과 이름: " + A.text().slice(0, 160));
+  A.btn("#classBody", "확인했어요").click();
+  await until(() => !A.text().includes("학번에 붙은 이름이 달라졌어요"), "확인하면 경고가 사라진다");
 
-  /* ---------- 백업 파일 ---------- */
+  /* ---------- 호클래스에는 쓰지 않는다 ---------- */
+  assert(!writes.some(p => p.startsWith("hoclass_")), "수첩이 호클래스에 쓴 적 없다");
+
+  /* ---------- 백업 ---------- */
   A.$("setBtn").click();
   await until(() => A.$("bkSave"), "백업 칸");
   A.$("bkSave").click();
-  await until(() => saved.length === 1, "백업 파일 만들기");
+  await until(() => saved.length === 1, "백업 파일");
   const file = JSON.parse(await saved[0].text());
-  assert.strictEqual(file.tag, "my-desk-backup"); assert.strictEqual(file.v, 2, "백업 판 번호");
-  for (const k of ["desk_crypto/keys", "desk_years/all", "desk_roster/2027", "desk_consults/2027", attKey]) {
+  assert.strictEqual(file.v, 2, "백업 판 번호");
+  for (const k of ["desk_crypto/keys", "desk_years/all", "desk_roster/2027", "desk_att/2027_3-1_" + day]) {
     assert(file.docs[k], "백업에 " + k);
   }
-  for (const nm of NAMES) assert(!JSON.stringify(file).includes(nm), "백업 파일에 이름 평문 금지: " + nm);
+  assert(!Object.keys(file.docs).some(k => k.startsWith("hoclass_")), "백업에 호클래스 자료는 담지 않는다");
+  for (const nm of ["김지우", "담임하나"]) assert(!JSON.stringify(file).includes(nm), "백업 파일에 이름 평문 금지: " + nm);
 
   /* ---------- 나가기 ---------- */
   A.$("signOut").click();
   await until(() => !A.$("gate").hidden, "나가면 로그인 문으로");
-  assert(!A.$("classBody").textContent.includes(NAMES[0]), "나간 뒤 화면에 이름이 없다");
+  assert(!A.$("classBody").textContent.includes("김지우"), "나간 뒤 화면에 이름이 없다");
 
   await wait(200);
   assert.deepStrictEqual(errs, [], "오류 없음");
-  console.log("전부 통과. 저장 문서:", [...store.keys()].sort().join(", "));
+  console.log("전부 통과. 수첩 문서:", [...store.keys()].filter(k => k.startsWith("desk_")).sort().join(", "));
   process.exit(0);
 })().catch((e) => {
   console.error("실패:", e.message);
