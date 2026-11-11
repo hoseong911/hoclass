@@ -79,3 +79,86 @@ export function snapshotNames(hc) {
   }
   return out;
 }
+
+/* ---------- 차시 (강의실에 꽂힌 강의) ---------- */
+// 강의실마다 꽂힌 차시와, 그 차시가 가리키는 강의의 제목을 묶어 돌려준다.
+export async function loadLessons(FB, hc) {
+  const byCls = {};
+  if (!hc || !hc.courses.length) return byCls;
+  const [cls, lessons] = await Promise.all([
+    FB.getDocs(FB.collection(FB.db, "hoclass_course_lessons")),
+    FB.getDocs(FB.collection(FB.db, "hoclass_lessons")),
+  ]);
+  const title = {};
+  lessons.forEach(d => { const l = d.data() || {}; title[d.id] = String(l.title || ""); });
+  const idToCls = {};
+  for (const c of hc.courses) idToCls[c.id] = c.cls;
+  cls.forEach(d => {
+    const cl = d.data() || {};
+    const cls2 = idToCls[cl.courseId];
+    if (!cls2) return;
+    (byCls[cls2] = byCls[cls2] || []).push({
+      clId: d.id, courseId: cl.courseId, lessonId: cl.lessonId || "",
+      order: Number(cl.order) || 0, date: String(cl.date || ""),
+      isOpen: cl.isOpen !== false, title: title[cl.lessonId] || "",
+    });
+  });
+  for (const k of Object.keys(byCls)) byCls[k].sort((a, b) => a.order - b.order);
+  return byCls;
+}
+
+/* ---------- 제출 현황 ---------- */
+// 한 차시의 제출물을 학번별로 모은다. { 학번: { 칸이름: true } }
+export async function loadSubmissions(FB, clId) {
+  const out = {};
+  if (!clId) return out;
+  const ss = await FB.getDocs(FB.collection(FB.db, "hoclass_course_submissions"));
+  ss.forEach(d => {
+    const r = d.data() || {};
+    if (r.clId !== clId || !r.studentNo) return;
+    const no = String(r.studentNo);
+    (out[no] = out[no] || {})[String(r.part || "")] = true;
+  });
+  return out;
+}
+
+/* ---------- 호클래스에 쓰는 곳 (여기 둘뿐이다) ---------- */
+// 성적에서 한 칸을 차지하는 영역. model.js의 GRADE_AREAS와 같아야 한다.
+export const GRADE_AREAS = ["concept", "mission", "question"];
+const emptyBlock = () => ({ achievedN: 0, onTimeN: 0 });
+
+/* 그 차시를 결석으로 둔다.
+   호클래스에서 결석은 단순한 표시가 아니다. 켜면 그 차시 성적 영역이 전부
+   미달성으로 고정되고 손댈 수 없게 잠긴다(model.js toggleGradeAbsent와 같은 처리).
+   그래서 호클래스가 하는 것을 그대로 따라 쓴다: 영역 비우기 + manual 표시.
+   이미 있는 기록은 읽어서 다른 칸(feedback 같은 것)을 지키고 덮어쓴다. */
+export async function setAbsent(FB, { clId, courseId, lessonId }, studentNos, on = true) {
+  const done = [];
+  for (const no of studentNos) {
+    const id = clId + "_" + no;
+    const ref = FB.doc(FB.db, "hoclass_course_grades", id);
+    const cur = await FB.getDoc(ref);
+    const g = cur.exists() ? { ...cur.data() } : { id, clId, courseId, lessonId, studentNo: String(no), feedback: "" };
+    g.id = id; g.clId = clId; g.studentNo = String(no);
+    if (courseId) g.courseId = courseId;
+    if (lessonId) g.lessonId = lessonId;
+    g.manual = g.manual || {};
+    g.absent = !!on;
+    if (on) for (const a of GRADE_AREAS) { g[a] = emptyBlock(); g.manual[a] = true; }
+    await FB.setDoc(ref, g);
+    done.push(String(no));
+  }
+  return done;
+}
+
+// 차시의 날짜 칸이 비어 있을 때만 채운다. 이미 적힌 날짜는 건드리지 않는다.
+export async function fillLessonDate(FB, clId, date) {
+  const ref = FB.doc(FB.db, "hoclass_course_lessons", clId);
+  const cur = await FB.getDoc(ref);
+  if (!cur.exists()) throw new Error("그 차시를 찾지 못했어요.");
+  const cl = { ...cur.data() };
+  if (String(cl.date || "")) return false;
+  cl.date = date;
+  await FB.setDoc(ref, cl);
+  return true;
+}

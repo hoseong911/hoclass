@@ -38,6 +38,16 @@ function seedHoclass() {
   }
   // 다른 학년도 강의실 한 개: 섞여 들어오면 안 된다
   put("hoclass_courses/c_h201", { id: "c_h201", year: "2026", subject: "역사", grade: "2", classNo: "1", status: "active" });
+
+  // 강의 본체 둘과, 3-1 강의실에 꽂힌 차시 둘(하나는 날짜 없음)
+  put("hoclass_lessons/L1", { id: "L1", title: "3단원 조선의 성립", order: 1, parts: { concept: true, mission: true, question: true } });
+  put("hoclass_lessons/L2", { id: "L2", title: "4단원 조선의 문화", order: 2, parts: { concept: true, mission: true } });
+  put("hoclass_course_lessons/cl1", { id: "cl1", courseId: "c_h301", lessonId: "L1", order: "1", isOpen: true, date: TODAY });
+  put("hoclass_course_lessons/cl2", { id: "cl2", courseId: "c_h301", lessonId: "L2", order: "2", isOpen: true, date: "" });
+  // 1차시 미션 제출: 1번과 3번만 냈다
+  for (const no of ["30101", "30103"]) {
+    put("hoclass_course_submissions/cl1_mission_" + no, { clId: "cl1", part: "mission", courseId: "c_h301", studentNo: no, answer: "냈어요" });
+  }
 }
 function renameHoclassStudent(room, idx, newName) {
   const no = room + String(idx).padStart(2, "0");
@@ -46,7 +56,7 @@ function renameHoclassStudent(room, idx, newName) {
   b.name = newName; put(p, b);
 }
 
-const writes = [];
+const writes = [], hcWrites = [];
 function makeFB() {
   const user = { uid: "t1", email: "ho0911seong@gmail.com", displayName: "" };
   let current = null; const authCbs = [];
@@ -57,8 +67,7 @@ function makeFB() {
     getDoc: async (ref) => mkSnap(ref._p),
     setDoc: async (ref, body) => {
       if (!current) { const e = new Error("no auth"); e.code = "permission-denied"; throw e; }
-      if (ref._p.startsWith("hoclass_")) throw new Error("수첩이 호클래스에 쓰면 안 된다: " + ref._p);
-      writes.push(ref._p);
+      (ref._p.startsWith("hoclass_") ? hcWrites : writes).push(ref._p);
       put(ref._p, clone(body)); notify(ref._p);
     },
     getDocs: async (q) => {
@@ -128,6 +137,7 @@ function device() {
 
 const PASS = "수첩비밀번호2027";
 const allStored = () => [...store.keys()].filter(k => k.startsWith("desk_")).map(k => store.get(k)).join("\n");
+const TODAY = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 (async () => {
@@ -229,8 +239,72 @@ const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
   A.btn("#classBody", "확인했어요").click();
   await until(() => !A.text().includes("학번에 붙은 이름이 달라졌어요"), "확인하면 경고가 사라진다");
 
-  /* ---------- 호클래스에는 쓰지 않는다 ---------- */
-  assert(!writes.some(p => p.startsWith("hoclass_")), "수첩이 호클래스에 쓴 적 없다");
+  /* ---------- 여기까지 호클래스에는 한 번도 쓰지 않았다 ---------- */
+  assert.deepStrictEqual(hcWrites, [], "단추를 누르기 전에는 호클래스에 쓰지 않는다");
+
+  /* ---------- 5단계: 차시와 제출 현황 ---------- */
+  A.pick("3-1");
+  await until(() => A.stu().length === 3, "3-1로 돌아옴");
+  A.tab("lesson");
+  await until(() => A.book().includes("호클래스 차시"), "차시 칸이 보인다");
+  await until(() => A.book().includes("1차시 3단원 조선의 성립"), "1차시");
+  assert(A.book().includes("2차시 4단원 조선의 문화"), "2차시");
+  assert(A.book().includes("날짜 없음"), "2차시는 날짜가 없다");
+
+  // 차시를 고르면 날짜와 단원이 채워진다
+  A.$("leCl").value = "cl1";
+  A.$("leCl").dispatchEvent(new A.w.Event("change"));
+  assert.strictEqual(A.$("leAt").value, TODAY, "차시 날짜가 채워진다");
+  assert.strictEqual(A.$("leUnit").value, "3단원 조선의 성립", "차시 단원이 채워진다");
+  A.submit("leForm");
+  await until(() => A.book().includes("3단원 조선의 성립"), "수업 기록 저장");
+
+  // 차시 날짜 넣기 (호클래스에 쓰는 첫 번째 자리)
+  A.btn("#bookBody", "오늘 날짜 넣기").click();
+  await until(() => !A.book().includes("날짜 없음"), "2차시에 날짜가 들어간다", 30000);
+  assert.strictEqual(JSON.parse(store.get("hoclass_course_lessons/cl2")).date, TODAY, "2차시 날짜");
+  assert(hcWrites.includes("hoclass_course_lessons/cl2"), "차시 문서에 썼다");
+
+  // 수합을 차시에 걸면 호클래스 제출을 그대로 본다
+  [...A.d.querySelectorAll("#classSeg button")].find(b => b.dataset.tab === "col").click();
+  await until(() => A.$("colName"), "수합 칸");
+  A.fill("colName", "1차시 미션");
+  A.$("colCl").value = "cl1"; A.$("colPart").value = "mission";
+  A.submit("colForm");
+  await until(() => A.text().includes("호클래스 제출을 그대로 보는"), "호클래스에 걸린 수합", 30000);
+  await until(() => A.d.querySelectorAll("#classBody .stu.got").length === 2, "1번·3번만 제출로 보인다");
+  assert(A.text().includes("미제출 1명"), "미제출 1명: " + A.text().slice(0, 120));
+
+  /* ---------- 6단계: 결석 보내기 ---------- */
+  [...A.d.querySelectorAll("#classSeg button")].find(b => b.dataset.tab === "att").click();
+  await until(() => A.d.querySelectorAll("#classBody .stu").length === 3, "출결 탭");
+  // 2번을 지각으로 (지각은 보내지 않아야 한다)
+  const t2 = A.stu()[1];
+  t2.click(); t2.click();                       // 결석 → 지각
+  await until(() => A.d.querySelectorAll("#classBody .stu.지각").length === 1, "2번 지각");
+
+  A.tab("lesson");
+  await until(() => A.book().includes("호클래스 차시"), "차시 칸");
+  A.btn("#bookBody", "결석 보내기").click();
+  await until(() => A.book().includes("결석 보내기 확인"), "확인 화면", 30000);
+  assert(A.book().includes("지각·조퇴"), "지각은 안 보낸다고 알려 준다");
+  assert(A.book().includes("결석 1명 보내기"), "결석 1명: " + A.book().slice(0, 200));
+  A.btn("#bookBody", "결석 1명 보내기").click();
+  await until(() => !A.book().includes("결석 보내기 확인"), "보내고 나면 확인 화면이 닫힌다", 30000);
+
+  const g = JSON.parse(store.get("hoclass_course_grades/cl1_30101"));
+  assert.strictEqual(g.absent, true, "결석 표시");
+  assert.strictEqual(g.clId, "cl1"); assert.strictEqual(g.studentNo, "30101");
+  assert.strictEqual(g.courseId, "c_h301"); assert.strictEqual(g.lessonId, "L1");
+  for (const a of ["concept", "mission", "question"]) {
+    assert.deepStrictEqual(g[a], { achievedN: 0, onTimeN: 0 }, a + " 는 미달성으로 고정");
+    assert.strictEqual(g.manual[a], true, a + " manual 표시");
+  }
+  assert(!store.has("hoclass_course_grades/cl1_30102"), "지각한 학생은 보내지 않았다");
+  assert(!store.has("hoclass_course_grades/cl1_30103"), "출석한 학생은 보내지 않았다");
+  // 호클래스에 쓴 곳은 차시 날짜와 성적 기록뿐이다
+  assert.deepStrictEqual([...new Set(hcWrites.map(p => p.split("/")[0]))].sort(),
+    ["hoclass_course_grades", "hoclass_course_lessons"], "호클래스에 쓴 컬렉션: " + hcWrites.join(", "));
 
   /* ---------- 백업 ---------- */
   A.$("setBtn").click();

@@ -1,5 +1,6 @@
 import { FB } from "./fb-desk.js";
-import { loadHoclass, nameChanges, snapshotNames, clsToRoom, studentNoOf } from "./hoclass.js";
+import { loadHoclass, loadLessons, loadSubmissions, setAbsent, fillLessonDate,
+         nameChanges, snapshotNames, clsToRoom, studentNoOf } from "./hoclass.js";
 
 const $ = (id) => document.getElementById(id);
 let booted = false;
@@ -96,6 +97,7 @@ async function loadHc() {
   try {
     hc = await loadHoclass(FB, state.year.current);
     checkNames();
+    loadHcLessons();
   } catch (e) {
     hcErr = "호클래스 명단을 읽지 못했어요. 새로고침해 보세요.";
   } finally {
@@ -103,6 +105,23 @@ async function loadHc() {
     renderClass(); renderBook();
   }
 }
+let hcLessons = {};                 // 반 → 차시 목록
+const subCache = new Map();         // 차시id → { 학번: { 칸: true } }
+let sendBusy = false, sendPlan = null;
+
+async function loadHcLessons() {
+  if (!hc) return;
+  try { hcLessons = await loadLessons(FB, hc); } catch (e) { hcLessons = {}; }
+  renderBook();
+}
+const lessonsOf = (cls) => hcLessons[cls] || [];
+async function wantSubs(clId) {
+  if (!clId || subCache.has(clId)) return;
+  subCache.set(clId, {});                            // 두 번 받지 않게 먼저 자리를 잡는다
+  try { subCache.set(clId, await loadSubmissions(FB, clId)); } catch (e) {}
+  renderClass(); renderBook();   // 수합은 가운데 카드에 있다
+}
+
 // 호클래스가 명단을 들고 있는 반
 const hcClasses = () => (hc && hc.year === String(state.year.current) ? hc.classes : []);
 const hcHas = (cls) => hcClasses().includes(cls);
@@ -1116,11 +1135,7 @@ function renderPick(list, pick) {
   const home = cfg().homeroom;
   $("classPick").replaceChildren(...list.map(c => h("button", {
     class: "cpick", type: "button", "aria-pressed": String(c === pick),
-    onclick: () => {
-      if (pickedCls === c) return;
-      pickedCls = c; rosterOpen = false; activeCollect = null;
-      renderRoster(); renderClass();
-    },
+    onclick: () => goClass(c),
   }, c, c === home ? h("span", { class: "hr", text: "담임" }) : null)));
 }
 function renderClass() {
@@ -1214,26 +1229,47 @@ function collectView() {
   stampCls(D);
   const list = roster(), items = D.value.items, ours = mine(items);
   if (!ours.find(c => c.id === activeCollect)) activeCollect = ours[0] ? ours[0].id : null;
-  const addForm = h("form", { class: "row", onsubmit: (e) => {
+  const myLessons = lessonsOf(picked());
+  const colCl = h("select", { id: "colCl" }, h("option", { value: "", text: "손으로 걷기" }),
+    ...myLessons.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || ""}`.trim() })));
+  const colPart = h("select", { id: "colPart" },
+    h("option", { value: "mission", text: "미션 활동" }),
+    h("option", { value: "question", text: "오늘의 질문" }),
+    h("option", { value: "formative", text: "형성평가" }));
+  const addForm = h("form", { class: "row", id: "colForm", onsubmit: (e) => {
     e.preventDefault();
     const t = $("colName").value.trim(); if (!t) return;
-    const c = { id: uid(), title: t.slice(0, 40), got: [], cls: picked() };
+    const c = { id: uid(), title: t.slice(0, 40), got: [], cls: picked(), clId: colCl.value || "", part: colPart.value || "" };
     items.unshift(c); activeCollect = c.id; saveEnc(D); renderClass();
-  } }, h("input", { type: "text", id: "colName", class: "grow", placeholder: "새 수합 항목 (예: 현장체험학습 동의서)", maxlength: "40", autocomplete: "off" }), h("button", { class: "btn small", type: "submit", text: "추가" }));
+  } }, h("input", { type: "text", id: "colName", class: "grow", placeholder: "새 수합 항목 (예: 현장체험학습 동의서)", maxlength: "40", autocomplete: "off" }),
+    myLessons.length ? colCl : null, myLessons.length ? colPart : null,
+    h("button", { class: "btn small", type: "submit", text: "추가" }));
   if (!activeCollect) return [addForm, h("p", { class: "empty", text: "가정통신문 회신, 동의서처럼 걷어야 할 것을 추가해 보세요." })];
   const c = ours.find(x => x.id === activeCollect);
   const ids = new Set(list.map(st => st.id));
+  const cntOf = (x) => {
+    if (!x.clId) return x.got.filter(id => ids.has(id)).length;
+    const m = subCache.get(x.clId) || {};
+    return list.filter(st => m[st.id] && m[st.id][x.part || "mission"]).length;
+  };
   const tabs = h("div", { class: "collect-tabs" }, ...ours.map(x => h("button", { class: "ctab", type: "button", "aria-pressed": String(x.id === activeCollect), onclick: () => { activeCollect = x.id; renderClass(); } },
-    x.title, h("span", { class: "cnt", text: `${x.got.filter(id => ids.has(id)).length}/${list.length}` }))));
-  const gotSet = new Set(c.got);
+    x.title, x.clId ? h("span", { class: "tag cls", text: "호클래스" }) : null, h("span", { class: "cnt", text: `${cntOf(x)}/${list.length}` }))));
+  const linked = !!c.clId;
+  if (linked) wantSubs(c.clId);
+  const subs = linked ? (subCache.get(c.clId) || {}) : null;
+  const gotSet = linked
+    ? new Set(list.filter(st => subs[st.id] && subs[st.id][c.part || "mission"]).map(st => st.id))
+    : new Set(c.got);
   const missing = list.filter(st => !gotSet.has(st.id));
   const tiles = list.map(st => stuTile(st, gotSet.has(st.id) ? "got" : "", `${who(st)} ${gotSet.has(st.id) ? "제출함" : "미제출"}`, gotSet.has(st.id) ? "제출" : "", () => {
+    if (linked) { toast("이 항목은 호클래스 제출을 그대로 봐요"); return; }
     c.got = gotSet.has(st.id) ? c.got.filter(id => id !== st.id) : [...c.got, st.id];
     saveEnc(D); renderClass();
   }, String(gotSet.has(st.id))));
   const missText = missing.length ? `${c.title} 미제출 ${missing.length}명: ${missing.map(who).join(", ")}` : `${c.title} 전원 제출`;
   return [
     addForm, tabs,
+    linked ? h("p", { class: "tip", text: "호클래스 제출을 그대로 보는 항목이에요. 손으로 체크하지 않습니다." }) : null,
     h("div", { class: "missing" }, missing.length ? h("b", { text: `미제출 ${missing.length}명 ` }) : h("b", { style: "color:var(--accent)", text: "전원 제출 " }), missing.length ? missing.map(st => st.n).join(", ") : ""),
     h("div", { class: "students" }, ...tiles),
     h("div", { class: "row" },
@@ -1467,7 +1503,7 @@ function backupPanel() {
 }
 
 /* ---------- 교무수첩 ---------- */
-let bookPage = "today", bookCls = "", bookSid = "", attLoaded = "", attBusy = false;
+let bookPage = "today", bookSid = "", attLoaded = "", attBusy = false;
 const attCache = new Map();
 const KINDS = ["상담", "민원"];
 const WHOS = ["학생", "학부모", "교직원", "기타"];
@@ -1477,11 +1513,13 @@ document.querySelectorAll("#bookSeg button").forEach(b => b.addEventListener("cl
   renderBook();
 }));
 
-// 수첩에서 보고 있는 반. 가운데 카드와 따로 움직인다.
-function bCls() {
-  const list = cardClasses();
-  if (!list.includes(bookCls)) bookCls = picked();
-  return bookCls;
+// 보는 반은 카드와 수첩이 하나다. 카드에서 바꾸면 수첩도 따라간다.
+const bCls = () => picked();
+// 반을 바꾼다. 카드와 수첩을 같이 다시 그린다.
+function goClass(c) {
+  if (pickedCls === c) return;
+  pickedCls = c; bookSid = ""; rosterOpen = false; activeCollect = null; sendPlan = null;
+  renderRoster(); renderClass(); renderBook();
 }
 // 호클래스에 있는 반은 호클래스가 정본이다. 없는 반(담임 반 같은 것)만 수첩에 손으로 넣는다.
 function rosterOf(cls) {
@@ -1606,7 +1644,7 @@ function renderBook() {
 /* ---------- 오늘 ---------- */
 function todayPage() {
   const now = new Date(), st = status(now), row = todayRow(now), today = todayKey();
-  const goCls = (c) => { pickedCls = c; bookCls = c; renderClass(); renderBook(); toast(classLabel(c) + "으로 옮겼어요"); };
+  const goCls = (c) => { goClass(c); toast(classLabel(c) + "으로 옮겼어요"); };
 
   const classes = panel("오늘 수업", (() => {
     if (!row) return noneLine("주말에는 수업이 없어요.");
@@ -1619,7 +1657,7 @@ function todayPage() {
         h("span", { text: c || "공강" }),
         c && cardClasses().includes(c) ? h("div", { class: "row" },
           h("button", { type: "button", text: "이 반 보기", onclick: () => goCls(c) }),
-          h("button", { type: "button", text: "수업 기록", onclick: () => { bookCls = c; bookPage = "lesson"; renderBook(); } })) : null));
+          h("button", { type: "button", text: "수업 기록", onclick: () => { goClass(c); bookPage = "lesson"; renderBook(); } })) : null));
     }
     return h("div", { class: "timeline" }, ...kids);
   })());
@@ -1682,7 +1720,7 @@ function todayPage() {
 /* ---------- 학생 ---------- */
 function studentPage() {
   const cls = bCls(), list = rosterOf(cls), ym = ymOf(todayKey());
-  const pickRow = clsRow(cls, (c) => { bookCls = c; bookSid = ""; renderBook(); });
+  const pickRow = clsRow(cls, goClass);
   if (!list.length) return [panel("학생", pickRow, noneLine("이 반은 명단이 비어 있어요. 위 카드의 '명단 편집'에서 넣어 주세요."))];
   if (!list.find(s => s.id === bookSid)) bookSid = "";
   const grid = h("div", { class: "stu-pick" }, ...list.map(s => h("button", {
@@ -1810,13 +1848,23 @@ function consultPage() {
 /* ---------- 수업 ---------- */
 function lessonPage() {
   const D = docs.lessons, cls = bCls();
-  const pickRow = clsRow(cls, (c) => { bookCls = c; renderBook(); });
+  const pickRow = clsRow(cls, goClass);
   const now = new Date(), row = todayRow(now);
+  const lessons = lessonsOf(cls);
   const mine = D.value.items.filter(x => x.cls === cls).slice().sort((a, b) => b.at.localeCompare(a.at) || b.period - a.period);
   const atIn = h("input", { type: "date", id: "leAt", value: todayKey() });
   const perIn = h("select", { id: "lePeriod" }, ...Array.from({ length: 7 }, (_, i) => h("option", { value: String(i + 1), text: (i + 1) + "교시" })));
   if (row) { const i = row.findIndex(c => c.trim() === cls); if (i >= 0) perIn.value = String(i + 1); }
   const unitIn = h("input", { type: "text", id: "leUnit", placeholder: "단원 (예: 3단원 조선의 성립)", maxlength: "60", autocomplete: "off" });
+  // 호클래스 차시를 고르면 날짜와 단원을 채워 준다.
+  const clIn = h("select", { id: "leCl" }, h("option", { value: "", text: "고르지 않음" }),
+    ...lessons.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || "제목 없음"}${x.date ? " · " + x.date : ""}` })));
+  clIn.addEventListener("change", () => {
+    const x = lessons.find(y => y.clId === clIn.value);
+    if (!x) return;
+    if (x.date) atIn.value = x.date;
+    if (x.title && !unitIn.value.trim()) unitIn.value = x.title;
+  });
   const bodyIn = h("textarea", { id: "leBody", placeholder: "한 것, 남은 것" });
   const hwIn = h("input", { type: "text", id: "leHw", placeholder: "과제 (없으면 비워 두세요)", maxlength: "120", autocomplete: "off" });
   const err = h("p", { class: "form-err", role: "alert" });
@@ -1827,11 +1875,13 @@ function lessonPage() {
     D.value.items.unshift({
       id: uid(), cls, at: atIn.value || todayKey(), period: Number(perIn.value),
       unit: unitIn.value.trim().slice(0, 60), body: bodyIn.value.trim().slice(0, 1000), hw: hwIn.value.trim().slice(0, 120),
+      clId: clIn.value || "",
     });
     saveEnc(D); renderBook(); toast(classLabel(cls) + " 수업을 적었어요");
   } },
     h("div", { class: "form-grid" },
       field("날짜", atIn), field("교시", perIn),
+      lessons.length ? h("label", { class: "field wide" }, "호클래스 차시 (고르면 날짜와 단원을 채워 줘요)", clIn) : null,
       h("label", { class: "field wide" }, "단원", unitIn),
       h("label", { class: "field wide" }, "내용", bodyIn),
       h("label", { class: "field wide" }, "과제", hwIn)),
@@ -1852,7 +1902,88 @@ function lessonPage() {
   return [
     panel("새 수업 기록", pickRow, form),
     panel(classLabel(cls) + " 기록 " + mine.length + "건", lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("이 반 수업을 적어 두면 여기 쌓여요.")),
+    hcPanel(cls, lessons),
   ];
+}
+
+/* ---------- 호클래스 차시 칸 (연동) ---------- */
+function hcPanel(cls, lessons) {
+  if (!hcHas(cls)) return null;
+  if (!lessons.length) return panel("호클래스 차시", noneLine("이 강의실에 꽂힌 차시가 없어요. 호클래스 어드민에서 강의를 꽂아 주세요."));
+  if (sendPlan) return panel("결석 보내기 확인", sendConfirm());
+  const rows = lessons.map(x => h("li", { class: "line" },
+    h("div", { class: "top" },
+      h("span", { class: "ttl", text: `${x.order}차시 ${x.title || "제목 없음"}` }),
+      h("span", { class: "when", text: x.date || "날짜 없음" })),
+    h("div", { class: "marks" },
+      x.isOpen ? h("span", { class: "tag cls", text: "열림" }) : h("span", { class: "tag", text: "닫힘" }),
+      h("button", { class: "btn small secondary", type: "button", text: "결석 보내기", onclick: () => planSend(cls, x) }),
+      x.date ? null : h("button", { class: "btn small secondary", type: "button", text: "오늘 날짜 넣기", onclick: () => putDate(x) }))));
+  return panel("호클래스 차시", h("ul", { class: "lines" }, ...rows),
+    h("p", { class: "tip", text: "결석을 보내면 호클래스에서 그 차시 성적 영역이 미달성으로 고정돼요. 지각·조퇴는 성적과 상관없으니 보내지 않습니다." }));
+}
+async function putDate(x) {
+  if (sendBusy) return;
+  sendBusy = true;
+  try {
+    const ok = await fillLessonDate(FB, x.clId, todayKey());
+    toast(ok ? "차시 날짜를 넣었어요" : "이미 날짜가 적혀 있어요");
+    await loadHcLessons();
+  } catch (e) { toast("날짜를 넣지 못했어요"); }
+  finally { sendBusy = false; renderBook(); }
+}
+// 그 차시 날짜의 수첩 출결에서 결석만 골라 확인 화면을 만든다.
+async function planSend(cls, x) {
+  const day = x.date || todayKey();
+  await fetchAtt(attKeyOf(day, cls));
+  const marks = marksIn(attValueOf(day, cls));
+  const list = rosterOf(cls);
+  const absent = list.filter(st => marks[st.id] === "결석");
+  const other = list.filter(st => marks[st.id] === "지각" || marks[st.id] === "조퇴");
+  sendPlan = { cls, x, day, absent, other, picked: new Set(absent.map(st => st.id)) };
+  bookPage = "lesson"; renderBook();
+}
+function sendConfirm() {
+  const p = sendPlan;
+  const kids = [
+    h("div", { class: "who" },
+      h("span", { class: "nm", text: `${p.x.order}차시` }),
+      h("span", { class: "meta", text: `${classLabel(p.cls)} · ${p.day}` })),
+  ];
+  if (!p.absent.length) {
+    kids.push(noneLine("그날 그 반에 결석으로 적은 학생이 없어요."));
+  } else {
+    kids.push(h("p", { class: "tip", text: "보낼 학생을 확인해 주세요. 빼고 싶으면 눌러서 꺼 주세요." }));
+    kids.push(h("div", { class: "stu-pick" }, ...p.absent.map(st => h("button", {
+      type: "button", "aria-pressed": String(p.picked.has(st.id)),
+      onclick: () => { if (p.picked.has(st.id)) p.picked.delete(st.id); else p.picked.add(st.id); renderBook(); },
+    }, h("span", { class: "n", text: String(st.n) }), shownName(st) ? h("span", { class: "nm", text: st.name }) : null))));
+  }
+  if (p.other.length) {
+    kids.push(h("div", { class: "missing", text: "지각·조퇴 " + p.other.map(who).join(", ") + " 는 성적과 상관없어서 보내지 않아요." }));
+  }
+  kids.push(h("div", { class: "row" },
+    h("button", {
+      class: "btn small", type: "button",
+      text: sendBusy ? "보내는 중…" : `결석 ${p.picked.size}명 보내기`,
+      disabled: (sendBusy || !p.picked.size) ? "" : null,
+      onclick: () => doSend(),
+    }),
+    h("button", { class: "btn small secondary", type: "button", text: "그만두기", onclick: () => { sendPlan = null; renderBook(); } })));
+  return h("div", { class: "lock-panel" }, ...kids);
+}
+async function doSend() {
+  if (sendBusy || !sendPlan) return;
+  const p = sendPlan;
+  sendBusy = true; renderBook();
+  try {
+    const nos = [...p.picked];
+    await setAbsent(FB, { clId: p.x.clId, courseId: p.x.courseId, lessonId: p.x.lessonId }, nos, true);
+    toast(`호클래스 ${p.x.order}차시에 결석 ${nos.length}명을 보냈어요`);
+    sendPlan = null;
+  } catch (e) {
+    toast("보내지 못했어요. 다시 해 보세요");
+  } finally { sendBusy = false; renderBook(); }
 }
 
 /* ---------- 업무 ---------- */
