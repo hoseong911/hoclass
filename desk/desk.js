@@ -1,4 +1,7 @@
 import { FB } from "./fb-desk.js";
+import * as GCal from "./gcal.js";
+import { WIDGETS, widgetDef, DEFAULT_GRID, GRID_MIN, GRID_MAX, okGrid, normalize,
+         hits, freeSlot, turnOn, cellSize, moved } from "./grid.js";
 import { loadHoclass, loadLessons, loadSubmissions, setAbsent, fillLessonDate,
          nameChanges, snapshotNames, clsToRoom, studentNoOf } from "./hoclass.js";
 
@@ -84,6 +87,8 @@ const state = {
   ttExample: true,
   idleMin: 15,
   year: { configured: false, current: academicYear(), years: {} },
+  grid: { ...DEFAULT_GRID },
+  layout: normalize(null, DEFAULT_GRID),
   school: "",
   cal: [], calSchool: "", calAt: "",
 };
@@ -173,6 +178,13 @@ const SPECS = [
       }
       state.year = { configured: !!s.configured, current: Number.isInteger(s.current) ? s.current : academicYear(), years };
     } },
+  // 칸 수와 우젯 자리. 기기마다 화면이 다르지만 한 벌로 쓴다(선생님이 바꾸면 모두 따라간다).
+  { key: "desk_grid",
+    pick: () => ({ grid: state.grid, layout: state.layout }),
+    put: (s) => {
+      state.grid = okGrid(s.grid);
+      state.layout = normalize(s.layout, state.grid);
+    } },
   // 학사일정은 바깥에서 채워 준다. 이 쪽은 읽기만 하고 그대로 돌려 쓴다.
   { key: "desk_calendar",
     pick: () => ({ school: state.calSchool, at: state.calAt, items: state.cal }),
@@ -258,6 +270,7 @@ const DOC_MAP = {
   desk_settings: ["desk_settings", "general"],
   desk_year:     ["desk_years",    "all"],
   desk_calendar: ["desk_calendar", "all"],
+  desk_grid:     ["desk_grid",     "all"],
   desk_todos:    ["desk_todos",    "all"],
   desk_ddays:    ["desk_ddays",    "all"],
   desk_memo:     ["desk_memo",     "all"],
@@ -476,6 +489,7 @@ function openYearDocs() {
   ensureAtt(todayKey());
 }
 function afterPlain() {
+  if (booted) applyGrid();
   openYearDocs();
   if (booted) renderAll();
   if (signedIn && state.year.configured && !hc && !hcBusy) loadHc();
@@ -552,6 +566,219 @@ async function rewrap(secret, newPass) {
 }
 
 let userName = "";
+/* ---------- 구글 캘린더 ---------- */
+// 선생님이 켜 주셔야 하는 세 가지. 안내 문구에서 그대로 쓴다.
+const GCAL_STEPS = [
+  "파베 Authentication → Settings → 승인된 도메인에 hoseong911.github.io 추가",
+  "파베 Authentication → Sign-in method → Google 켜기",
+  "구글 클라우드 → API 및 서비스 → Google Calendar API 켜기",
+];
+let gcalBusy = false, gcalErr = "", gcalStep = 0, gcalDays = [], gcalAt = 0;
+
+async function gcalConnect() {
+  if (gcalBusy) return;
+  gcalBusy = true; gcalErr = ""; gcalStep = 0; renderGcal();
+  try {
+    const token = await GCal.connect(FB);
+    await gcalLoad(token);
+  } catch (e) {
+    const w = GCal.why(e);
+    gcalErr = w.msg; gcalStep = w.step;
+  } finally { gcalBusy = false; renderGcal(); }
+}
+async function gcalLoad(tokenMaybe) {
+  const keep = GCal.savedToken();
+  const token = tokenMaybe || (keep && keep.token);
+  if (!token) { gcalDays = []; return; }
+  try {
+    gcalDays = GCal.byDay(await GCal.listEvents(token, { days: 21, max: 30 }));
+    gcalAt = Date.now(); gcalErr = ""; gcalStep = 0;
+  } catch (e) {
+    const w = GCal.why(e);
+    gcalErr = w.msg; gcalStep = w.step; gcalDays = [];
+    if (w.step === 0 && /만료/.test(w.msg)) GCal.forgetToken();
+  }
+}
+function renderGcal() {
+  const box = $("gcalBody");
+  if (!box) return;
+  const btn = $("gcalBtn");
+  const linked = !!GCal.savedToken();
+  btn.hidden = !signedIn;
+  btn.textContent = gcalBusy ? "연결 중…" : linked ? "새로 받기" : "연결";
+  btn.onclick = () => { if (linked) gcalLoad().then(renderGcal); else gcalConnect(); };
+
+  if (!signedIn) { box.replaceChildren(h("p", { class: "empty", text: "로그인하면 쓸 수 있어요." })); return; }
+  if (gcalErr) {
+    const kids = [h("p", { class: "hint", text: gcalErr })];
+    if (gcalStep >= 1) {
+      kids.push(h("p", { class: "tip", text: "선생님이 한 번만 켜 주시면 돼요:" }));
+      kids.push(h("ul", { class: "lines" }, ...GCAL_STEPS.map((t, i) =>
+        h("li", { class: "line" + (i + 1 === gcalStep ? "" : " done") },
+          h("div", { class: "top" }, h("span", { class: "ttl", text: (i + 1) + ". " + t }))))));
+    }
+    kids.push(h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "다시 해 보기", onclick: () => gcalConnect() })));
+    box.replaceChildren(...kids);
+    return;
+  }
+  if (!linked) {
+    box.replaceChildren(
+      h("p", { class: "empty", text: "구글 캘린더를 이어 붙이면 앞으로 3주 일정이 여기 보여요." }),
+      h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "구글 캘린더 연결", onclick: () => gcalConnect() })),
+      h("p", { class: "tip", text: "읽기만 합니다. 캘린더에 쓰지 않아요." }));
+    return;
+  }
+  if (!gcalDays.length) {
+    box.replaceChildren(h("p", { class: "empty", text: "앞으로 3주에 일정이 없어요." }));
+    return;
+  }
+  const t0 = parseDate(todayKey());
+  box.replaceChildren(...gcalDays.map(day => {
+    const dt = parseDate(day.at);
+    const n = Math.round((dt - t0) / 86400000);
+    const label = n === 0 ? "오늘" : n === 1 ? "내일" : `${dt.getMonth() + 1}.${dt.getDate()}(${WD[dt.getDay()]})`;
+    return h("div", { class: "gcal-day" },
+      h("span", { class: "d", text: label }),
+      h("div", { class: "lines" }, ...day.items.map(ev => h("div", { class: "gcal-ev" },
+        ev.time ? h("span", { class: "tm", text: ev.time }) : null, ev.title))));
+  }));
+}
+
+/* ---------- 칸(그리드)에 놓기 ---------- */
+const deck = $("deck");
+let arranging = false;
+
+function applyGrid() {
+  const g = okGrid(state.grid);
+  deck.style.setProperty("--cols", String(g.cols));
+  deck.style.setProperty("--rows", String(g.rows));
+  state.layout = normalize(state.layout, g);
+  for (const def of WIDGETS) {
+    const el = deck.querySelector('.wg[data-w="' + def.id + '"]');
+    if (!el) continue;
+    const b = state.layout[def.id];
+    el.hidden = !b.on;
+    el.style.gridArea = b.y + " / " + b.x + " / span " + b.h + " / span " + b.w;
+  }
+}
+function wgEl(id) { return deck.querySelector('.wg[data-w="' + id + '"]'); }
+
+function addHandles() {
+  for (const def of WIDGETS) {
+    const el = wgEl(def.id);
+    if (!el || el.querySelector(".wg-tag")) continue;
+    el.append(
+      h("span", { class: "wg-tag", text: def.name }),
+      h("button", {
+        class: "wg-off", type: "button", "aria-label": def.name + " 끄기", text: "×",
+        onclick: (e) => { e.stopPropagation(); state.layout[def.id].on = false; save(true); applyGrid(); if (setOpen) renderSet(); },
+      }),
+      ...["n", "s", "e", "w", "ne", "nw", "se", "sw"].map(d => h("i", { class: "rz rz-" + d, "data-dir": d })));
+  }
+}
+const dropHandles = () => deck.querySelectorAll(".wg-tag, .wg-off, .rz").forEach(el => el.remove());
+
+function setArrange(on) {
+  arranging = !!on;
+  deck.classList.toggle("arranging", arranging);
+  $("arrange").classList.toggle("on", arranging);
+  $("arrange").textContent = arranging ? "배치 끝내기" : "배치";
+  if (arranging) addHandles(); else dropHandles();
+}
+$("arrange").addEventListener("click", () => setArrange(!arranging));
+
+// 끌어 옮기기와 크기 바꾸기. 겹치는 자리에는 놓지 않는다.
+deck.addEventListener("pointerdown", (e) => {
+  if (!arranging) return;
+  const el = e.target.closest(".wg");
+  if (!el || e.target.classList.contains("wg-off")) return;
+  const id = el.dataset.w, def = widgetDef(id);
+  if (!def) return;
+  const G = okGrid(state.grid);
+  const dir = e.target.classList.contains("rz") ? (e.target.dataset.dir || "") : "";
+  const g0 = { ...state.layout[id] };
+  const { uw, uh } = cellSize(deck.getBoundingClientRect(), G);
+  const sx = e.clientX, sy = e.clientY;
+  const minW = Math.min(def.min[0], G.cols), minH = Math.min(def.min[1], G.rows);
+  el.classList.add("dragging");
+  try { el.setPointerCapture(e.pointerId); } catch (err) {}
+  const move = (ev) => {
+    const dC = Math.round((ev.clientX - sx) / uw), dR = Math.round((ev.clientY - sy) / uh);
+    const cand = moved(g0, G, dC, dR, dir);
+    if (cand.w < minW || cand.h < minH) return;
+    if (hits(state.layout, id, cand)) return;
+    state.layout[id] = cand;
+    el.style.gridArea = cand.y + " / " + cand.x + " / span " + cand.h + " / span " + cand.w;
+  };
+  const up = () => {
+    el.classList.remove("dragging");
+    el.removeEventListener("pointermove", move);
+    el.removeEventListener("pointerup", up);
+    el.removeEventListener("pointercancel", up);
+    save(true);
+    if (setOpen) renderSet();
+  };
+  el.addEventListener("pointermove", move);
+  el.addEventListener("pointerup", up);
+  el.addEventListener("pointercancel", up);
+  e.preventDefault();
+});
+
+/* 칸 수 조정과 우젯 켜고 끄기 (설정 패널에 들어간다) */
+function gridPanel() {
+  const G = okGrid(state.grid);
+  const colIn = h("input", { type: "number", id: "setCols", value: String(G.cols), min: String(GRID_MIN.cols), max: String(GRID_MAX.cols) });
+  const rowIn = h("input", { type: "number", id: "setRows", value: String(G.rows), min: String(GRID_MIN.rows), max: String(GRID_MAX.rows) });
+  const err = h("p", { class: "form-err", role: "alert" });
+  const apply = () => {
+    const next = okGrid({ cols: colIn.value, rows: rowIn.value });
+    state.grid = next;
+    state.layout = normalize(state.layout, next);
+    save(true); applyGrid(); renderSet();
+    toast(`칸을 ${next.cols}×${next.rows}로 바꿨어요`);
+  };
+  const toggles = h("div", { class: "wg-list" }, ...WIDGETS.map(def => {
+    const b = state.layout[def.id];
+    return h("button", {
+      class: "wg-toggle", type: "button", "aria-pressed": String(b.on),
+      onclick: () => {
+        if (b.on) { b.on = false; }
+        else if (!turnOn(state.layout, def.id, state.grid)) {
+          // 4단으로 꽉 채워 두었으니 빈자리가 없는 게 보통이다. 세로를 늘려서 놓아 준다.
+          let G = okGrid(state.grid), done = false;
+          while (!done && G.rows < GRID_MAX.rows) {
+            G = okGrid({ cols: G.cols, rows: G.rows + 2 });
+            state.grid = G;
+            state.layout = normalize(state.layout, G);
+            done = turnOn(state.layout, def.id, G);
+          }
+          if (!done) { err.textContent = def.name + "을 놓을 자리를 못 찾았어요. 다른 것을 끄고 다시 해 주세요."; return; }
+          toast(`자리가 없어서 세로를 ${G.rows}칸으로 늘렸어요`);
+        }
+        err.textContent = "";
+        save(true); applyGrid(); renderSet();
+      },
+    }, def.name, h("span", { class: "sz", text: b.on ? `${b.w}×${b.h}` : "꺼짐" }));
+  }));
+  return h("div", { class: "lock-panel divided grid-set" },
+    h("h3", { text: "칸 수와 자리" }),
+    h("p", { text: "화면을 가로 몇 칸, 세로 몇 칸으로 나눌지 정해요. 기본은 24×16이고, 24를 넷으로 나눠 4단으로 놓았어요. 바탕화면 위젯은 15×10을 씁니다." }),
+    h("div", { class: "row" },
+      h("label", { class: "field" }, "가로 칸", colIn),
+      h("label", { class: "field" }, "세로 칸", rowIn),
+      h("button", { class: "btn small", type: "button", text: "칸 수 바꾸기", onclick: apply })),
+    h("p", { class: "tip", text: "자리를 옮기려면 아래 도구줄의 '배치'를 누르고 우젯을 끌어 주세요. 테두리를 잡으면 크기가 바뀝니다." }),
+    toggles, err,
+    h("div", { class: "row" },
+      h("button", { class: "btn small secondary", type: "button", text: arranging ? "배치 끝내기" : "배치 시작", onclick: () => { setArrange(!arranging); renderSet(); } }),
+      armed("되돌리기", "기본 배치로 되돌리기", () => {
+        state.grid = { ...DEFAULT_GRID };
+        state.layout = normalize(null, state.grid);
+        save(true); applyGrid(); renderSet();
+        toast("기본 배치로 되돌렸어요");
+      })));
+}
+
 /* ---------- 로그인 문 ---------- */
 function authMsg(e) {
   const c = (e && e.code) || "";
@@ -575,6 +802,8 @@ function openApp(user) {
   const nm = (user.displayName || user.email || "").split("@")[0];
   if (nm) { userName = nm; renderGreeting(); }
   cloud = cloudRef;
+  if (GCal.savedToken()) gcalLoad().then(renderGcal);
+  renderGcal();
   setSync("", "연결 중");
   const loadTimer = setTimeout(() => { if (!C.confirmed) setSync("warn", "저장소에 연결하는 중이에요. 그동안 이 브라우저에 저장돼요."); }, 10000);
   for (const d of allDocs()) subscribe(d);
@@ -584,6 +813,7 @@ async function signOutNow() {
   await lockNow();
   for (const d of allDocs()) { if (d.unsub) d.unsub(); d.unsub = null; d.ref = null; }
   cloud = null; signedIn = null;
+  GCal.forgetToken(); gcalDays = []; gcalErr = "";
   try { await FB.signOut(FB.auth); } catch (e) {}
   showGate("나왔습니다.");
 }
@@ -933,6 +1163,7 @@ function renderSet() {
         passField("chgNew2", "새 비밀번호 확인", "new-password")),
       err2, h("div", { class: "row" }, btn2)));
   }
+  kids.push(gridPanel());
   kids.push(backupPanel());
   p.replaceChildren(...kids);
 }
@@ -2114,6 +2345,8 @@ function renderMemo() { if (document.activeElement !== memoEl) memoEl.value = st
 /* ---------- 시작 ---------- */
 function renderAll() {
   const now = new Date();
+  applyGrid();
+  renderGcal();
   renderLinks(); renderTodos(); renderDdays(); renderMemo(); softClass(); renderBook(); renderCalBox(); if (!rosterOpen) renderRoster();
   renderPeriods(now); renderTT(); renderMeta(now); renderNow(now);
 }

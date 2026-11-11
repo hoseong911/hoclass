@@ -48,144 +48,175 @@ window.__deskLog = [];
 </div>
 
 <div id="app" hidden>
-<div class="wrap">
-  <header class="top">
-    <div>
-      <div class="greet" id="greet">좋은 하루예요</div>
-      <div class="clock" id="clock" aria-live="off">--:--<span class="sec">--</span></div>
-    </div>
-    <div class="date-block">
-      <div class="date-main" id="dateMain">—</div>
-      <div class="date-meta" id="dateMeta"></div>
-    </div>
-  </header>
 
-  <nav class="links" id="links" aria-label="바로가기"></nav>
+<!-- 24×16 칸에 우젯을 놓는다. 칸 수는 설정에서 바꾼다. -->
+<div class="deck" id="deck">
 
-  <section class="card" id="setPanel" hidden aria-labelledby="setTitle"></section>
-
-  <main class="grid">
-    <div class="col col-1">
-      <section class="card now" id="nowCard" aria-live="polite" aria-labelledby="nowTitle">
-        <div class="card-head">
-          <h2 class="card-title" id="nowTitle">지금</h2>
-          <span class="card-aside" id="nowAside"></span>
-        </div>
-        <div class="now-main" id="nowMain">—</div>
-        <div class="now-sub" id="nowSub"></div>
-        <div class="now-bar" id="nowBarWrap"><i id="nowBar" style="width:0%"></i></div>
-        <div class="now-next" id="nowNext"></div>
-      </section>
-
-      <section class="card" aria-labelledby="todayTitle">
-        <div class="card-head">
-          <h2 class="card-title" id="todayTitle">오늘 시간표</h2>
-          <span class="card-aside" id="todayAside"></span>
-        </div>
-        <ul class="periods" id="periods"></ul>
-      </section>
-    </div>
-
-    <div class="col col-2">
-      <section class="card" aria-labelledby="classTitle">
-        <div class="card-head">
-          <h2 class="card-title" id="classTitle">우리 반</h2>
-          <div class="row">
-            <button class="text-btn" type="button" id="rosterBtn" hidden>명단 편집</button>
-            <button class="text-btn" type="button" id="hideBtn" hidden>이름 가리기</button>
-            <button class="text-btn" type="button" id="lockBtn" hidden>잠그기</button>
-          </div>
-        </div>
-        <div class="row" style="justify-content:space-between">
-          <p class="class-name" id="className">우리 반</p>
-          <div class="seg" id="classSeg" role="group" aria-label="우리 반 보기" hidden>
-            <button type="button" data-tab="att" aria-pressed="true">출결</button>
-            <button type="button" data-tab="col" aria-pressed="false">수합</button>
-            <button type="button" data-tab="ann" aria-pressed="false">전달사항</button>
-          </div>
-        </div>
-        <div class="class-pick" id="classPick" hidden></div>
-        <div id="rosterEditor" hidden></div>
-        <div id="classBody"></div>
-      </section>
-    </div>
-
-    <div class="col col-3">
-      <section class="card" aria-labelledby="todoTitle">
-        <div class="card-head">
-          <h2 class="card-title" id="todoTitle">업무 할 일</h2>
-          <button class="text-btn" id="clearDone" type="button">완료 항목 지우기</button>
-        </div>
-        <form class="todo-add" id="todoForm">
-          <label class="sr" for="todoInput">새 할 일</label>
-          <input type="text" id="todoInput" placeholder="예: 공문 회신, 생기부 입력" autocomplete="off" maxlength="200">
-          <button class="btn" type="submit">추가</button>
-        </form>
-        <div class="todo-progress"><span id="todoCount">0 / 0</span><div class="bar"><i id="todoBar" style="width:0%"></i></div></div>
-        <ul class="todo-list" id="todoList"></ul>
-      </section>
-
-      <section class="card" aria-labelledby="ddayTitle">
-        <div class="card-head">
-          <h2 class="card-title" id="ddayTitle">학사 일정 · D-day</h2>
-          <button class="text-btn" type="button" id="calPaste">일정 붙여넣기</button>
-        </div>
-        <div id="calBox" hidden></div>
-        <ul class="dday-list" id="ddayList"></ul>
-        <form class="dday-form" id="ddayForm">
-          <label class="sr" for="ddayName">일정 이름</label>
-          <input type="text" id="ddayName" placeholder="예: 기말고사, 방학식" maxlength="60" autocomplete="off">
-          <label class="sr" for="ddayDate">날짜</label>
-          <input type="date" id="ddayDate">
-          <button class="btn" type="submit">추가</button>
-        </form>
-      </section>
-    </div>
-  </main>
-
-  <section class="grid">
-    <div class="card span2" aria-labelledby="weekTitle">
-      <div class="card-head">
-        <h2 class="card-title" id="weekTitle">주간 시간표</h2>
-        <button class="btn small secondary" type="button" id="ttEdit">편집</button>
+  <section class="wg" data-w="clock">
+    <section class="card wg-clock">
+      <div>
+        <div class="greet" id="greet">좋은 하루예요</div>
+        <div class="clock" id="clock" aria-live="off">--:--<span class="sec">--</span></div>
       </div>
-      <p class="hint" id="ttHint" hidden>예시 시간표와 중학교 기준 예시 종 시간이 들어 있어요. '편집'을 눌러 내 시간표로 바꿔 주세요.</p>
-      <div class="tt-scroll"><table class="tt" id="tt"></table></div>
-    </div>
-    <div class="card memo-col" aria-labelledby="memoTitle">
+      <div class="date-block">
+        <div class="date-main" id="dateMain">—</div>
+        <div class="date-meta" id="dateMeta"></div>
+      </div>
+    </section>
+  </section>
+
+  <section class="wg" data-w="links">
+    <section class="card wg-links">
+      <nav class="links" id="links" aria-label="바로가기"></nav>
+    </section>
+  </section>
+
+  <section class="wg" data-w="now">
+    <section class="card now" id="nowCard" aria-live="polite" aria-labelledby="nowTitle">
+      <div class="card-head">
+        <h2 class="card-title" id="nowTitle">지금</h2>
+        <span class="card-aside" id="nowAside"></span>
+      </div>
+      <div class="now-main" id="nowMain">—</div>
+      <div class="now-sub" id="nowSub"></div>
+      <div class="now-bar" id="nowBarWrap"><i id="nowBar" style="width:0%"></i></div>
+      <div class="now-next" id="nowNext"></div>
+    </section>
+  </section>
+
+  <section class="wg" data-w="periods">
+    <section class="card" aria-labelledby="todayTitle">
+      <div class="card-head">
+        <h2 class="card-title" id="todayTitle">오늘 시간표</h2>
+        <span class="card-aside" id="todayAside"></span>
+      </div>
+      <ul class="periods" id="periods"></ul>
+    </section>
+  </section>
+
+  <section class="wg" data-w="class">
+    <section class="card" aria-labelledby="classTitle">
+      <div class="card-head">
+        <h2 class="card-title" id="classTitle">우리 반</h2>
+        <div class="row">
+          <button class="text-btn" type="button" id="rosterBtn" hidden>명단 편집</button>
+          <button class="text-btn" type="button" id="hideBtn" hidden>이름 가리기</button>
+          <button class="text-btn" type="button" id="lockBtn" hidden>잠그기</button>
+        </div>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <p class="class-name" id="className">우리 반</p>
+        <div class="seg" id="classSeg" role="group" aria-label="우리 반 보기" hidden>
+          <button type="button" data-tab="att" aria-pressed="true">출결</button>
+          <button type="button" data-tab="col" aria-pressed="false">수합</button>
+          <button type="button" data-tab="ann" aria-pressed="false">전달사항</button>
+        </div>
+      </div>
+      <div class="class-pick" id="classPick" hidden></div>
+      <div id="rosterEditor" hidden></div>
+      <div id="classBody"></div>
+    </section>
+  </section>
+
+  <section class="wg" data-w="book">
+    <section class="card" id="bookCard" aria-labelledby="bookTitle">
+      <div class="book-head">
+        <h2 class="card-title" id="bookTitle">교무수첩</h2>
+        <div class="book-seg" id="bookSeg" role="group" aria-label="수첩 보기">
+          <button type="button" data-page="today" aria-pressed="true">오늘</button>
+          <button type="button" data-page="student" aria-pressed="false">학생</button>
+          <button type="button" data-page="consult" aria-pressed="false">상담·민원</button>
+          <button type="button" data-page="lesson" aria-pressed="false">수업</button>
+          <button type="button" data-page="work" aria-pressed="false">업무</button>
+        </div>
+      </div>
+      <div id="bookBody"></div>
+    </section>
+  </section>
+
+  <section class="wg" data-w="gcal">
+    <section class="card" aria-labelledby="gcalTitle">
+      <div class="card-head">
+        <h2 class="card-title" id="gcalTitle">구글 캘린더</h2>
+        <button class="text-btn" type="button" id="gcalBtn" hidden>연결</button>
+      </div>
+      <div id="gcalBody"></div>
+    </section>
+  </section>
+
+  <section class="wg" data-w="todos">
+    <section class="card" aria-labelledby="todoTitle">
+      <div class="card-head">
+        <h2 class="card-title" id="todoTitle">업무 할 일</h2>
+        <button class="text-btn" id="clearDone" type="button">완료 항목 지우기</button>
+      </div>
+      <form class="todo-add" id="todoForm">
+        <label class="sr" for="todoInput">새 할 일</label>
+        <input type="text" id="todoInput" placeholder="예: 공문 회신, 생기부 입력" autocomplete="off" maxlength="200">
+        <button class="btn" type="submit">추가</button>
+      </form>
+      <div class="todo-progress"><span id="todoCount">0 / 0</span><div class="bar"><i id="todoBar" style="width:0%"></i></div></div>
+      <ul class="todo-list" id="todoList"></ul>
+    </section>
+  </section>
+
+  <section class="wg" data-w="ddays">
+    <section class="card" aria-labelledby="ddayTitle">
+      <div class="card-head">
+        <h2 class="card-title" id="ddayTitle">학사 일정 · D-day</h2>
+        <button class="text-btn" type="button" id="calPaste">일정 붙여넣기</button>
+      </div>
+      <div id="calBox" hidden></div>
+      <ul class="dday-list" id="ddayList"></ul>
+      <form class="dday-form" id="ddayForm">
+        <label class="sr" for="ddayName">일정 이름</label>
+        <input type="text" id="ddayName" placeholder="예: 기말고사, 방학식" maxlength="60" autocomplete="off">
+        <label class="sr" for="ddayDate">날짜</label>
+        <input type="date" id="ddayDate">
+        <button class="btn" type="submit">추가</button>
+      </form>
+    </section>
+  </section>
+
+  <section class="wg" data-w="memo">
+    <section class="card memo-col" aria-labelledby="memoTitle">
       <div class="card-head">
         <h2 class="card-title" id="memoTitle">메모</h2>
         <span class="card-aside" id="memoStatus"></span>
       </div>
       <label class="sr" for="memo">메모</label>
       <textarea class="memo" id="memo" placeholder="교무회의 내용, 다음 수업 준비물 등을 적어두세요. 메모는 암호화되지 않으니 학생 이름이나 상담 내용은 적지 마세요."></textarea>
-    </div>
+    </section>
   </section>
 
-  <section class="card" id="bookCard" aria-labelledby="bookTitle">
-    <div class="book-head">
-      <h2 class="card-title" id="bookTitle">교무수첩</h2>
-      <div class="book-seg" id="bookSeg" role="group" aria-label="수첩 보기">
-        <button type="button" data-page="today" aria-pressed="true">오늘</button>
-        <button type="button" data-page="student" aria-pressed="false">학생</button>
-        <button type="button" data-page="consult" aria-pressed="false">상담·민원</button>
-        <button type="button" data-page="lesson" aria-pressed="false">수업</button>
-        <button type="button" data-page="work" aria-pressed="false">업무</button>
+  <section class="wg" data-w="tt">
+    <section class="card" aria-labelledby="weekTitle">
+      <div class="card-head">
+        <h2 class="card-title" id="weekTitle">주간 시간표</h2>
+        <button class="btn small secondary" type="button" id="ttEdit">편집</button>
       </div>
-    </div>
-    <div id="bookBody"></div>
+      <p class="hint" id="ttHint" hidden>예시 시간표와 중학교 기준 예시 종 시간이 들어 있어요. '편집'을 눌러 내 시간표로 바꿔 주세요.</p>
+      <div class="tt-scroll"><table class="tt" id="tt"></table></div>
+    </section>
   </section>
 
-  <footer class="foot">
-    <span class="sync" id="sync">불러오는 중</span>
-    <span class="foot-right">
-      <button class="text-btn" type="button" id="editLinks">바로가기 편집</button>
-      <button class="text-btn" type="button" id="toWidget" hidden>위젯으로</button>
-      <button class="text-btn" type="button" id="signOut">나가기</button>
-    </span>
-  </footer>
+</div><!-- /deck -->
+
+<!-- 아래 도구줄 -->
+<div class="bar" id="bar">
+  <span class="sync" id="sync">불러오는 중</span>
+  <span class="bar-right">
+    <button class="text-btn" type="button" id="arrange">배치</button>
+    <button class="text-btn" type="button" id="editLinks">바로가기 편집</button>
+    <button class="text-btn" type="button" id="toWidget" hidden>위젯으로</button>
+    <button class="text-btn" type="button" id="signOut">나가기</button>
+  </span>
 </div>
-</div>
+
+<!-- 떠 있는 패널: 올해 설정, 칸 수 조정, 백업 -->
+<section class="card float" id="setPanel" hidden aria-labelledby="setTitle"></section>
+
+</div><!-- /app -->
 
 <script type="module" src="./desk.js"></script>
 <script>

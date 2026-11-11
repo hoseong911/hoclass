@@ -112,17 +112,28 @@ function device() {
   Object.defineProperty(w, "crypto", { value: webcrypto });
   w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder;
   w.__FB__ = makeFB();
+  // 구글 캘린더는 창을 띄우므로 시험에서는 가짜로 둔다(연결 안 된 상태).
+  w.__GCAL__ = {
+    savedToken: () => null, forgetToken: () => {},
+    connect: async () => { const e = new Error("시험에서는 연결하지 않는다"); throw e; },
+    listEvents: async () => [], byDay: () => [],
+    why: (e) => ({ step: 0, msg: String((e && e.message) || "") }),
+  };
   w.URL.createObjectURL = (blob) => { saved.push(blob); return "blob:fake/" + saved.length; };
   w.URL.revokeObjectURL = () => {};
   w.HTMLAnchorElement.prototype.click = function () { this.dispatchEvent(new w.Event("click")); };
   w.addEventListener("error", (e) => errs.push("페이지 오류: " + e.message));
   w.addEventListener("unhandledrejection", (e) => errs.push("처리 안 된 거부: " + (e.reason && e.reason.message)));
-  // 모듈 두 개를 한 덩어리로 이어 붙여 넣는다(jsdom은 import 를 못 따라간다).
-  const hcCode = fs.readFileSync(path.join(DIR, "hoclass.js"), "utf8").replace(/^export /gm, "");
+  // 모듈 셋을 한 덩어리로 이어 붙여 넣는다(jsdom은 import 를 못 따라간다).
+  const sideCode = ["grid.js", "hoclass.js"]
+    .map(f => fs.readFileSync(path.join(DIR, f), "utf8").replace(/^export /gm, ""))
+    .join("\n");
   const deskCode = fs.readFileSync(path.join(DIR, "desk.js"), "utf8")
     .replace(/^import \{ FB \} from "\.\/fb-desk\.js";$/m, "const FB = window.__FB__;")
-    .replace(/^import \{[^}]*\} from "\.\/hoclass\.js";$/m, "");
-  const code = hcCode + "\n" + deskCode;
+    .replace(/^import \{[^}]*\} from "\.\/hoclass\.js";$/m, "")
+    .replace(/^import \{[^}]*\} from "\.\/grid\.js";$/m, "")
+    .replace(/^import \* as GCal from "\.\/gcal\.js";$/m, "const GCal = window.__GCAL__;");
+  const code = sideCode + "\n" + deskCode;
   if (/^\s*(import|export)\s/m.test(code)) throw new Error("import/export 를 못 걷어냈다");
   w.eval(code);
   const $ = (id) => d.getElementById(id);
@@ -136,6 +147,11 @@ function device() {
     btn: (where, label) => [...d.querySelectorAll(where + " button")].find(b => b.textContent.includes(label)),
     pick: (c) => [...d.querySelectorAll("#classPick .cpick")].find(x => x.textContent.startsWith(c)).click(),
     stu: () => [...d.querySelectorAll("#classBody .stu")],
+    wg: (id) => d.querySelector('.wg[data-w="' + id + '"]'),
+    area: (id) => {
+      const el = d.querySelector('.wg[data-w="' + id + '"]');
+      return el ? el.style.gridArea : "";
+    },
     absent: () => d.querySelectorAll("#classBody .stu.결석").length,
   };
 }
@@ -192,6 +208,52 @@ function checkHiddenRule() {
   await until(() => A.$("setForm"), "설정 패널");
   A.fill("setYear", "2027"); A.fill("setHome", "3-9"); A.fill("setClasses", "");
   A.submit("setForm");
+
+  /* ---------- 구글 캘린더 우젯 ---------- */
+  await until(() => A.$("gcalBody").textContent.includes("이어 붙이면"), "연결 전에는 안내가 보인다");
+  assert(!A.$("gcalBtn").hidden, "연결 단추가 보인다");
+
+  /* ---------- 칸(그리드) 배치: 24×16, 4단 ---------- */
+  const deck = A.$("deck");
+  assert.strictEqual(deck.style.getPropertyValue("--cols"), "24", "가로 24칸");
+  assert.strictEqual(deck.style.getPropertyValue("--rows"), "16", "세로 16칸");
+  // 4단: 한 단이 6칸이고 각 단이 1, 7, 13, 19 열에서 시작한다
+  assert.strictEqual(A.area("clock"), "1 / 1 / span 3 / span 6", "1단 머리: " + A.area("clock"));
+  assert.strictEqual(A.area("class"), "1 / 7 / span 16 / span 6", "2단 우리 반");
+  assert.strictEqual(A.area("book"), "1 / 13 / span 16 / span 6", "3단 교무수첩");
+  assert.strictEqual(A.area("gcal"), "1 / 19 / span 5 / span 6", "4단 구글 캘린더");
+  assert(A.wg("tt").hidden, "주간 시간표는 기본으로 꺼져 있다");
+  await until(() => store.has("desk_grid/all"), "desk_grid/all 저장");
+
+  // 칸 수를 바꾸면 밖으로 나간 것이 들어온다
+  if (!A.$("setCols")) A.$("setBtn").click();
+  await until(() => A.$("setCols"), "칸 수 칸");
+  A.fill("setCols", "12"); A.fill("setRows", "8");
+  A.btn("#setPanel", "칸 수 바꾸기").click();
+  await until(() => deck.style.getPropertyValue("--cols") === "12", "가로 12칸으로");
+  assert.strictEqual(deck.style.getPropertyValue("--rows"), "8", "세로 8칸으로");
+  for (const id of ["clock", "class", "book", "gcal", "todos", "ddays", "memo"]) {
+    const m = /^(\d+) \/ (\d+) \/ span (\d+) \/ span (\d+)$/.exec(A.area(id));
+    assert(m, id + " 자리 모양: " + A.area(id));
+    const [y, x, h, w] = m.slice(1).map(Number);
+    assert(x + w - 1 <= 12 && y + h - 1 <= 8, id + " 가 칸 밖으로 나갔다: " + A.area(id));
+  }
+
+  // 우젯을 켜고 끈다
+  const ttBtn = () => [...A.d.querySelectorAll("#setPanel .wg-toggle")].find(b => b.textContent.startsWith("주간 시간표"));
+  ttBtn().click();
+  await until(() => !A.wg("tt").hidden, "주간 시간표를 켜면 보인다");
+  ttBtn().click();
+  await until(() => A.wg("tt").hidden, "다시 끄면 사라진다");
+  assert(Number(deck.style.getPropertyValue("--rows")) >= 8, "자리가 없어 세로가 늘어났다: " + deck.style.getPropertyValue("--rows"));
+
+  // 기본 배치로 되돌리기 (두 번 눌러야 한다)
+  const back = () => A.btn("#setPanel", "기본 배치로 되돌리기") || A.btn("#setPanel", "한 번 더 누르면 되돌리기");
+  back().click(); back().click();
+  await until(() => deck.style.getPropertyValue("--cols") === "24", "되돌리면 24칸");
+  assert.strictEqual(A.area("class"), "1 / 7 / span 16 / span 6", "되돌린 2단 자리");
+  A.$("setBtn").click();                        // 설정 닫기
+  await until(() => !A.$("setCols"), "설정 닫힘");
 
   /* ---------- 호클래스 명단이 저절로 들어온다 ---------- */
   await until(() => [...A.d.querySelectorAll("#classPick .cpick")].length === 3, "담임 반 + 호클래스 두 반");
