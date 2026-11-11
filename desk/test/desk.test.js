@@ -214,39 +214,68 @@ function checkHiddenRule() {
   await until(() => A.$("gcalBody").textContent.includes("이어 붙이면"), "연결 전에는 안내가 보인다");
   assert(!A.$("gcalBtn").hidden, "연결 단추가 보인다");
 
-  /* ---------- 칸(그리드) 배치: 24×16, 4단 ---------- */
+  /* ---------- 칸(그리드) 배치: 24×16, 4단, 두 장 ---------- */
   const deck = A.$("deck");
+  const dots = () => [...A.d.querySelectorAll("#pagebar .pg-dot")];
   assert.strictEqual(deck.style.getPropertyValue("--cols"), "24", "가로 24칸");
   assert.strictEqual(deck.style.getPropertyValue("--rows"), "16", "세로 16칸");
-  // 4단: 한 단이 6칸이고 각 단이 1, 7, 13, 19 열에서 시작한다
+  // 1장은 4단: 한 단이 6칸이고 각 단이 1, 7, 13, 19 열에서 시작한다
   assert.strictEqual(A.area("clock"), "1 / 1 / span 3 / span 6", "1단 머리: " + A.area("clock"));
   assert.strictEqual(A.area("class"), "1 / 7 / span 16 / span 6", "2단 우리 반");
-  assert.strictEqual(A.area("book"), "1 / 13 / span 16 / span 6", "3단 교무수첩");
-  assert.strictEqual(A.area("gcal"), "1 / 19 / span 5 / span 6", "4단 구글 캘린더");
-  assert(A.wg("tt").hidden, "주간 시간표는 기본으로 꺼져 있다");
+  assert.strictEqual(A.area("gcal"), "1 / 13 / span 8 / span 6", "3단 구글 캘린더");
+  assert.strictEqual(A.area("ddays"), "1 / 19 / span 8 / span 6", "4단 학사 일정");
+  // 2장: 교무수첩과 주간 시간표. 1장을 보고 있으니 지금은 숨어 있다.
+  assert.strictEqual(A.area("book"), "1 / 1 / span 16 / span 18", "2장 교무수첩");
+  assert(A.wg("book").hidden, "1장에서는 교무수첩이 안 보인다");
+  assert(A.wg("tt").hidden, "1장에서는 주간 시간표가 안 보인다");
+  assert(!A.wg("class").hidden, "1장에서는 우리 반이 보인다");
+  assert.strictEqual(dots().length, 2, "페이지 점 두 개");
   await until(() => store.has("desk_grid/all"), "desk_grid/all 저장");
+  assert.strictEqual(JSON.parse(store.get("desk_grid/all")).state.pages, 2, "두 장으로 저장");
+
+  // 2장으로 넘기면 교무수첩이 보이고 1장 것은 숨는다
+  dots()[1].click();
+  await until(() => !A.wg("book").hidden, "2장으로 넘기면 교무수첩이 보인다");
+  assert(!A.wg("tt").hidden, "2장에 주간 시간표도 있다");
+  assert(A.wg("class").hidden, "2장에서는 우리 반이 숨는다");
+  // 화살표로도 넘긴다
+  A.btn("#pagebar", "‹").click();
+  await until(() => !A.wg("class").hidden, "앞 장으로 돌아온다");
+
+  // 장을 더하고 지운다
+  if (!A.$("setCols")) A.$("setBtn").click();
+  await until(() => A.$("setCols"), "설정 열림");
+  A.btn("#setPanel", "장 더하기").click();
+  await until(() => dots().length === 3, "세 장이 됐다");
+  await until(() => JSON.parse(store.get("desk_grid/all")).state.pages === 3, "세 장으로 저장");
+  A.btn("#setPanel", "이 장 지우기").click();
+  await until(() => dots().length === 2, "빈 장은 지워진다");
+  // 우젯이 있는 장은 지워지지 않는다
+  dots()[0].click();
+  await until(() => !A.wg("class").hidden, "1장");
+  A.btn("#setPanel", "이 장 지우기").click();
+  await wait(120);
+  assert.strictEqual(dots().length, 2, "우젯이 있는 장은 안 지워진다");
 
   // 칸 수를 바꾸면 밖으로 나간 것이 들어온다
-  if (!A.$("setCols")) A.$("setBtn").click();
-  await until(() => A.$("setCols"), "칸 수 칸");
   A.fill("setCols", "12"); A.fill("setRows", "8");
   A.btn("#setPanel", "칸 수 바꾸기").click();
   await until(() => deck.style.getPropertyValue("--cols") === "12", "가로 12칸으로");
   assert.strictEqual(deck.style.getPropertyValue("--rows"), "8", "세로 8칸으로");
-  for (const id of ["clock", "class", "book", "gcal", "todos", "ddays", "memo"]) {
+  for (const id of ["clock", "class", "book", "gcal", "todos", "ddays", "memo", "tt"]) {
     const m = /^(\d+) \/ (\d+) \/ span (\d+) \/ span (\d+)$/.exec(A.area(id));
     assert(m, id + " 자리 모양: " + A.area(id));
     const [y, x, h, w] = m.slice(1).map(Number);
     assert(x + w - 1 <= 12 && y + h - 1 <= 8, id + " 가 칸 밖으로 나갔다: " + A.area(id));
   }
 
-  // 우젯을 켜고 끈다
+  // 우젯을 끄고 켠다
   const ttBtn = () => [...A.d.querySelectorAll("#setPanel .wg-toggle")].find(b => b.textContent.startsWith("주간 시간표"));
+  assert(ttBtn().textContent.includes("장"), "몇 장에 있는지 보여 준다: " + ttBtn().textContent);
   ttBtn().click();
-  await until(() => !A.wg("tt").hidden, "주간 시간표를 켜면 보인다");
+  await until(() => ttBtn().textContent.includes("꺼짐"), "끄면 꺼짐으로 바뀐다");
   ttBtn().click();
-  await until(() => A.wg("tt").hidden, "다시 끄면 사라진다");
-  assert(Number(deck.style.getPropertyValue("--rows")) >= 8, "자리가 없어 세로가 늘어났다: " + deck.style.getPropertyValue("--rows"));
+  await until(() => !ttBtn().textContent.includes("꺼짐"), "다시 켜진다");
 
   // 기본 배치로 되돌리기 (두 번 눌러야 한다)
   const back = () => A.btn("#setPanel", "기본 배치로 되돌리기") || A.btn("#setPanel", "한 번 더 누르면 되돌리기");

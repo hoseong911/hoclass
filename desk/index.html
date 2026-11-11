@@ -202,11 +202,19 @@ window.__deskLog = [];
 
 </div><!-- /deck -->
 
+<!-- 우상단 도구. 마우스를 올리면 나타난다. -->
+<div class="tools" id="tools">
+  <button class="tool" type="button" id="arrange" title="위젯 이동·크기조절"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>배치</button>
+  <button class="tool" type="button" id="toolSet" title="설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>설정</button>
+</div>
+
+<!-- 페이지 바. 아래 가운데. -->
+<div class="pagebar" id="pagebar"></div>
+
 <!-- 아래 도구줄 -->
 <div class="bar" id="bar">
   <span class="sync" id="sync">불러오는 중</span>
   <span class="bar-right">
-    <button class="text-btn" type="button" id="arrange">배치</button>
     <button class="text-btn" type="button" id="editLinks">바로가기 편집</button>
     <button class="text-btn" type="button" id="toWidget" hidden>위젯으로</button>
     <button class="text-btn" type="button" id="signOut">나가기</button>

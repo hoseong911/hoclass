@@ -10,6 +10,8 @@ export const GAP = 10, PAD = 12;                 // desk.css 의 .deck 과 같�
 export const GRID_MIN = { cols: 6, rows: 4 };
 export const GRID_MAX = { cols: 48, rows: 32 };
 export const DEFAULT_GRID = { cols: 24, rows: 16 };
+export const DEFAULT_PAGES = 2;
+export const MAX_PAGES = 8;
 
 /* 우젯 목록. min 은 더 작게 줄일 수 없는 칸 수 [가로, 세로] 다. */
 export const WIDGETS = [
@@ -27,20 +29,22 @@ export const WIDGETS = [
 ];
 export const widgetDef = (id) => WIDGETS.find(w => w.id === id) || null;
 
-/* 기본 배치: 24칸을 넷으로 나눈 4단(한 단이 6칸). 열 여섯 줄을 꽉 채운다.
-   주간 시간표는 자리가 없어 기본으로 꺼 둔다(설정에서 켜면 빈자리를 찾아 놓인다). */
+/* 기본 배치는 두 장이다.
+   1장 — 대시보드. 24칸을 넷으로 나눈 4단(한 단이 6칸)으로 열 여섯 줄을 꽉 채운다.
+   2장 — 교무수첩. 좁은 칸에서는 다섯 화면이 답답해서 한 장을 통째로 준다.
+   페이지는 설정이나 아래 페이지 점에서 더하고 지운다. */
 export const DEFAULT_LAYOUT = {
-  clock:   { x: 1,  y: 1,  w: 6,  h: 3,  on: true },
-  links:   { x: 1,  y: 4,  w: 6,  h: 2,  on: true },
-  now:     { x: 1,  y: 6,  w: 6,  h: 4,  on: true },
-  periods: { x: 1,  y: 10, w: 6,  h: 7,  on: true },
-  class:   { x: 7,  y: 1,  w: 6,  h: 16, on: true },
-  book:    { x: 13, y: 1,  w: 6,  h: 16, on: true },
-  gcal:    { x: 19, y: 1,  w: 6,  h: 5,  on: true },
-  todos:   { x: 19, y: 6,  w: 6,  h: 4,  on: true },
-  ddays:   { x: 19, y: 10, w: 6,  h: 4,  on: true },
-  memo:    { x: 19, y: 14, w: 6,  h: 3,  on: true },
-  tt:      { x: 1,  y: 1,  w: 12, h: 4,  on: false },
+  clock:   { pg: 1, x: 1,  y: 1,  w: 6,  h: 3,  on: true },
+  links:   { pg: 1, x: 1,  y: 4,  w: 6,  h: 2,  on: true },
+  now:     { pg: 1, x: 1,  y: 6,  w: 6,  h: 4,  on: true },
+  periods: { pg: 1, x: 1,  y: 10, w: 6,  h: 7,  on: true },
+  class:   { pg: 1, x: 7,  y: 1,  w: 6,  h: 16, on: true },
+  gcal:    { pg: 1, x: 13, y: 1,  w: 6,  h: 8,  on: true },
+  todos:   { pg: 1, x: 13, y: 9,  w: 6,  h: 8,  on: true },
+  ddays:   { pg: 1, x: 19, y: 1,  w: 6,  h: 8,  on: true },
+  memo:    { pg: 1, x: 19, y: 9,  w: 6,  h: 8,  on: true },
+  book:    { pg: 2, x: 1,  y: 1,  w: 18, h: 16, on: true },
+  tt:      { pg: 2, x: 19, y: 1,  w: 6,  h: 16, on: true },
 };
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(n) || 0)));
@@ -48,17 +52,21 @@ export const okGrid = (g) => ({
   cols: clamp(g && g.cols, GRID_MIN.cols, GRID_MAX.cols) || DEFAULT_GRID.cols,
   rows: clamp(g && g.rows, GRID_MIN.rows, GRID_MAX.rows) || DEFAULT_GRID.rows,
 });
+export const okPages = (n) => clamp(n, 1, MAX_PAGES) || DEFAULT_PAGES;
 
-/* 저장해 둔 자리를 지금 칸 수에 맞게 다듬는다. 칸 수를 줄였을 때 밖으로 나간 것을 들여온다. */
-export function normalize(saved, grid) {
+/* 저장해 둔 자리를 지금 칸 수와 페이지 수에 맞게 다듬는다.
+   칸 수를 줄였으면 밖으로 나간 것을 들여오고, 페이지를 줄였으면 마지막 장으로 당긴다. */
+export function normalize(saved, grid, pages) {
   const { cols, rows } = okGrid(grid);
+  const pg = okPages(pages);
   const out = {};
   for (const def of WIDGETS) {
-    const s = (saved && saved[def.id]) || DEFAULT_LAYOUT[def.id] || { x: 1, y: 1, w: 4, h: 4, on: true };
+    const s = (saved && saved[def.id]) || DEFAULT_LAYOUT[def.id] || { pg: 1, x: 1, y: 1, w: 4, h: 4, on: true };
     const w = clamp(s.w, Math.min(def.min[0], cols), cols);
     const h = clamp(s.h, Math.min(def.min[1], rows), rows);
     out[def.id] = {
       w, h,
+      pg: clamp(s.pg || 1, 1, pg),
       x: clamp(s.x, 1, Math.max(1, cols - w + 1)),
       y: clamp(s.y, 1, Math.max(1, rows - h + 1)),
       on: s.on !== false,
@@ -66,25 +74,32 @@ export function normalize(saved, grid) {
   }
   return out;
 }
+/* 저장해 둔 것에서 페이지가 몇 장인지 센다(가장 큰 pg). */
+export function pagesIn(layout) {
+  let n = 1;
+  for (const g of Object.values(layout || {})) if (g && g.on !== false) n = Math.max(n, Number(g.pg) || 1);
+  return okPages(n);
+}
 
 const overlap = (a, b) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
-/* 켜져 있는 다른 우젯과 겹치는가 */
-export function hits(layout, id, box) {
+/* 같은 페이지에서 켜져 있는 다른 우젯과 겹치는가 */
+export function hits(layout, id, box, pg) {
+  const page = pg || (layout[id] && layout[id].pg) || 1;
   for (const [k, g] of Object.entries(layout)) {
-    if (k === id || !g.on) continue;
+    if (k === id || !g.on || (g.pg || 1) !== page) continue;
     if (overlap(box, g)) return true;
   }
   return false;
 }
 
 /* 빈자리를 찾는다. 위에서 아래로, 왼쪽에서 오른쪽으로 훑는다. 없으면 null. */
-export function freeSlot(layout, id, grid, w, h) {
+export function freeSlot(layout, id, grid, w, h, pg) {
   const { cols, rows } = okGrid(grid);
   for (let y = 1; y <= rows - h + 1; y++) {
     for (let x = 1; x <= cols - w + 1; x++) {
-      if (!hits(layout, id, { x, y, w, h })) return { x, y };
+      if (!hits(layout, id, { x, y, w, h }, pg)) return { x, y };
     }
   }
   return null;
@@ -92,20 +107,35 @@ export function freeSlot(layout, id, grid, w, h) {
 
 /* 우젯을 켠다. 지금 자리가 비어 있으면 그대로, 아니면 빈자리를 찾는다.
    자리를 못 찾으면 조금 줄여서 다시 본다. 그래도 없으면 false. */
-export function turnOn(layout, id, grid) {
+export function turnOn(layout, id, grid, pg) {
   const def = widgetDef(id);
   if (!def) return false;
   const g = layout[id];
+  const page = pg || g.pg || 1;
   const tries = [[g.w, g.h], [def.min[0], def.min[1]]];
   for (const [w, h] of tries) {
-    if (!hits(layout, id, { x: g.x, y: g.y, w, h })) {
-      layout[id] = { x: g.x, y: g.y, w, h, on: true };
+    if (!hits(layout, id, { x: g.x, y: g.y, w, h }, page)) {
+      layout[id] = { pg: page, x: g.x, y: g.y, w, h, on: true };
       return true;
     }
-    const s = freeSlot(layout, id, grid, w, h);
-    if (s) { layout[id] = { x: s.x, y: s.y, w, h, on: true }; return true; }
+    const s = freeSlot(layout, id, grid, w, h, page);
+    if (s) { layout[id] = { pg: page, x: s.x, y: s.y, w, h, on: true }; return true; }
   }
   return false;
+}
+/* 우젯을 다른 페이지로 옮긴다. 그 페이지가 비어 있지 않으면 빈자리를 찾는다. */
+export function moveToPage(layout, id, grid, pg) {
+  const g = layout[id];
+  if (!g) return false;
+  const page = okPages(pg);
+  if (!hits(layout, id, { x: g.x, y: g.y, w: g.w, h: g.h }, page)) {
+    layout[id] = { ...g, pg: page };
+    return true;
+  }
+  const s = freeSlot(layout, id, grid, g.w, g.h, page);
+  if (!s) return false;
+  layout[id] = { ...g, pg: page, x: s.x, y: s.y };
+  return true;
 }
 
 /* 한 칸이 화면에서 몇 픳셀인가. 끌어 옮긴 거리를 칸 수로 바꿀 때 쓴다. */
@@ -120,8 +150,10 @@ export function cellSize(rect, grid) {
 /* 끌거나 크기를 바꾼 결과를 칸에 맞춰 돌려준다. dir 가 없으면 옮기기. */
 export function moved(g0, grid, dCol, dRow, dir) {
   const { cols, rows } = okGrid(grid);
+  const pg = g0.pg || 1;
   if (!dir) {
     return {
+      pg,
       x: clamp(g0.x + dCol, 1, cols + 1 - g0.w),
       y: clamp(g0.y + dRow, 1, rows + 1 - g0.h),
       w: g0.w, h: g0.h, on: true,
@@ -132,5 +164,5 @@ export function moved(g0, grid, dCol, dRow, dir) {
   if (dir.includes("s")) h = clamp(g0.h + dRow, 1, rows + 1 - g0.y);
   if (dir.includes("w")) { const nx = clamp(g0.x + dCol, 1, g0.x + g0.w - 1); w = g0.w + (g0.x - nx); x = nx; }
   if (dir.includes("n")) { const ny = clamp(g0.y + dRow, 1, g0.y + g0.h - 1); h = g0.h + (g0.y - ny); y = ny; }
-  return { x, y, w, h, on: true };
+  return { pg, x, y, w, h, on: true };
 }

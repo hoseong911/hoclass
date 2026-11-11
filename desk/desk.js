@@ -1,7 +1,8 @@
 import { FB } from "./fb-desk.js";
 import * as GCal from "./gcal.js";
-import { WIDGETS, widgetDef, DEFAULT_GRID, GRID_MIN, GRID_MAX, okGrid, normalize,
-         hits, freeSlot, turnOn, cellSize, moved } from "./grid.js";
+import { WIDGETS, widgetDef, DEFAULT_GRID, DEFAULT_PAGES, MAX_PAGES, GRID_MIN, GRID_MAX,
+         okGrid, okPages, normalize, pagesIn, hits, freeSlot, turnOn, moveToPage,
+         cellSize, moved } from "./grid.js";
 import { loadHoclass, loadLessons, loadSubmissions, setAbsent, fillLessonDate,
          nameChanges, snapshotNames, clsToRoom, studentNoOf } from "./hoclass.js";
 
@@ -88,7 +89,8 @@ const state = {
   idleMin: 15,
   year: { configured: false, current: academicYear(), years: {} },
   grid: { ...DEFAULT_GRID },
-  layout: normalize(null, DEFAULT_GRID),
+  pages: DEFAULT_PAGES,
+  layout: normalize(null, DEFAULT_GRID, DEFAULT_PAGES),
   school: "",
   cal: [], calSchool: "", calAt: "",
 };
@@ -180,10 +182,12 @@ const SPECS = [
     } },
   // 칸 수와 우젯 자리. 기기마다 화면이 다르지만 한 벌로 쓴다(선생님이 바꾸면 모두 따라간다).
   { key: "desk_grid",
-    pick: () => ({ grid: state.grid, layout: state.layout }),
+    pick: () => ({ grid: state.grid, pages: state.pages, layout: state.layout }),
     put: (s) => {
       state.grid = okGrid(s.grid);
-      state.layout = normalize(s.layout, state.grid);
+      // 페이지 수가 안 적혀 있으면 자리에 적힌 가장 큰 쪽수로 센다(옛 저장본 대비).
+      state.pages = okPages(s.pages || pagesIn(s.layout));
+      state.layout = normalize(s.layout, state.grid, state.pages);
     } },
   // 학사일정은 바깥에서 채워 준다. 이 쪽은 읽기만 하고 그대로 돌려 쓴다.
   { key: "desk_calendar",
@@ -654,21 +658,94 @@ function renderGcal() {
 
 /* ---------- 칸(그리드)에 놓기 ---------- */
 const deck = $("deck");
-let arranging = false;
+let arranging = false, curPage = 1;
 
+// 페이지에 무엇이 있는지로 이름을 짓는다(교무수첩만 있으면 "교무수첩").
+function pageName(p) {
+  const on = WIDGETS.filter(d => state.layout[d.id].on && state.layout[d.id].pg === p);
+  if (!on.length) return p + "장 (빈 장)";
+  const big = on.slice().sort((a, b) => {
+    const A = state.layout[a.id], B = state.layout[b.id];
+    return (B.w * B.h) - (A.w * A.h);
+  })[0];
+  return p + "장 · " + big.name + (on.length > 1 ? " 외 " + (on.length - 1) : "");
+}
+function gotoPage(p) {
+  const next = Math.max(1, Math.min(okPages(state.pages), p));
+  if (next === curPage) return;
+  curPage = next;
+  applyGrid(); renderPagebar();
+}
 function applyGrid() {
   const g = okGrid(state.grid);
+  state.pages = okPages(state.pages);
+  if (curPage > state.pages) curPage = state.pages;
   deck.style.setProperty("--cols", String(g.cols));
   deck.style.setProperty("--rows", String(g.rows));
-  state.layout = normalize(state.layout, g);
+  state.layout = normalize(state.layout, g, state.pages);
   for (const def of WIDGETS) {
     const el = deck.querySelector('.wg[data-w="' + def.id + '"]');
     if (!el) continue;
     const b = state.layout[def.id];
-    el.hidden = !b.on;
+    el.hidden = !b.on || b.pg !== curPage;
     el.style.gridArea = b.y + " / " + b.x + " / span " + b.h + " / span " + b.w;
   }
+  renderPagebar();
 }
+
+/* 아래 가운데 페이지 바. 배치 중에는 장을 더하고 지우는 단추도 나온다. */
+function renderPagebar() {
+  const bar = $("pagebar");
+  if (!bar) return;
+  const n = okPages(state.pages);
+  bar.classList.toggle("show", arranging);
+  const kids = [
+    h("button", { class: "pg-arrow", type: "button", "aria-label": "앞 장", text: "‹", onclick: () => gotoPage(curPage - 1) }),
+    h("div", { class: "pg-dots" }, ...Array.from({ length: n }, (_, i) => h("button", {
+      class: "pg-dot" + (i + 1 === curPage ? " cur" : ""), type: "button",
+      "data-page": String(i + 1), "aria-label": pageName(i + 1),
+      title: pageName(i + 1), onclick: () => gotoPage(i + 1),
+    }))),
+    h("button", { class: "pg-arrow", type: "button", "aria-label": "다음 장", text: "›", onclick: () => gotoPage(curPage + 1) }),
+  ];
+  if (arranging) {
+    kids.push(h("span", { class: "pg-name", text: pageName(curPage) }));
+    if (n < MAX_PAGES) kids.push(h("button", { class: "pg-add", type: "button", "aria-label": "장 더하기", text: "+", onclick: () => addPage() }));
+    if (n > 1) kids.push(h("button", { class: "pg-del", type: "button", "aria-label": "이 장 지우기", text: "×", onclick: () => delPage() }));
+  }
+  bar.replaceChildren(...kids);
+}
+function addPage() {
+  if (okPages(state.pages) >= MAX_PAGES) { toast("장은 " + MAX_PAGES + "개까지예요"); return; }
+  state.pages = okPages(state.pages + 1);
+  save(true); curPage = state.pages; applyGrid();
+  if (setOpen) renderSet();
+  toast(state.pages + "장이 됐어요. 우젯을 끌어다 페이지 점에 놓으면 옮겨져요");
+}
+function delPage() {
+  const n = okPages(state.pages);
+  if (n <= 1) return;
+  const here = WIDGETS.filter(d => state.layout[d.id].on && state.layout[d.id].pg === curPage);
+  if (here.length) { toast("이 장에 우젯이 " + here.length + "개 있어요. 다른 장으로 옮기거나 끄고 지워 주세요"); return; }
+  // 뒷장들을 한 칸 당긴다
+  for (const def of WIDGETS) {
+    const g = state.layout[def.id];
+    if (g.pg > curPage) g.pg -= 1;
+  }
+  state.pages = n - 1;
+  if (curPage > state.pages) curPage = state.pages;
+  save(true); applyGrid();
+  if (setOpen) renderSet();
+  toast("장을 지웠어요");
+}
+// 키보드 화살표로도 넘긴다(글을 치는 중이면 넘기지 않는다)
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  if ($("app").hidden) return;
+  gotoPage(curPage + (e.key === "ArrowRight" ? 1 : -1));
+});
 function wgEl(id) { return deck.querySelector('.wg[data-w="' + id + '"]'); }
 
 function addHandles() {
@@ -689,11 +766,18 @@ const dropHandles = () => deck.querySelectorAll(".wg-tag, .wg-off, .rz").forEach
 function setArrange(on) {
   arranging = !!on;
   deck.classList.toggle("arranging", arranging);
+  $("tools").classList.toggle("show", arranging);
   $("arrange").classList.toggle("on", arranging);
-  $("arrange").textContent = arranging ? "배치 끝내기" : "배치";
+  $("arrange").title = arranging ? "배치 끝내기" : "위젯 이동·크기조절";
   if (arranging) addHandles(); else dropHandles();
+  let tip = document.querySelector(".drag-tip");
+  if (arranging && !tip) {
+    document.body.append(h("div", { class: "drag-tip", text: "가운데를 끌면 옮기기 · 테두리를 끌면 크기 · 아래 페이지 점에 놓으면 그 장으로" }));
+  } else if (!arranging && tip) { tip.remove(); }
+  renderPagebar();
 }
 $("arrange").addEventListener("click", () => setArrange(!arranging));
+$("toolSet").addEventListener("click", () => { setOpen = !setOpen; renderSet(); });
 
 // 끌어 옮기기와 크기 바꾸기. 겹치는 자리에는 놓지 않는다.
 deck.addEventListener("pointerdown", (e) => {
@@ -710,7 +794,19 @@ deck.addEventListener("pointerdown", (e) => {
   const minW = Math.min(def.min[0], G.cols), minH = Math.min(def.min[1], G.rows);
   el.classList.add("dragging");
   try { el.setPointerCapture(e.pointerId); } catch (err) {}
+  let overDot = null;
+  const markDot = (ev) => {
+    // 페이지 점 위에 놓으면 그 장으로 옮긴다
+    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    const dot = under && under.closest && under.closest(".pg-dot");
+    if (dot !== overDot) {
+      if (overDot) overDot.classList.remove("over");
+      overDot = dot || null;
+      if (overDot) overDot.classList.add("over");
+    }
+  };
   const move = (ev) => {
+    if (!dir) markDot(ev);
     const dC = Math.round((ev.clientX - sx) / uw), dR = Math.round((ev.clientY - sy) / uh);
     const cand = moved(g0, G, dC, dR, dir);
     if (cand.w < minW || cand.h < minH) return;
@@ -723,7 +819,15 @@ deck.addEventListener("pointerdown", (e) => {
     el.removeEventListener("pointermove", move);
     el.removeEventListener("pointerup", up);
     el.removeEventListener("pointercancel", up);
-    save(true);
+    if (overDot) {
+      const to = Number(overDot.dataset.page);
+      overDot.classList.remove("over"); overDot = null;
+      if (to && to !== state.layout[id].pg) {
+        if (moveToPage(state.layout, id, G, to)) toast(def.name + "을 " + to + "장으로 옮겼어요");
+        else toast(to + "장에 놓을 빈자리가 없어요");
+      }
+    }
+    save(true); applyGrid();
     if (setOpen) renderSet();
   };
   el.addEventListener("pointermove", move);
@@ -741,7 +845,7 @@ function gridPanel() {
   const apply = () => {
     const next = okGrid({ cols: colIn.value, rows: rowIn.value });
     state.grid = next;
-    state.layout = normalize(state.layout, next);
+    state.layout = normalize(state.layout, next, state.pages);
     save(true); applyGrid(); renderSet();
     toast(`칸을 ${next.cols}×${next.rows}로 바꿨어요`);
   };
@@ -766,7 +870,7 @@ function gridPanel() {
         err.textContent = "";
         save(true); applyGrid(); renderSet();
       },
-    }, def.name, h("span", { class: "sz", text: b.on ? `${b.w}×${b.h}` : "꺼짐" }));
+    }, def.name, h("span", { class: "sz", text: b.on ? `${b.pg}장 ${b.w}×${b.h}` : "꺼짐" }));
   }));
   return h("div", { class: "lock-panel divided grid-set" },
     h("h3", { text: "칸 수와 자리" }),
@@ -775,13 +879,18 @@ function gridPanel() {
       h("label", { class: "field" }, "가로 칸", colIn),
       h("label", { class: "field" }, "세로 칸", rowIn),
       h("button", { class: "btn small", type: "button", text: "칸 수 바꾸기", onclick: apply })),
+    h("div", { class: "row" },
+      h("span", { class: "tip", text: `지금 ${okPages(state.pages)}장, ${curPage}장을 보고 있어요.` }),
+      h("button", { class: "btn small secondary", type: "button", text: "장 더하기", onclick: () => addPage() }),
+      h("button", { class: "btn small secondary", type: "button", text: "이 장 지우기", onclick: () => delPage() })),
     h("p", { class: "tip", text: "자리를 옮기려면 아래 도구줄의 '배치'를 누르고 우젯을 끌어 주세요. 테두리를 잡으면 크기가 바뀝니다." }),
     toggles, err,
     h("div", { class: "row" },
       h("button", { class: "btn small secondary", type: "button", text: arranging ? "배치 끝내기" : "배치 시작", onclick: () => { setArrange(!arranging); renderSet(); } }),
       armed("되돌리기", "기본 배치로 되돌리기", () => {
         state.grid = { ...DEFAULT_GRID };
-        state.layout = normalize(null, state.grid);
+        state.pages = DEFAULT_PAGES; curPage = 1;
+        state.layout = normalize(null, state.grid, state.pages);
         save(true); applyGrid(); renderSet();
         toast("기본 배치로 되돌렸어요");
       })));
