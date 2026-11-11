@@ -13,19 +13,21 @@ export const DEFAULT_GRID = { cols: 24, rows: 16 };
 export const DEFAULT_PAGES = 2;
 export const MAX_PAGES = 8;
 
-/* 우젯 목록. min 은 더 작게 줄일 수 없는 칸 수 [가로, 세로] 다. */
+/* 더 작게 줄일 수 없는 칸 수 [가로, 세로]. 선생님 결정 2026-11-11: 전부 4×4.
+   더 작게 할 수 있던 때는 칸이 너무 작아져 글씨가 겹쳤다. */
+export const MIN_SIZE = [4, 4];
 export const WIDGETS = [
-  { id: "clock",   name: "시계",        min: [3, 2] },
-  { id: "links",   name: "바로가기",    min: [3, 1] },
-  { id: "now",     name: "지금 수업",   min: [3, 3] },
-  { id: "periods", name: "오늘 시간표", min: [3, 4] },
-  { id: "class",   name: "우리 반",     min: [4, 6] },
-  { id: "book",    name: "교무수첩",    min: [5, 6] },
-  { id: "gcal",    name: "구글 캘린더", min: [3, 3] },
-  { id: "todos",   name: "할 일",       min: [3, 3] },
-  { id: "ddays",   name: "학사 일정",   min: [3, 3] },
-  { id: "memo",    name: "메모",        min: [3, 2] },
-  { id: "tt",      name: "주간 시간표", min: [6, 3] },
+  { id: "clock",   name: "시계",        min: MIN_SIZE },
+  { id: "links",   name: "바로가기",    min: MIN_SIZE },
+  { id: "now",     name: "지금 수업",   min: MIN_SIZE },
+  { id: "periods", name: "오늘 시간표", min: MIN_SIZE },
+  { id: "class",   name: "우리 반",     min: MIN_SIZE },
+  { id: "book",    name: "교무수첩",    min: MIN_SIZE },
+  { id: "gcal",    name: "구글 캘린더", min: MIN_SIZE },
+  { id: "todos",   name: "할 일",       min: MIN_SIZE },
+  { id: "ddays",   name: "학사 일정",   min: MIN_SIZE },
+  { id: "memo",    name: "메모",        min: MIN_SIZE },
+  { id: "tt",      name: "주간 시간표", min: MIN_SIZE },
 ];
 export const widgetDef = (id) => WIDGETS.find(w => w.id === id) || null;
 
@@ -34,10 +36,10 @@ export const widgetDef = (id) => WIDGETS.find(w => w.id === id) || null;
    2장 — 교무수첩. 좁은 칸에서는 다섯 화면이 답답해서 한 장을 통째로 준다.
    페이지는 설정이나 아래 페이지 점에서 더하고 지운다. */
 export const DEFAULT_LAYOUT = {
-  clock:   { pg: 1, x: 1,  y: 1,  w: 6,  h: 3,  on: true },
-  links:   { pg: 1, x: 1,  y: 4,  w: 6,  h: 2,  on: true },
-  now:     { pg: 1, x: 1,  y: 6,  w: 6,  h: 4,  on: true },
-  periods: { pg: 1, x: 1,  y: 10, w: 6,  h: 7,  on: true },
+  clock:   { pg: 1, x: 1,  y: 1,  w: 6,  h: 4,  on: true },
+  links:   { pg: 1, x: 1,  y: 5,  w: 6,  h: 4,  on: true },
+  now:     { pg: 1, x: 1,  y: 9,  w: 6,  h: 4,  on: true },
+  periods: { pg: 1, x: 1,  y: 13, w: 6,  h: 4,  on: true },
   class:   { pg: 1, x: 7,  y: 1,  w: 6,  h: 16, on: true },
   gcal:    { pg: 1, x: 13, y: 1,  w: 6,  h: 8,  on: true },
   todos:   { pg: 1, x: 13, y: 9,  w: 6,  h: 8,  on: true },
@@ -52,13 +54,19 @@ export const okGrid = (g) => ({
   cols: clamp(g && g.cols, GRID_MIN.cols, GRID_MAX.cols) || DEFAULT_GRID.cols,
   rows: clamp(g && g.rows, GRID_MIN.rows, GRID_MAX.rows) || DEFAULT_GRID.rows,
 });
-export const okPages = (n) => clamp(n, 1, MAX_PAGES) || DEFAULT_PAGES;
+/* 숫자가 아니면 기본값으로. 예전에 clamp 만 쓰다가 인자를 빼먹은 자리에서
+   조용히 1장이 되어 모든 우젯이 1장으로 끌려온 적이 있다(2026-11-11). */
+export const okPages = (n) => {
+  const v = Math.round(Number(n));
+  return Number.isFinite(v) && v >= 1 ? Math.min(v, MAX_PAGES) : DEFAULT_PAGES;
+};
 
 /* 저장해 둔 자리를 지금 칸 수와 페이지 수에 맞게 다듬는다.
    칸 수를 줄였으면 밖으로 나간 것을 들여오고, 페이지를 줄였으면 마지막 장으로 당긴다. */
 export function normalize(saved, grid, pages) {
   const { cols, rows } = okGrid(grid);
-  const pg = okPages(pages);
+  // 페이지 수를 안 넘기면 저장해 둔 것에 적힌 장 수를 그대로 지킨다(장이 사라지지 않게).
+  const pg = okPages(pages == null ? pagesIn(saved) : pages);
   const out = {};
   for (const def of WIDGETS) {
     const s = (saved && saved[def.id]) || DEFAULT_LAYOUT[def.id] || { pg: 1, x: 1, y: 1, w: 4, h: 4, on: true };
@@ -72,7 +80,26 @@ export function normalize(saved, grid, pages) {
       on: s.on !== false,
     };
   }
-  return out;
+  return resolveOverlaps(out, { cols, rows });
+}
+
+/* 겹친 것을 풀어 준다.
+   최소 크기를 올리면(4×4) 전에 작게 두었던 것이 커지면서 옆과 겹친다.
+   큰 것부터 자리를 지키고, 겹친 것만 같은 장의 빈자리로 옮긴다.
+   빈자리가 없으면 그 자리에 둔다(겹쳐 보이더라도 잃어버리지는 않게). */
+export function resolveOverlaps(layout, grid) {
+  const order = WIDGETS.map(d => d.id)
+    .filter(id => layout[id] && layout[id].on)
+    .sort((a, b) => (layout[b].w * layout[b].h) - (layout[a].w * layout[a].h));
+  const kept = {};
+  for (const id of order) {
+    const g = layout[id];
+    if (!hits(kept, id, g, g.pg)) { kept[id] = g; continue; }
+    const s = freeSlot(kept, id, grid, g.w, g.h, g.pg);
+    kept[id] = s ? { ...g, x: s.x, y: s.y } : g;
+  }
+  for (const id of order) layout[id] = kept[id];
+  return layout;
 }
 /* 저장해 둔 것에서 페이지가 몇 장인지 센다(가장 큰 pg). */
 export function pagesIn(layout) {

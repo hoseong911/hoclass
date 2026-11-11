@@ -239,7 +239,7 @@ function checkHiddenRule() {
   assert.strictEqual(deck.style.getPropertyValue("--cols"), "24", "가로 24칸");
   assert.strictEqual(deck.style.getPropertyValue("--rows"), "16", "세로 16칸");
   // 1장은 4단: 한 단이 6칸이고 각 단이 1, 7, 13, 19 열에서 시작한다
-  assert.strictEqual(A.area("clock"), "1 / 1 / span 3 / span 6", "1단 머리: " + A.area("clock"));
+  assert.strictEqual(A.area("clock"), "1 / 1 / span 4 / span 6", "1단 머리: " + A.area("clock"));
   assert.strictEqual(A.area("class"), "1 / 7 / span 16 / span 6", "2단 우리 반");
   assert.strictEqual(A.area("gcal"), "1 / 13 / span 8 / span 6", "3단 구글 캘린더");
   assert.strictEqual(A.area("ddays"), "1 / 19 / span 8 / span 6", "4단 학사 일정");
@@ -249,6 +249,15 @@ function checkHiddenRule() {
   assert(A.wg("tt").hidden, "1장에서는 주간 시간표가 안 보인다");
   assert(!A.wg("class").hidden, "1장에서는 우리 반이 보인다");
   assert.strictEqual(dots().length, 2, "페이지 점 두 개");
+  // 최소 크기 4×4 (선생님 결정 2026-11-11). 기본 배치가 그 규칙을 지켜야 한다.
+  const spanOf = (id) => {
+    const parts = A.area(id).split(" / ");       // "y / x / span h / span w"
+    return { y: +parts[0], x: +parts[1], h: +String(parts[2]).replace("span ", ""), w: +String(parts[3]).replace("span ", "") };
+  };
+  for (const id of ["clock", "links", "now", "periods", "class", "book", "gcal", "todos", "ddays", "memo", "tt"]) {
+    const g = spanOf(id);
+    assert(g.w >= 4 && g.h >= 4, id + " 가 4×4 보다 작다: " + g.w + "×" + g.h);
+  }
   await until(() => store.has("desk_grid/all"), "desk_grid/all 저장");
   assert.strictEqual(JSON.parse(store.get("desk_grid/all")).state.pages, 2, "두 장으로 저장");
 

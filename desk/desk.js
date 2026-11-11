@@ -861,7 +861,7 @@ function gridPanel() {
           while (!done && G.rows < GRID_MAX.rows) {
             G = okGrid({ cols: G.cols, rows: G.rows + 2 });
             state.grid = G;
-            state.layout = normalize(state.layout, G);
+            state.layout = normalize(state.layout, G, state.pages);
             done = turnOn(state.layout, def.id, G);
           }
           if (!done) { err.textContent = def.name + "을 놓을 자리를 못 찾았어요. 다른 것을 끄고 다시 해 주세요."; return; }
