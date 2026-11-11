@@ -1,0 +1,59 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "나의 책상",
+  "version": "0.1.0",
+  "identifier": "com.hoseong.desk",
+  "build": {
+    "frontendDist": "../dist",
+    "beforeDevCommand": "node build-dist.js",
+    "beforeBuildCommand": "node build-dist.js"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "widget",
+        "title": "나의 책상",
+        "url": "desk/widget.html",
+        "width": 1200,
+        "height": 800,
+        "decorations": false,
+        "transparent": false,
+        "shadow": false,
+        "resizable": false,
+        "skipTaskbar": false,
+        "focus": false,
+        "visible": false,
+        "fullscreen": false
+      },
+      {
+        "label": "desk",
+        "title": "나의 책상 — 교무수첩",
+        "url": "desk/index.html",
+        "width": 1480,
+        "height": 940,
+        "minWidth": 900,
+        "minHeight": 600,
+        "decorations": true,
+        "resizable": true,
+        "center": true,
+        "focus": true,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

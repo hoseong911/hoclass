@@ -580,6 +580,14 @@ $("gateForm").addEventListener("submit", async (e) => {
 });
 $("signOut").addEventListener("click", () => { signOutNow(); });
 
+// 타우리 앱에서만 쓰는 단추. 수첩 창을 숨기면 바탕화면 위젯이 다시 보인다.
+if (window.__TAURI__ && window.__TAURI__.window) {
+  $("toWidget").hidden = false;
+  $("toWidget").addEventListener("click", async () => {
+    try { await window.__TAURI__.window.getCurrentWindow().hide(); } catch (e) {}
+  });
+}
+
 function connect() {
   FB.onAuthStateChanged(FB.auth, (user) => {
     if (user) openApp(user);

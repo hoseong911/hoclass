@@ -6,3 +6,5 @@ node_modules/
 tools/node_modules/
 tools/package*.json
 desk/node_modules/
+desk/dist/
+desk/vendor/
