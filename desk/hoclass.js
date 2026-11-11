@@ -80,8 +80,8 @@ export function snapshotNames(hc) {
   return out;
 }
 
-/* ---------- 차시 (강의실에 꽂힌 강의) ---------- */
-// 강의실마다 꽂힌 차시와, 그 차시가 가리키는 강의의 제목을 묶어 돌려준다.
+/* ---------- 차시 (강의실에 연결한 강의) ---------- */
+// 강의실마다 연결한 차시와, 그 차시가 가리키는 강의의 제목을 묶어 돌려준다.
 export async function loadLessons(FB, hc) {
   const byCls = {};
   if (!hc || !hc.courses.length) return byCls;
@@ -155,7 +155,7 @@ export async function setAbsent(FB, { clId, courseId, lessonId }, studentNos, on
 export async function fillLessonDate(FB, clId, date) {
   const ref = FB.doc(FB.db, "hoclass_course_lessons", clId);
   const cur = await FB.getDoc(ref);
-  if (!cur.exists()) throw new Error("그 차시를 찾지 못했어요.");
+  if (!cur.exists()) throw new Error("그 차시를 찾지 못했습니다.");
   const cl = { ...cur.data() };
   if (String(cl.date || "")) return false;
   cl.date = date;

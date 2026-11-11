@@ -41,7 +41,7 @@ window.__deskLog = [];
     <label class="field">비밀번호<input type="password" id="gatePass" autocomplete="current-password" required></label>
     <p class="form-err" id="gateErr" role="alert"></p>
     <button class="btn" type="submit" id="gateBtn">들어가기</button>
-    <p class="tip">여기 넣는 비밀번호는 계정 비밀번호예요. 상담·학생 메모를 여는 수첩 비밀번호는 들어간 뒤에 따로 넣습니다.</p>
+    <p class="tip">여기 넣는 비밀번호는 계정 비밀번호입니다. 상담·학생 메모를 여는 수첩 비밀번호는 들어간 뒤에 따로 넣습니다.</p>
     <p class="gate-diag" id="gateDiag">화면을 불러오는 중…</p>
     <button class="text-btn" type="button" id="gateReload">새로 받기 (저장해 둔 것 버리고)</button>
   </form>
@@ -55,7 +55,7 @@ window.__deskLog = [];
   <section class="wg" data-w="clock">
     <section class="card wg-clock">
       <div>
-        <div class="greet" id="greet">좋은 하루예요</div>
+        <div class="greet" id="greet">좋은 하루입니다</div>
         <div class="clock" id="clock" aria-live="off">--:--<span class="sec">--</span></div>
       </div>
       <div class="date-block">
@@ -195,7 +195,7 @@ window.__deskLog = [];
         <h2 class="card-title" id="weekTitle">주간 시간표</h2>
         <button class="btn small secondary" type="button" id="ttEdit">편집</button>
       </div>
-      <p class="hint" id="ttHint" hidden>예시 시간표와 중학교 기준 예시 종 시간이 들어 있어요. '편집'을 눌러 내 시간표로 바꿔 주세요.</p>
+      <p class="hint" id="ttHint" hidden>예시 시간표와 중학교 기준 예시 종 시간이 들어 있습니다. '편집'을 눌러 내 시간표로 바꿔 주세요.</p>
       <div class="tt-scroll"><table class="tt" id="tt"></table></div>
     </section>
   </section>
@@ -221,7 +221,8 @@ window.__deskLog = [];
   </span>
 </div>
 
-<!-- 떠 있는 패널: 올해 설정, 칸 수 조정, 백업 -->
+<!-- 설정 패널. 뒤를 가리는 막을 누르거나 ESC 로도 닫힌다. -->
+<div class="scrim" id="setScrim" hidden></div>
 <section class="card float" id="setPanel" hidden aria-labelledby="setTitle"></section>
 
 </div><!-- /app -->
@@ -243,7 +244,7 @@ document.getElementById("gateReload").addEventListener("click", async function (
 setTimeout(function () {
   if (window.__deskReady) return;
   var e = document.getElementById("gateErr");
-  if (e && !e.textContent) e.textContent = "화면을 불러오지 못했어요. 아래 '새로 받기'를 눌러 주세요.";
+  if (e && !e.textContent) e.textContent = "화면을 불러오지 못했습니다. 아래 '새로 받기'를 눌러 주세요.";
 }, 5000);
 </script>
 </body>

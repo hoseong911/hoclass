@@ -29,7 +29,7 @@ function tick() {
 }
 function nowText(now) {
   const di = dayIdx(now);
-  if (di < 0) return "주말이에요";
+  if (di < 0) return "주말입니다";
   const row = state.tt ? state.tt[di] : null;
   const m = now.getHours() * 60 + now.getMinutes();
   for (let i = 0; i < 7; i++) {
@@ -40,13 +40,13 @@ function nowText(now) {
     }
     if (i < 6 && m >= e && m < toMin(state.bells[i + 1].s)) return `${i + 1}교시 끝, 쉬는 시간`;
   }
-  return m < toMin(state.bells[0].s) ? "수업 전이에요" : "오늘 수업은 끝났어요";
+  return m < toMin(state.bells[0].s) ? "수업 전입니다" : "오늘 수업은 끝났습니다";
 }
 function renderPeriods(now) {
   const list = $("wPeriods"), di = dayIdx(now);
-  if (di < 0) { list.replaceChildren(li("", "주말에는 수업이 없어요", "free")); return; }
+  if (di < 0) { list.replaceChildren(li("", "주말에는 수업이 없습니다", "free")); return; }
   const row = state.tt ? state.tt[di] : null;
-  if (!row) { list.replaceChildren(li("", "시간표를 아직 못 읽었어요", "free")); return; }
+  if (!row) { list.replaceChildren(li("", "시간표를 아직 못 읽었습니다", "free")); return; }
   const m = now.getHours() * 60 + now.getMinutes();
   const out = [];
   for (let i = 0; i < 7; i++) {
@@ -70,7 +70,7 @@ function renderTodos() {
   const left = state.todos.filter(t => t && !t.done).slice(0, 7);
   $("wTodos").replaceChildren(...(left.length
     ? left.map(t => li("", String(t.text || "")))
-    : [li("", "남은 할 일이 없어요", "free")]));
+    : [li("", "남은 할 일이 없습니다", "free")]));
 }
 function renderDdays() {
   const t0 = parseDate(todayKey());
@@ -86,7 +86,7 @@ function renderDdays() {
         const n = Math.round((parseDate(x.date) - t0) / 86400000);
         return li(n === 0 ? "D-DAY" : "D-" + n, x.title);
       })
-    : [li("", "앞으로의 일정이 없어요", "free")]));
+    : [li("", "앞으로의 일정이 없습니다", "free")]));
 }
 
 /* ---------- 자료 읽기 ---------- */
@@ -112,13 +112,13 @@ function start() {
 
 FB.onAuthStateChanged(FB.auth, (user) => {
   if (user) {
-    $("wNote").textContent = "출결·수합·상담은 잠겨 있어요. 수첩을 열면 보입니다.";
+    $("wNote").textContent = "출결·수합·상담은 잠겨 있습니다. 수첩을 열면 보입니다.";
     start();
   } else {
     $("wNote").textContent = "수첩을 열어 로그인해 주세요.";
-    $("wPeriods").replaceChildren(li("", "로그인하면 보여요", "free"));
-    $("wTodos").replaceChildren(li("", "로그인하면 보여요", "free"));
-    $("wDdays").replaceChildren(li("", "로그인하면 보여요", "free"));
+    $("wPeriods").replaceChildren(li("", "로그인하면 보입니다", "free"));
+    $("wTodos").replaceChildren(li("", "로그인하면 보입니다", "free"));
+    $("wDdays").replaceChildren(li("", "로그인하면 보입니다", "free"));
   }
 });
 

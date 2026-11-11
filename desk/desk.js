@@ -35,12 +35,12 @@ function toast(msg) {
   clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2200);
 }
 async function copyText(text) {
-  try { await navigator.clipboard.writeText(text); toast("복사했어요"); }
+  try { await navigator.clipboard.writeText(text); toast("복사했습니다"); }
   catch (e) {
     const ta = h("textarea", { value: text, style: "position:fixed;left:-9999px" });
     document.body.append(ta); ta.select();
     let ok = false; try { ok = document.execCommand("copy"); } catch (_) {}
-    ta.remove(); toast(ok ? "복사했어요" : "복사가 막혀 있어요. 직접 선택해 복사해 주세요");
+    ta.remove(); toast(ok ? "복사했습니다" : "복사가 막혀 있습니다. 직접 선택해 복사해 주세요");
   }
 }
 
@@ -108,7 +108,7 @@ async function loadHc() {
     checkNames();
     loadHcLessons();
   } catch (e) {
-    hcErr = "호클래스 명단을 읽지 못했어요. 새로고침해 보세요.";
+    hcErr = "호클래스 명단을 읽지 못했습니다. 새로고침해 보세요.";
   } finally {
     hcBusy = false;
     renderClass(); renderBook();
@@ -383,11 +383,11 @@ async function flushDoc(d) {
       } catch (e) {
         const code = (e && e.code) || "";
         if (code.includes("permission-denied") || code.includes("unauthenticated")) {
-          d.pendingBody = null; syncNote = "저장 권한이 없어요. 다시 로그인해 주세요."; goOffline(); break;
+          d.pendingBody = null; syncNote = "저장 권한이 없습니다. 다시 로그인해 주세요."; goOffline(); break;
         }
         if (code.includes("invalid-argument") || code.includes("not-found")) { d.pendingBody = null; goOffline(); break; }
         if (code.includes("resource-exhausted") || code.includes("quota")) {
-          d.pendingBody = null; syncNote = "저장 공간이 가득 찼어요. 지난 기록을 줄여 주세요."; break;
+          d.pendingBody = null; syncNote = "저장 공간이 가득 찼습니다. 지난 기록을 줄여 주세요."; break;
         }
         setSync("warn", "저장 재시도 중");
         await sleep(2000 + Math.random() * 1500);
@@ -538,13 +538,13 @@ async function lockNow() {
   if (setOpen) renderSet();
 }
 async function setupKey(pass) {
-  if (!cloud || !C.confirmed || !C.ref) throw new Error("저장소에 연결된 뒤에 만들 수 있어요. 잠시 뒤 다시 시도해 주세요.");
+  if (!cloud || !C.confirmed || !C.ref) throw new Error("저장소에 연결된 뒤에 만들 수 있습니다. 잠시 뒤 다시 시도해 주세요.");
   const raw = rnd(32), rec = makeRecovery();
   const meta = { v: 1, at: Date.now(), pass: await wrapRaw(raw, normPass(pass), "pass"), rec: await wrapRaw(raw, rec, "rec") };
   const got = await C.ref.createOnce(meta, (d) => !!d.pass);
   if (!got.ok) {
     C.body = got.body; lsSet(C.key, got.body); renderClass();
-    throw new Error("이미 다른 기기에서 비밀번호를 만들었어요. 그 비밀번호로 열어 주세요.");
+    throw new Error("이미 다른 기기에서 비밀번호를 만들었습니다. 그 비밀번호로 열어 주세요.");
   }
   C.body = meta; lsSet(C.key, meta);
   recoveryToShow = rec;
@@ -553,7 +553,7 @@ async function setupKey(pass) {
 async function unlock(pass) {
   let raw;
   try { raw = await unwrapRaw(C.body.pass, normPass(pass), "pass"); }
-  catch (e) { throw new Error("비밀번호가 맞지 않아요. 다시 입력해 주세요."); }
+  catch (e) { throw new Error("비밀번호가 맞지 않습니다. 다시 입력해 주세요."); }
   await useRaw(raw);
 }
 async function rewrap(secret, newPass) {
@@ -561,7 +561,7 @@ async function rewrap(secret, newPass) {
   try { raw = await unwrapRaw(C.body.pass, normPass(secret), "pass"); }
   catch (e) {
     try { raw = await unwrapRaw(C.body.rec, normRec(secret), "rec"); }
-    catch (e2) { throw new Error("비밀번호나 복구 키가 맞지 않아요."); }
+    catch (e2) { throw new Error("비밀번호나 복구 키가 맞지 않습니다."); }
   }
   const meta = { ...C.body, at: Date.now(), pass: await wrapRaw(raw, normPass(newPass), "pass") };
   C.body = meta; lsSet(C.key, meta);
@@ -613,11 +613,11 @@ function renderGcal() {
   btn.textContent = gcalBusy ? "연결 중…" : linked ? "새로 받기" : "연결";
   btn.onclick = () => { if (linked) gcalLoad().then(renderGcal); else gcalConnect(); };
 
-  if (!signedIn) { box.replaceChildren(h("p", { class: "empty", text: "로그인하면 쓸 수 있어요." })); return; }
+  if (!signedIn) { box.replaceChildren(h("p", { class: "empty", text: "로그인하면 쓸 수 있습니다." })); return; }
   if (gcalErr) {
     const kids = [h("p", { class: "hint", text: gcalErr })];
     if (gcalStep >= 1) {
-      kids.push(h("p", { class: "tip", text: "세 가지가 켜져 있어야 해요. 둘은 제가 켜 두었습니다." }));
+      kids.push(h("p", { class: "tip", text: "세 가지가 켜져 있어야 합니다. 둘은 제가 켜 두었습니다." }));
       kids.push(h("ul", { class: "lines" }, ...GCAL_STEPS.map((st, i) =>
         h("li", { class: "line" + (st.done ? " done" : "") },
           h("div", { class: "top" },
@@ -626,7 +626,7 @@ function renderGcal() {
       if (gcalStep === 2) {
         kids.push(h("p", { class: "row" },
           h("a", { class: "btn small", href: GCal.CONSOLE_URL, target: "_blank", rel: "noopener", text: "파베 로그인 설정 열기" })));
-        kids.push(h("p", { class: "tip", text: "그 화면에서 Google 을 누르고 '사용 설정'만 켜면 돼요. 지원 이메일은 선생님 메일을 고르면 됩니다. 켜고 나서 아래 '다시 해 보기'를 눌러 주세요." }));
+        kids.push(h("p", { class: "tip", text: "그 화면에서 Google 을 누르고 '사용 설정'만 켜면 됩니다. 지원 이메일에는 선생님 메일을 고릅니다. 켜고 나서 아래 '다시 해 보기'를 눌러 주세요." }));
       }
     }
     kids.push(h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "다시 해 보기", onclick: () => gcalConnect() })));
@@ -635,13 +635,13 @@ function renderGcal() {
   }
   if (!linked) {
     box.replaceChildren(
-      h("p", { class: "empty", text: "구글 캘린더를 이어 붙이면 앞으로 3주 일정이 여기 보여요." }),
+      h("p", { class: "empty", text: "구글 캘린더를 이어 붙이면 앞으로 3주 일정이 여기 보입니다." }),
       h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "구글 캘린더 연결", onclick: () => gcalConnect() })),
-      h("p", { class: "tip", text: "읽기만 합니다. 캘린더에 쓰지 않아요." }));
+      h("p", { class: "tip", text: "읽기만 합니다. 캘린더에 쓰지 않습니다." }));
     return;
   }
   if (!gcalDays.length) {
-    box.replaceChildren(h("p", { class: "empty", text: "앞으로 3주에 일정이 없어요." }));
+    box.replaceChildren(h("p", { class: "empty", text: "앞으로 3주에 일정이 없습니다." }));
     return;
   }
   const t0 = parseDate(todayKey());
@@ -716,17 +716,17 @@ function renderPagebar() {
   bar.replaceChildren(...kids);
 }
 function addPage() {
-  if (okPages(state.pages) >= MAX_PAGES) { toast("장은 " + MAX_PAGES + "개까지예요"); return; }
+  if (okPages(state.pages) >= MAX_PAGES) { toast("장은 " + MAX_PAGES + "개까지입니다"); return; }
   state.pages = okPages(state.pages + 1);
   save(true); curPage = state.pages; applyGrid();
   if (setOpen) renderSet();
-  toast(state.pages + "장이 됐어요. 우젯을 끌어다 페이지 점에 놓으면 옮겨져요");
+  toast(state.pages + "장이 됐습니다. 우젯을 끌어다 페이지 점에 놓으면 옮겨집니다");
 }
 function delPage() {
   const n = okPages(state.pages);
   if (n <= 1) return;
   const here = WIDGETS.filter(d => state.layout[d.id].on && state.layout[d.id].pg === curPage);
-  if (here.length) { toast("이 장에 우젯이 " + here.length + "개 있어요. 다른 장으로 옮기거나 끄고 지워 주세요"); return; }
+  if (here.length) { toast("이 장에 우젯이 " + here.length + "개 있습니다. 다른 장으로 옮기거나 끄고 지워 주세요"); return; }
   // 뒷장들을 한 칸 당긴다
   for (const def of WIDGETS) {
     const g = state.layout[def.id];
@@ -736,7 +736,7 @@ function delPage() {
   if (curPage > state.pages) curPage = state.pages;
   save(true); applyGrid();
   if (setOpen) renderSet();
-  toast("장을 지웠어요");
+  toast("장을 지웠습니다");
 }
 // 키보드 화살표로도 넘긴다(글을 치는 중이면 넘기지 않는다)
 document.addEventListener("keydown", (e) => {
@@ -778,6 +778,8 @@ function setArrange(on) {
 }
 $("arrange").addEventListener("click", () => setArrange(!arranging));
 $("toolSet").addEventListener("click", () => { setOpen = !setOpen; renderSet(); });
+$("setScrim").addEventListener("click", closeSet);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && setOpen) closeSet(); });
 
 // 끌어 옮기기와 크기 바꾸기. 겹치는 자리에는 놓지 않는다.
 deck.addEventListener("pointerdown", (e) => {
@@ -823,8 +825,8 @@ deck.addEventListener("pointerdown", (e) => {
       const to = Number(overDot.dataset.page);
       overDot.classList.remove("over"); overDot = null;
       if (to && to !== state.layout[id].pg) {
-        if (moveToPage(state.layout, id, G, to)) toast(def.name + "을 " + to + "장으로 옮겼어요");
-        else toast(to + "장에 놓을 빈자리가 없어요");
+        if (moveToPage(state.layout, id, G, to)) toast(def.name + "을 " + to + "장으로 옮겼습니다");
+        else toast(to + "장에 놓을 빈자리가 없습니다");
       }
     }
     save(true); applyGrid();
@@ -836,8 +838,8 @@ deck.addEventListener("pointerdown", (e) => {
   e.preventDefault();
 });
 
-/* 칸 수 조정과 우젯 켜고 끄기 (설정 패널에 들어간다) */
-function gridPanel() {
+/* 화면 배치 묶음 (설정 패널의 '화면' 탭) */
+function gridSection() {
   const G = okGrid(state.grid);
   const colIn = h("input", { type: "number", id: "setCols", value: String(G.cols), min: String(GRID_MIN.cols), max: String(GRID_MAX.cols) });
   const rowIn = h("input", { type: "number", id: "setRows", value: String(G.rows), min: String(GRID_MIN.rows), max: String(GRID_MAX.rows) });
@@ -847,7 +849,7 @@ function gridPanel() {
     state.grid = next;
     state.layout = normalize(state.layout, next, state.pages);
     save(true); applyGrid(); renderSet();
-    toast(`칸을 ${next.cols}×${next.rows}로 바꿨어요`);
+    toast(`칸을 ${next.cols}×${next.rows}로 바꿨습니다`);
   };
   const toggles = h("div", { class: "wg-list" }, ...WIDGETS.map(def => {
     const b = state.layout[def.id];
@@ -864,46 +866,46 @@ function gridPanel() {
             state.layout = normalize(state.layout, G, state.pages);
             done = turnOn(state.layout, def.id, G);
           }
-          if (!done) { err.textContent = def.name + "을 놓을 자리를 못 찾았어요. 다른 것을 끄고 다시 해 주세요."; return; }
-          toast(`자리가 없어서 세로를 ${G.rows}칸으로 늘렸어요`);
+          if (!done) { err.textContent = def.name + "을 놓을 자리를 못 찾았습니다. 다른 것을 끄고 다시 해 주세요."; return; }
+          toast(`자리가 없어서 세로를 ${G.rows}칸으로 늘렸습니다`);
         }
         err.textContent = "";
         save(true); applyGrid(); renderSet();
       },
     }, def.name, h("span", { class: "sz", text: b.on ? `${b.pg}장 ${b.w}×${b.h}` : "꺼짐" }));
   }));
-  return h("div", { class: "lock-panel divided grid-set" },
-    h("h3", { text: "칸 수와 자리" }),
-    h("p", { text: "화면을 가로 몇 칸, 세로 몇 칸으로 나눌지 정해요. 기본은 24×16이고, 24를 넷으로 나눠 4단으로 놓았어요. 바탕화면 위젯은 15×10을 씁니다." }),
-    h("div", { class: "row" },
-      h("label", { class: "field" }, "가로 칸", colIn),
-      h("label", { class: "field" }, "세로 칸", rowIn),
-      h("button", { class: "btn small", type: "button", text: "칸 수 바꾸기", onclick: apply })),
-    h("div", { class: "row" },
-      h("span", { class: "tip", text: `지금 ${okPages(state.pages)}장, ${curPage}장을 보고 있어요.` }),
+  return setSec("화면 배치", [
+    h("div", { class: "set-grid" },
+      setField("가로 칸", colIn),
+      setField("세로 칸", rowIn),
+      h("div", { class: "field" }, "칸 수",
+        h("button", { class: "btn small", type: "button", text: "바꾸기", onclick: apply }))),
+    h("div", { class: "set-row" },
+      h("span", { class: "set-state", text: okPages(state.pages) + "장 가운데 " + curPage + "장을 보고 있습니다." }),
       h("button", { class: "btn small secondary", type: "button", text: "장 더하기", onclick: () => addPage() }),
       h("button", { class: "btn small secondary", type: "button", text: "이 장 지우기", onclick: () => delPage() })),
-    h("p", { class: "tip", text: "자리를 옮기려면 아래 도구줄의 '배치'를 누르고 우젯을 끌어 주세요. 테두리를 잡으면 크기가 바뀝니다." }),
-    toggles, err,
-    h("div", { class: "row" },
-      h("button", { class: "btn small secondary", type: "button", text: arranging ? "배치 끝내기" : "배치 시작", onclick: () => { setArrange(!arranging); renderSet(); } }),
-      armed("되돌리기", "기본 배치로 되돌리기", () => {
-        state.grid = { ...DEFAULT_GRID };
-        state.pages = DEFAULT_PAGES; curPage = 1;
-        state.layout = normalize(null, state.grid, state.pages);
-        save(true); applyGrid(); renderSet();
-        toast("기본 배치로 되돌렸어요");
-      })));
+    h("h4", { class: "set-sub", text: "우젯" }),
+    toggles,
+  ], err, [
+    h("button", { class: "btn small secondary", type: "button", text: arranging ? "배치 끝내기" : "배치 시작", onclick: () => { setArrange(!arranging); renderSet(); } }),
+    armed("되돌리기", "기본 배치로 되돌리기", () => {
+      state.grid = { ...DEFAULT_GRID };
+      state.pages = DEFAULT_PAGES; curPage = 1;
+      state.layout = normalize(null, state.grid, state.pages);
+      save(true); applyGrid(); renderSet();
+      toast("기본 배치로 되돌렸습니다");
+    }),
+  ]);
 }
 
 /* ---------- 로그인 문 ---------- */
 function authMsg(e) {
   const c = (e && e.code) || "";
-  if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return "메일이나 비밀번호가 맞지 않아요.";
-  if (c.includes("too-many-requests")) return "너무 여러 번 시도했어요. 잠시 뒤에 다시 해 주세요.";
+  if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return "메일이나 비밀번호가 맞지 않습니다.";
+  if (c.includes("too-many-requests")) return "너무 여러 번 시도했습니다. 잠시 뒤에 다시 해 주세요.";
   if (c.includes("network")) return "인터넷 연결을 확인해 주세요.";
-  if (c.includes("user-disabled")) return "잠긴 계정이에요.";
-  return "들어가지 못했어요. " + (c || (e && e.message) || "까닭을 모르겠어요");
+  if (c.includes("user-disabled")) return "잠긴 계정입니다.";
+  return "들어가지 못했습니다. " + (c || (e && e.message) || "까닭을 모르겠습니다");
 }
 function showGate(msg) {
   $("gate").hidden = false;
@@ -922,7 +924,7 @@ function openApp(user) {
   if (GCal.savedToken()) gcalLoad().then(renderGcal);
   renderGcal();
   setSync("", "연결 중");
-  const loadTimer = setTimeout(() => { if (!C.confirmed) setSync("warn", "저장소에 연결하는 중이에요. 그동안 이 브라우저에 저장돼요."); }, 10000);
+  const loadTimer = setTimeout(() => { if (!C.confirmed) setSync("warn", "저장소에 연결하는 중입니다. 그동안 이 브라우저에 저장됩니다."); }, 10000);
   for (const d of allDocs()) subscribe(d);
   const wait = setInterval(() => { if (C.confirmed) { clearTimeout(loadTimer); clearInterval(wait); refreshSync(); softClass(); } }, 300);
 }
@@ -964,7 +966,7 @@ function connect() {
   FB.onAuthStateChanged(FB.auth, (user) => {
     step(user ? "로그인되어 있음" : "로그인 안 되어 있음");
     if (user) openApp(user);
-    else if (signedIn) { signedIn = null; showGate("로그인이 풀렸어요. 다시 들어와 주세요."); }
+    else if (signedIn) { signedIn = null; showGate("로그인이 풀렸습니다. 다시 들어와 주세요."); }
     else showGate();
   });
 }
@@ -1014,7 +1016,7 @@ function isoWeek(d) {
 }
 function renderGreeting() {
   const hr = new Date().getHours();
-  const part = hr < 5 ? "늦은 밤이에요" : hr < 12 ? "좋은 아침이에요" : hr < 18 ? "좋은 오후예요" : "오늘도 수고하셨어요";
+  const part = hr < 5 ? "늦은 밤입니다" : hr < 12 ? "좋은 아침입니다" : hr < 18 ? "좋은 오후입니다" : "오늘도 수고하셨습니다";
   $("greet").textContent = userName ? `${part}, ${userName} 선생님` : `${part}, 선생님`;
 }
 function renderNow(now) {
@@ -1026,12 +1028,12 @@ function renderNow(now) {
   const label = (i) => `${i + 1}교시`;
   const nextLine = (j, until) => j >= 0
     ? [h("span", null, "다음 ", h("b", { text: `${label(j)} · ${row[j]}` })), h("span", { class: "num", text: `${B[j].s} 시작 · ${fmtLeft(until)} 후` })]
-    : [h("span", { text: "오늘 남은 수업이 없어요" }), h("span", { text: "종례 준비" })];
+    : [h("span", { text: "오늘 남은 수업이 없습니다" }), h("span", { text: "종례 준비" })];
   $("nowAside").textContent = row ? `오늘 수업 ${classCount(row)}시간` : "";
   let mainKids, subText = "", prog = null, nextKids = null;
   switch (s.kind) {
-    case "weekend": mainKids = ["주말이에요"]; subText = "월요일 시간표는 아래 주간 시간표에서 볼 수 있어요."; break;
-    case "noclass": mainKids = ["오늘은 수업이 없어요"]; subText = "주간 시간표에서 오늘 칸을 채우면 여기에 표시돼요."; break;
+    case "weekend": mainKids = ["주말입니다"]; subText = "월요일 시간표는 아래 주간 시간표에서 볼 수 있습니다."; break;
+    case "noclass": mainKids = ["오늘은 수업이 없습니다"]; subText = "주간 시간표에서 오늘 칸을 채우면 여기에 표시됩니다."; break;
     case "invalid": mainKids = ["종 시간을 확인해 주세요"]; subText = "주간 시간표 편집에서 교시별 시작·끝 시간을 넣어 주세요."; break;
     case "before": mainKids = ["수업 전"]; subText = `첫 수업까지 ${fmtLeft(s.until)}`; nextKids = nextLine(s.next, s.until); break;
     case "class": mainKids = [`${label(s.i)} · `, h("span", { class: "cls", text: row[s.i] })]; subText = `${B[s.i].e} 종료 · ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
@@ -1084,7 +1086,7 @@ function renderMeta(now) {
 function renderPeriods(now = new Date()) {
   const list = $("periods");
   const row = todayRow(now);
-  if (!row) { $("todayAside").textContent = WD[now.getDay()] + "요일"; list.replaceChildren(h("li", { class: "empty", text: "주말에는 수업이 없어요." })); return; }
+  if (!row) { $("todayAside").textContent = WD[now.getDay()] + "요일"; list.replaceChildren(h("li", { class: "empty", text: "주말에는 수업이 없습니다." })); return; }
   $("todayAside").textContent = `${WD[now.getDay()]}요일`;
   const m = now.getHours() * 60 + now.getMinutes();
   const items = [];
@@ -1209,32 +1211,79 @@ function guardForm(btn, errEl, fn) {
     const label = btn.textContent;
     btn.disabled = true; btn.textContent = "처리 중";
     try { await fn(); }
-    catch (x) { errEl.textContent = (x && x.message) || "처리하지 못했어요. 다시 시도해 주세요."; }
+    catch (x) { errEl.textContent = (x && x.message) || "처리하지 못했습니다. 다시 시도해 주세요."; }
     finally { btn.disabled = false; btn.textContent = label; }
   };
 }
 function passField(id, label, auto) {
   return h("label", { class: "field" }, label, h("input", { type: "password", id, autocomplete: auto }));
 }
+/* 설정 패널.
+   2026-11-11 선생님 지시: "설정창에 닫기 버튼 만들어주고, ui가 엉망진창이니 정리해바.
+   말투도 좀 정형화되어서 정리해놔".
+   전에는 묶음 넷(올해, 비밀번호, 화면, 백업)이 한 패널에 세로로 쌓여 한참 내려가야 했고,
+   머리줄이 묶음마다 달랐고(card-title 와 h3), 닫기가 저장 단추 옆에 묻혀 있었다.
+   지금은 머리줄의 닫기 하나, 탭으로 한 묶음씩, 묶음 모양은 setSec 하나로 같다.
+   문구는 레포 CLAUDE.md 규칙을 따른다: 경어(~습니다), 칸 이름표는 짧은 명사,
+   칸 밑에 작은 글씨 설명을 달지 않는다, 플레이스홀더를 쓰지 않는다. */
+const SET_TABS = [
+  { key: "year", name: "올해" },
+  { key: "grid", name: "화면" },
+  { key: "back", name: "백업" },
+  { key: "pass", name: "비밀번호" },
+];
+let setTab = "year";
+function closeSet() { setOpen = false; renderSet(); }
+// 칸 하나. 이름표는 떠 있는 패널 안이라 두어도 되는 자리다(CLAUDE.md 플레이스홀더 규칙의 예외).
+const setField = (name, el) => h("label", { class: "field" }, name, el);
+// 묶음 하나. 제목, 속, 오류, 맨 아래 단추 줄 순서를 네 묶음이 똑같이 쓴다.
+function setSec(title, body, err, foot) {
+  return h("section", { class: "set-sec" },
+    h("h3", { text: title }),
+    ...(Array.isArray(body) ? body : [body]).filter(Boolean),
+    err || null,
+    foot ? h("div", { class: "set-foot" }, ...foot.filter(Boolean)) : null);
+}
+
 function renderSet() {
-  const p = $("setPanel");
+  const p = $("setPanel"), scrim = $("setScrim");
   p.hidden = !setOpen;
+  scrim.hidden = !setOpen;
   if (!setOpen) { p.replaceChildren(); return; }
+  // 비밀번호 묶음은 비밀번호를 만든 뒤에만 보인다.
+  const tabs = SET_TABS.filter(t => t.key !== "pass" || (C.body && C.body.pass));
+  if (!tabs.some(t => t.key === setTab)) setTab = "year";
+  p.replaceChildren(
+    h("div", { class: "set-head" },
+      h("h2", { class: "set-title", id: "setTitle", text: "설정" }),
+      h("button", { class: "set-x", type: "button", id: "setClose", title: "닫기", "aria-label": "닫기", text: "×", onclick: closeSet })),
+    h("div", { class: "set-tabs" }, ...tabs.map(t => h("button", {
+      class: "set-tab", type: "button", "aria-pressed": String(t.key === setTab),
+      "data-tab": t.key, text: t.name,
+      onclick: () => { setTab = t.key; renderSet(); },
+    }))),
+    setTab === "grid" ? gridSection()
+      : setTab === "back" ? backupSection()
+      : setTab === "pass" ? passSection()
+      : yearSection());
+}
+
+/* 올해 설정 */
+function yearSection() {
   const y = cfg();
   const yearIn = h("input", { type: "number", id: "setYear", value: String(state.year.current), min: "2020", max: "2099" });
-  const homeIn = h("input", { type: "text", id: "setHome", value: y.homeroom || "", placeholder: "예: 2-3", maxlength: "12", autocomplete: "off" });
-  const clsIn = h("input", { type: "text", id: "setClasses", value: (y.classes || []).join(", "), placeholder: "예: 2-1, 2-2, 2-3", autocomplete: "off" });
-  const schoolIn = h("input", { type: "text", id: "setSchool", value: state.school || "", placeholder: "예: 인천OO중학교", maxlength: "40", autocomplete: "off" });
-  const idleSel = h("select", { id: "setIdle" }, ...[5, 15, 30, 60].map(m => h("option", { value: String(m), text: `${m}분` })));
+  const homeIn = h("input", { type: "text", id: "setHome", value: y.homeroom || "", maxlength: "12", autocomplete: "off" });
+  const clsIn = h("input", { type: "text", id: "setClasses", value: (y.classes || []).join(", "), autocomplete: "off" });
+  const schoolIn = h("input", { type: "text", id: "setSchool", value: state.school || "", maxlength: "40", autocomplete: "off" });
+  const idleSel = h("select", { id: "setIdle" }, ...[5, 15, 30, 60].map(m => h("option", { value: String(m), text: m + "분" })));
   idleSel.value = String(state.idleMin);
   const err = h("p", { class: "form-err", role: "alert" });
-  const saveBtn = h("button", { class: "btn small", type: "submit", id: "setSave", text: "저장" });
-  const form = h("form", { class: "lock-panel", id: "setForm", onsubmit: (e) => {
+  const form = h("form", { class: "set-form", id: "setForm", onsubmit: (e) => {
     e.preventDefault();
     const Y = Number(yearIn.value);
-    if (!Number.isInteger(Y) || Y < 2020 || Y > 2099) { err.textContent = "학년도를 2026처럼 네 자리로 넣어 주세요."; return; }
+    if (!Number.isInteger(Y) || Y < 2020 || Y > 2099) { err.textContent = "학년도를 네 자리로 넣어 주세요."; return; }
     const homeRaw = homeIn.value.trim(), home = parseClasses(homeRaw)[0] || "";
-    if (homeRaw && !home) { err.textContent = "담임 반은 2-3이나 2학년 3반처럼 넣어 주세요. 담임이 아니면 비워 두세요."; return; }
+    if (homeRaw && !home) { err.textContent = "담임 반을 알아볼 수 없습니다. 담임이 아니면 비워 두셔도 됩니다."; return; }
     state.year.years[Y] = { homeroom: home, classes: parseClasses(clsIn.value) };
     state.year.current = Y;
     state.year.configured = true;
@@ -1245,44 +1294,47 @@ function renderSet() {
     openYearDocs();
     renderSet(); renderLinks(); renderClass(); renderBook();
     hc = null; loadHc();
-    toast("올해 설정을 저장했어요");
+    toast("올해 설정을 저장했습니다");
   } },
     h("div", { class: "set-grid" },
-      h("label", { class: "field" }, "학년도", yearIn),
-      h("label", { class: "field" }, "담임 반 (담임이 아니면 비워 두세요)", homeIn),
-      h("label", { class: "field" }, "자동 잠금", idleSel)),
-    h("label", { class: "field" }, "학교 (학사일정을 받아 넣을 때 씁니다)", schoolIn),
-    h("label", { class: "field" }, "수업 반", clsIn),
+      setField("학년도", yearIn),
+      setField("담임 반", homeIn),
+      setField("자동 잠금", idleSel)),
+    h("div", { class: "set-grid" },
+      setField("수업 반", clsIn),
+      setField("학교", schoolIn)),
     err,
-    h("div", { class: "row" }, saveBtn,
+    h("div", { class: "set-foot" },
+      h("button", { class: "btn small", type: "submit", id: "setSave", text: "저장" }),
       h("button", { class: "btn small secondary", type: "button", id: "setFromTT", text: "시간표에서 가져오기", onclick: () => {
-        const found = parseClasses(state.tt.flat().filter(c => /^\s*\d+\s*-\s*\d+\s*$/.test(c)).join(", ")).sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
+        const found = parseClasses(state.tt.flat().filter(c => /^\s*\d+\s*-\s*\d+\s*$/.test(c)).join(", "))
+          .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
         clsIn.value = found.join(", ");
-      } }),
-      h("button", { class: "btn small secondary", type: "button", text: "닫기", onclick: () => { setOpen = false; renderSet(); } })));
-  const kids = [h("div", { class: "card-head" }, h("h2", { class: "card-title", id: "setTitle", text: "올해 설정" })), form];
-  if (C.body && C.body.pass) {
-    const cur = h("input", { type: "password", id: "chgCur", autocomplete: "current-password" });
-    const err2 = h("p", { class: "form-err", role: "alert" });
-    const btn2 = h("button", { class: "btn small secondary", type: "submit", id: "chgSave", text: "비밀번호 바꾸기" });
-    kids.push(h("form", { class: "lock-panel divided", id: "chgForm", onsubmit: guardForm(btn2, err2, async () => {
-      const a = $("chgNew").value, b = $("chgNew2").value;
-      if (a.length < 8) throw new Error("새 비밀번호는 8자 이상으로 넣어 주세요.");
-      if (a !== b) throw new Error("새 비밀번호 두 칸이 서로 달라요.");
-      const raw = await rewrap(cur.value, a);
-      raw.fill(0);
-      cur.value = ""; $("chgNew").value = ""; $("chgNew2").value = "";
-      toast("비밀번호를 바꿨어요. 다른 기기에서도 새 비밀번호로 열어 주세요");
-    }) },
-      h("div", { class: "set-grid" },
-        h("label", { class: "field" }, "현재 비밀번호 또는 복구 키", cur),
-        passField("chgNew", "새 비밀번호", "new-password"),
-        passField("chgNew2", "새 비밀번호 확인", "new-password")),
-      err2, h("div", { class: "row" }, btn2)));
-  }
-  kids.push(gridPanel());
-  kids.push(backupPanel());
-  p.replaceChildren(...kids);
+      } })));
+  return h("section", { class: "set-sec" }, h("h3", { text: "올해 설정" }), form);
+}
+
+/* 비밀번호 바꾸기 */
+function passSection() {
+  const cur = h("input", { type: "password", id: "chgCur", autocomplete: "current-password" });
+  const err = h("p", { class: "form-err", role: "alert" });
+  const btn = h("button", { class: "btn small", type: "submit", id: "chgSave", text: "바꾸기" });
+  const form = h("form", { class: "set-form", id: "chgForm", onsubmit: guardForm(btn, err, async () => {
+    const a = $("chgNew").value, b = $("chgNew2").value;
+    if (a.length < 8) throw new Error("새 비밀번호를 8자 이상으로 넣어 주세요.");
+    if (a !== b) throw new Error("새 비밀번호 두 칸이 서로 다릅니다. 다시 넣어 주세요.");
+    const raw = await rewrap(cur.value, a);
+    raw.fill(0);
+    cur.value = ""; $("chgNew").value = ""; $("chgNew2").value = "";
+    toast("비밀번호를 바꿨습니다. 다른 기기에서도 새 비밀번호로 열어 주세요");
+  }) },
+    h("div", { class: "set-grid" },
+      setField("현재 비밀번호 또는 복구 키", cur),
+      passField("chgNew", "새 비밀번호", "new-password"),
+      passField("chgNew2", "새 비밀번호 확인", "new-password")),
+    err,
+    h("div", { class: "set-foot" }, btn));
+  return h("section", { class: "set-sec" }, h("h3", { text: "비밀번호" }), form);
 }
 
 /* ---------- 우리 반 ---------- */
@@ -1299,7 +1351,7 @@ function studentsAll() {
 function attMarks() {
   const v = docs.att.value;
   if (!v.marks || typeof v.marks !== "object") v.marks = {};
-  attCache.set(docs.att.key, v);   // 살아 있는 값을 사본 자리에도 꽂아 둔다
+  attCache.set(docs.att.key, v);   // 살아 있는 값을 사본 자리에도 넣어 둔다
   return v.marks;
 }
 /* 학번에 기록이 붙어 있으므로, 같은 학번의 이름이 달라지면 기록이 다른 학생에게
@@ -1320,16 +1372,16 @@ function acceptNames() {
   R.value.seen = snapshotNames(hc);
   saveEnc(R); hcWarns = [];
   renderClass(); renderBook();
-  toast("새 이름을 기준으로 삼았어요");
+  toast("새 이름을 기준으로 삼았습니다");
 }
 function warnBanner() {
   if (!hcWarns.length) return null;
   const lines = hcWarns.slice(0, 8).map(w => `${w.cls} ${w.no}번: ${w.was} → ${w.now}`);
   return h("div", { class: "lock-panel" },
-    h("h3", { text: "학번에 붙은 이름이 달라졌어요" }),
-    h("p", { text: "전입·전출로 번호가 밀린 것 같아요. 기록은 학번에 붙어 있으니, 아래 학번의 지난 출결과 상담이 다른 학생 것일 수 있어요." }),
+    h("h3", { text: "학번에 붙은 이름이 달라졌습니다" }),
+    h("p", { text: "전입·전출로 번호가 밀린 것 같습니다. 기록은 학번에 붙어 있으니, 아래 학번의 지난 출결과 상담이 다른 학생 것일 수 있습니다." }),
     h("div", { class: "missing", text: lines.join(" · ") + (hcWarns.length > 8 ? ` 외 ${hcWarns.length - 8}건` : "") }),
-    h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "확인했어요", onclick: () => acceptNames() })));
+    h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "확인", onclick: () => acceptNames() })));
 }
 
 // 수합·전달사항은 문서 하나에 모아 두고 반 이름으로 갈라 본다.
@@ -1376,14 +1428,14 @@ function renderRoster() {
   box.replaceChildren(h("div", { class: "roster-editor" },
     h("div", { class: "row" }, h("label", { class: "grow" }, "반", h("input", { type: "text", value: classLabel(picked()), disabled: true })), h("label", null, "학생 수", cntIn)),
     h("label", null, "학생 이름 (붙여넣기 가능)", ta),
-    h("p", { class: "tip", text: "이름은 이 기기에서 암호화한 뒤 저장해요. 전출로 빠진 번호는 줄을 비워 두면 번호가 밀리지 않아요. 호클래스에 있는 반은 호클래스 명단을 그대로 쓰니 여기서 고치지 않습니다." }),
+    h("p", { class: "tip", text: "이름은 이 기기에서 암호화한 뒤 저장합니다. 전출로 빠진 번호는 줄을 비워 두면 번호가 밀리지 않습니다. 호클래스에 있는 반은 호클래스 명단을 그대로 쓰니 여기서 고치지 않습니다." }),
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", id: "rSave", text: "저장", onclick: () => {
         const names = ta.value.split(/\r?\n/).map(s => s.replace(/^\s*\d+[.)\s]*/, "").trim());
         while (names.length && !names[names.length - 1]) names.pop();
         const count = Math.max(1, Math.min(60, Math.max(Number(cntIn.value) || 1, names.length)));
         saveRoster(names.slice(0, 60), count);
-        rosterOpen = false; renderRoster(); renderClass(); toast("명단을 저장했어요");
+        rosterOpen = false; renderRoster(); renderClass(); toast("명단을 저장했습니다");
       } }),
       h("button", { class: "btn small secondary", type: "button", text: "취소", onclick: () => { rosterOpen = false; renderRoster(); } }))));
 }
@@ -1421,12 +1473,12 @@ function setupView() {
   return [h("form", { class: "lock-panel", id: "setupForm", onsubmit: guardForm(btn, err, async () => {
     const a = $("setupPass").value, b = $("setupPass2").value;
     if (a.length < 8) throw new Error("비밀번호는 8자 이상으로 넣어 주세요.");
-    if (a !== b) throw new Error("비밀번호 두 칸이 서로 달라요.");
+    if (a !== b) throw new Error("비밀번호 두 칸이 서로 다릅니다.");
     await setupKey(a);
     renderClass();
   }) },
     h("h3", { text: "학생 정보 보호 비밀번호 만들기" }),
-    h("p", { text: "명단과 출결은 이 비밀번호로 암호화한 뒤 저장해요. 서버와 Claude는 내용을 읽을 수 없어요. 쓰시는 기기마다 같은 비밀번호로 엽니다." }),
+    h("p", { text: "명단과 출결은 이 비밀번호로 암호화한 뒤 저장합니다. 서버와 Claude는 내용을 읽을 수 없습니다. 쓰시는 기기마다 같은 비밀번호로 엽니다." }),
     passField("setupPass", "비밀번호 (8자 이상)", "new-password"),
     passField("setupPass2", "비밀번호 확인", "new-password"),
     err, h("div", { class: "row" }, btn))];
@@ -1434,14 +1486,14 @@ function setupView() {
 function recoveryView() {
   const code = showRecovery(recoveryToShow);
   const ok = h("input", { type: "checkbox", id: "recoveryOk" });
-  const go = h("button", { class: "btn small", type: "button", id: "recoveryDone", text: "다 적었어요", disabled: true, onclick: () => { recoveryToShow = null; renderClass(); } });
+  const go = h("button", { class: "btn small", type: "button", id: "recoveryDone", text: "다 적었습니다", disabled: true, onclick: () => { recoveryToShow = null; renderClass(); } });
   ok.addEventListener("change", () => { go.disabled = !ok.checked; });
   return [h("div", { class: "lock-panel" },
     h("h3", { text: "복구 키를 적어 두세요" }),
-    h("p", { text: "비밀번호를 잊으면 이 키로만 열 수 있어요. 이 화면을 닫으면 다시 볼 수 없고, 키와 비밀번호를 모두 잃으면 아무도 기록을 복구할 수 없어요." }),
+    h("p", { text: "비밀번호를 잊으면 이 키로만 열 수 있습니다. 이 화면을 닫으면 다시 볼 수 없고, 키와 비밀번호를 모두 잃으면 아무도 기록을 복구할 수 없습니다." }),
     h("div", { class: "recovery-code", id: "recoveryCode", text: code }),
     h("div", { class: "row" }, h("button", { class: "btn small secondary", type: "button", text: "복구 키 복사", onclick: () => copyText(code) })),
-    h("label", { class: "check-row" }, ok, "복구 키를 학교 밖 안전한 곳에 적어 두었어요"),
+    h("label", { class: "check-row" }, ok, "복구 키를 학교 밖 안전한 곳에 적어 두었습니다"),
     h("div", { class: "row" }, go))];
 }
 function unlockView() {
@@ -1451,7 +1503,7 @@ function unlockView() {
     return [h("form", { class: "lock-panel", id: "recoverForm", onsubmit: guardForm(btn, err, async () => {
       const a = $("recoverNew").value, b = $("recoverNew2").value;
       if (a.length < 8) throw new Error("새 비밀번호는 8자 이상으로 넣어 주세요.");
-      if (a !== b) throw new Error("새 비밀번호 두 칸이 서로 달라요.");
+      if (a !== b) throw new Error("새 비밀번호 두 칸이 서로 다릅니다.");
       const raw = await rewrap($("recoverKey").value, a);
       await useRaw(raw);
       recoverMode = false;
@@ -1468,13 +1520,14 @@ function unlockView() {
     await unlock($("unlockPass").value);
     renderClass();
   }) },
-    h("h3", { text: "잠겨 있어요" }),
-    h("p", { text: "명단과 출결을 보려면 비밀번호를 넣어 주세요. 시간표와 할 일은 잠겨 있어도 쓸 수 있어요." }),
+    h("h3", { text: "잠겨 있습니다" }),
+    h("p", { text: "명단과 출결을 보려면 비밀번호를 넣어 주세요. 시간표와 할 일은 잠겨 있어도 쓸 수 있습니다." }),
     passField("unlockPass", "비밀번호", "current-password"),
     err,
-    h("div", { class: "row" }, btn, h("button", { class: "text-btn", type: "button", id: "recoverLink", text: "비밀번호를 잊었어요", onclick: () => { recoverMode = true; renderClass(); } })))];
+    h("div", { class: "row" }, btn, h("button", { class: "text-btn", type: "button", id: "recoverLink", text: "비밀번호를 잊었습니다", onclick: () => { recoverMode = true; renderClass(); } })))];
 }
-const openSetBtn = () => h("button", { class: "btn small", type: "button", text: "올해 설정 열기", onclick: () => { setOpen = true; renderSet(); } });
+// 이 단추는 올해 설정을 넣어 달라는 자리에서 누르므로 늘 올해 탭을 연다.
+const openSetBtn = () => h("button", { class: "btn small", type: "button", text: "올해 설정 열기", onclick: () => { setTab = "year"; setOpen = true; renderSet(); } });
 
 function softClass() {
   if (!booted) return;
@@ -1509,28 +1562,28 @@ function renderClass() {
   $("hideBtn").textContent = hideNames ? "이름 보이기" : "이름 가리기";
   const body = $("classBody");
   const note = (text) => [h("p", { class: "empty", text })];
-  if (ks === "loading") { body.replaceChildren(...note("저장소를 확인하는 중이에요.")); return; }
-  if (ks === "unsupported") { body.replaceChildren(...note("이 화면에서는 암호화를 쓸 수 없어요. 학생 정보를 저장하지 않도록 명단과 출결을 닫아 두었어요. 다른 브라우저에서 열어 주세요.")); return; }
-  if (ks === "offline") { body.replaceChildren(...note("저장소에 연결되지 않아 보호 비밀번호를 만들 수 없어요. claude.ai에 로그인된 브라우저에서 열어 주세요.")); return; }
+  if (ks === "loading") { body.replaceChildren(...note("저장소를 확인하는 중입니다.")); return; }
+  if (ks === "unsupported") { body.replaceChildren(...note("이 화면에서는 암호화를 쓸 수 없습니다. 학생 정보를 저장하지 않도록 명단과 출결을 닫아 두었습니다. 다른 브라우저에서 열어 주세요.")); return; }
+  if (ks === "offline") { body.replaceChildren(...note("저장소에 연결되지 않아 보호 비밀번호를 만들 수 없습니다. claude.ai에 로그인된 브라우저에서 열어 주세요.")); return; }
   if (ks === "none") { body.replaceChildren(...setupView()); return; }
   if (ks === "recovery") { body.replaceChildren(...recoveryView()); return; }
   if (ks === "locked") { body.replaceChildren(...unlockView()); return; }
   const rollover = state.year.configured && academicYear() > state.year.current
-    ? h("p", { class: "hint", text: `${academicYear()}학년도가 시작됐어요. '올해 설정'에서 담임 반과 수업 반을 새로 넣어 주세요.` }) : null;
+    ? h("p", { class: "hint", text: `${academicYear()}학년도가 시작됐습니다. '올해 설정'에서 담임 반과 수업 반을 새로 넣어 주세요.` }) : null;
   const banner = warnBanner();
   const hcNote = hcErr ? h("p", { class: "hint", text: hcErr })
-    : (hcBusy && !hc) ? h("p", { class: "tip", text: "호클래스 명단을 읽는 중이에요." }) : null;
+    : (hcBusy && !hc) ? h("p", { class: "tip", text: "호클래스 명단을 읽는 중입니다." }) : null;
   const head = [rollover, banner, hcNote].filter(Boolean);
   const wrap = (kids) => body.replaceChildren(...[...head, ...kids]);
-  if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "올해 담임 반과 수업 반을 넣어 주세요" }), h("p", { text: "담임이 아닌 해에는 담임 반을 비워 두시면 돼요." }), h("div", { class: "row" }, openSetBtn()))]); return; }
+  if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "올해 담임 반과 수업 반을 넣어 주세요" }), h("p", { text: "담임이 아닌 해에는 담임 반을 비워 두시면 됩니다." }), h("div", { class: "row" }, openSetBtn()))]); return; }
   ensureAtt(todayKey(), pick);
-  if (!pick) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "올해 들어가는 반이 없어요" }), h("p", { text: "'올해 설정'에서 담임 반이나 수업 반을 넣으면 출결과 수합을 쓸 수 있어요." }), h("div", { class: "row" }, openSetBtn()))]); return; }
-  if (encDocs().some(d => d.broken)) { wrap(note("일부 기록을 풀지 못했어요. 페이지를 새로고침한 뒤 다시 열어 주세요. 기록은 그대로 있어요.")); return; }
-  if (encDocs().some(d => !d.ready)) { wrap(note("기록을 여는 중이에요.")); return; }
+  if (!pick) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "올해 들어가는 반이 없습니다" }), h("p", { text: "'올해 설정'에서 담임 반이나 수업 반을 넣으면 출결과 수합을 쓸 수 있습니다." }), h("div", { class: "row" }, openSetBtn()))]); return; }
+  if (encDocs().some(d => d.broken)) { wrap(note("일부 기록을 풀지 못했습니다. 페이지를 새로고침한 뒤 다시 열어 주세요. 기록은 그대로 있습니다.")); return; }
+  if (encDocs().some(d => !d.ready)) { wrap(note("기록을 여는 중입니다.")); return; }
   if (!roster().length) {
-    wrap([h("div", { class: "lock-panel" }, h("h3", { text: "학생 명단이 비어 있어요" }),
-      h("p", { text: hcHas(pick) ? "호클래스 이 강의실에 학생이 아직 없어요. 호클래스 어드민의 학생 관리에서 넣어 주세요."
-        : "오른쪽 위 '명단 편집'에서 학생 이름을 붙여 넣으면 출결과 수합을 쓸 수 있어요." }))]);
+    wrap([h("div", { class: "lock-panel" }, h("h3", { text: "학생 명단이 비어 있습니다" }),
+      h("p", { text: hcHas(pick) ? "호클래스 이 강의실에 학생이 아직 없습니다. 호클래스 어드민의 학생 관리에서 넣어 주세요."
+        : "오른쪽 위 '명단 편집'에서 학생 이름을 붙여 넣으면 출결과 수합을 쓸 수 있습니다." }))]);
     return;
   }
   if (classTab === "att") wrap(attView());
@@ -1568,7 +1621,7 @@ function attView() {
   };
   return [
     h("div", { class: "summary" }, sum("", "재적 · 출석", `${present}/${list.length}`), sum("absent", "결석", absent.length), sum("late", "지각", late.length), sum("early", "조퇴", early.length)),
-    h("p", { class: "tip", text: "학생 칸을 누를 때마다 결석 → 지각 → 조퇴 → 출석 순으로 바뀌어요." }),
+    h("p", { class: "tip", text: "학생 칸을 누를 때마다 결석 → 지각 → 조퇴 → 출석 순으로 바뀝니다." }),
     h("div", { class: "students" }, ...tiles),
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", text: "출결 요약 복사", onclick: () => copyText(report()) }),
@@ -1617,14 +1670,14 @@ function collectView() {
     : new Set(c.got);
   const missing = list.filter(st => !gotSet.has(st.id));
   const tiles = list.map(st => stuTile(st, gotSet.has(st.id) ? "got" : "", `${who(st)} ${gotSet.has(st.id) ? "제출함" : "미제출"}`, gotSet.has(st.id) ? "제출" : "", () => {
-    if (linked) { toast("이 항목은 호클래스 제출을 그대로 봐요"); return; }
+    if (linked) { toast("이 항목은 호클래스 제출을 그대로 보여 줍니다"); return; }
     c.got = gotSet.has(st.id) ? c.got.filter(id => id !== st.id) : [...c.got, st.id];
     saveEnc(D); renderClass();
   }, String(gotSet.has(st.id))));
   const missText = missing.length ? `${c.title} 미제출 ${missing.length}명: ${missing.map(who).join(", ")}` : `${c.title} 전원 제출`;
   return [
     addForm, tabs,
-    linked ? h("p", { class: "tip", text: "호클래스 제출을 그대로 보는 항목이에요. 손으로 체크하지 않습니다." }) : null,
+    linked ? h("p", { class: "tip", text: "호클래스 제출을 그대로 보는 항목입니다. 손으로 체크하지 않습니다." }) : null,
     h("div", { class: "missing" }, missing.length ? h("b", { text: `미제출 ${missing.length}명 ` }) : h("b", { style: "color:var(--accent)", text: "전원 제출 " }), missing.length ? missing.map(st => st.n).join(", ") : ""),
     h("div", { class: "students" }, ...tiles),
     h("div", { class: "row" },
@@ -1656,7 +1709,7 @@ function noticeView() {
     form,
     h("ul", { class: "todo-list" }, ...list),
     h("div", { class: "row" },
-      ours.length ? h("button", { class: "btn small", type: "button", text: "전달사항 복사", onclick: () => copyText(ours.filter(n => !n.done).map((n, i) => `${i + 1}. ${n.text}`).join("\n") || "전달할 내용이 없어요") }) : null,
+      ours.length ? h("button", { class: "btn small", type: "button", text: "전달사항 복사", onclick: () => copyText(ours.filter(n => !n.done).map((n, i) => `${i + 1}. ${n.text}`).join("\n") || "전달할 내용이 없습니다") }) : null,
       doneCount ? h("button", { class: "btn small secondary", type: "button", text: `전달한 ${doneCount}개 지우기`, onclick: () => { D.value.items = items.filter(n => !(n.done && itemCls(n) === picked())); saveEnc(D); renderClass(); } }) : null),
   ];
 }
@@ -1712,12 +1765,12 @@ function renderCalBox() {
   if (!calOpen) { box.replaceChildren(); return; }
   const ta = h("textarea", { id: "calText", placeholder: "학사일정을 그대로 붙여넣으세요.\n예)\n12.24.(수) 겨울방학식\n2027-02-05 졸업식\n3월 2일 시업식" });
   const err = h("p", { class: "form-err", role: "alert" });
-  const note = h("p", { class: "tip", text: "나이스나 학교 홈페이지의 학사일정을 긁어 붙이면 날짜를 찾아 D-day로 넣어요." });
+  const note = h("p", { class: "tip", text: "나이스나 학교 홈페이지의 학사일정을 긁어 붙이면 날짜를 찾아 D-day로 넣습니다." });
   box.replaceChildren(h("div", { class: "roster-editor" }, ta, note, err,
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", id: "calAdd", text: "날짜 찾아 넣기", onclick: () => {
         const found = parseSchedule(ta.value, state.year.current);
-        if (!found.length) { err.textContent = "날짜를 찾지 못했어요. 12.24 겨울방학식처럼 날짜와 이름이 한 줄에 있어야 해요."; return; }
+        if (!found.length) { err.textContent = "날짜를 찾지 못했습니다. 12.24 겨울방학식처럼 날짜와 이름이 한 줄에 있어야 합니다."; return; }
         const have = new Set(state.ddays.map(x => x.date + " " + x.title));
         let added = 0;
         for (const f of found) {
@@ -1727,7 +1780,7 @@ function renderCalBox() {
           added++;
         }
         save(true); calOpen = false; renderCalBox(); renderDdays(); renderMeta(new Date()); renderBook();
-        toast(added ? `일정 ${added}개를 넣었어요` : "이미 들어 있는 일정이에요");
+        toast(added ? `일정 ${added}개를 넣었습니다` : "이미 들어 있는 일정입니다");
       } }),
       h("button", { class: "btn small secondary", type: "button", text: "취소", onclick: () => { calOpen = false; renderCalBox(); } }))));
 }
@@ -1746,10 +1799,10 @@ async function collectBodies() {
   return { docs: out };
 }
 async function exportBackup() {
-  if (!cloud) throw new Error("저장소에 연결되지 않아 백업을 만들 수 없어요.");
+  if (!cloud) throw new Error("저장소에 연결되지 않아 백업을 만들 수 없습니다.");
   const got = await collectBodies();
   const keys = Object.keys(got.docs);
-  if (!keys.length) throw new Error("저장된 기록이 아직 없어요.");
+  if (!keys.length) throw new Error("저장된 기록이 아직 없습니다.");
   const data = JSON.stringify({ tag: BACKUP_TAG, v: 2, at: new Date().toISOString(), count: keys.length, docs: got.docs });
   const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
   const a = document.createElement("a");
@@ -1765,21 +1818,21 @@ function readBackupFile(file) {
       let o = null;
       try { o = JSON.parse(String(r.result)); } catch (e) {}
       if (!o || o.tag !== BACKUP_TAG || !o.docs || typeof o.docs !== "object" || Array.isArray(o.docs)) {
-        no(new Error("나의 책상 백업 파일이 아니에요."));
+        no(new Error("나의 책상 백업 파일이 아닙니다."));
         return;
       }
       if (o.v !== 2) {
-        no(new Error("예전 아티팩트판 백업이에요. 이 판으로는 되돌릴 수 없어요."));
+        no(new Error("예전 아티팩트판 백업입니다. 이 판으로는 되돌릴 수 없습니다."));
         return;
       }
       ok(o);
     };
-    r.onerror = () => no(new Error("파일을 읽지 못했어요."));
+    r.onerror = () => no(new Error("파일을 읽지 못했습니다."));
     r.readAsText(file);
   });
 }
 async function restoreBackup(o) {
-  if (!cloud) throw new Error("저장소에 연결되지 않아 되돌릴 수 없어요.");
+  if (!cloud) throw new Error("저장소에 연결되지 않아 되돌릴 수 없습니다.");
   // 되돌리는 동안 이 기기가 들고 있던 내용이 덮어쓰지 않게 멈춘다.
   for (const d of allDocs()) { clearTimeout(d.timer); d.dirty = false; d.pendingBody = null; }
   let n = 0;
@@ -1794,9 +1847,9 @@ async function restoreBackup(o) {
   return n;
 }
 const bkPickedNote = () => `${(bkPicked.at || "").slice(0, 10)}에 만든 백업, 기록 ${Object.keys(bkPicked.docs).length}개.`;
-function backupPanel() {
+function backupSection() {
   const err = h("p", { class: "form-err", role: "alert", text: bkErr });
-  const note = h("p", { class: "tip", text: bkNote });
+  const note = h("p", { class: "set-state", text: bkNote });
   const setErr = (t) => { bkErr = t; err.textContent = t; };
   const setNote = (t) => { bkNote = t; note.textContent = t; };
   const expBtn = h("button", { class: "btn small secondary", type: "button", id: "bkSave", text: "백업 파일 내보내기" });
@@ -1805,16 +1858,16 @@ function backupPanel() {
     bkBusy = true; setErr(""); expBtn.disabled = true; expBtn.textContent = "모으는 중…";
     try {
       const r = await exportBackup();
-      setNote(`기록 ${r.count}개를 파일로 보냈어요.` + (r.capped ? " 기록이 많아 앞의 1000개만 담았어요." : ""));
-      toast("백업 파일을 내보냈어요");
+      setNote(`기록 ${r.count}개를 파일로 보냈습니다.` + (r.capped ? " 기록이 많아 앞의 1000개만 담았습니다." : ""));
+      toast("백업 파일을 내보냈습니다");
     } catch (e) {
-      if (e && e.code === "declined") setNote("내려받기를 취소했어요.");
-      else setErr((e && e.message) || "백업 파일을 만들지 못했어요.");
+      if (e && e.code === "declined") setNote("내려받기를 취소했습니다.");
+      else setErr((e && e.message) || "백업 파일을 만들지 못했습니다.");
     } finally { bkBusy = false; expBtn.disabled = false; expBtn.textContent = "백업 파일 내보내기"; }
   });
 
   const fileIn = h("input", { type: "file", id: "bkFile", accept: ".json,application/json" });
-  const pickNote = h("p", { class: "tip", text: bkPicked ? bkPickedNote() : "" });
+  const pickNote = h("p", { class: "set-state", text: bkPicked ? bkPickedNote() : "" });
   const impBtn = h("button", { class: "btn small secondary", type: "button", id: "bkLoad", text: "이 파일로 되돌리기" });
   const resetArm = () => { delete impBtn.dataset.armed; impBtn.textContent = "이 파일로 되돌리기"; };
   fileIn.addEventListener("change", async () => {
@@ -1839,22 +1892,21 @@ function backupPanel() {
       const n = await restoreBackup(bkPicked);
       await lockNow();
       setOpen = false; renderSet();
-      toast(`기록 ${n}개를 되돌렸어요. 그때 쓰던 비밀번호로 다시 열어 주세요`);
+      toast(`기록 ${n}개를 되돌렸습니다. 그때 쓰던 비밀번호로 다시 열어 주세요`);
     } catch (e) {
-      setErr((e && e.message) || "되돌리지 못했어요.");
+      setErr((e && e.message) || "되돌리지 못했습니다.");
     } finally { bkBusy = false; impBtn.disabled = false; resetArm(); }
   });
 
-  return h("div", { class: "lock-panel divided backup" },
-    h("h3", { text: "백업" }),
-    h("p", { text: "기록을 파일 한 장으로 내려받아 둘 수 있어요. 암호로 잠근 기록은 잠긴 채로 담기니, 되돌릴 때 그때 쓰던 비밀번호나 복구 키가 있어야 열려요." }),
-    h("div", { class: "row" }, expBtn),
+  return setSec("백업", [
+    h("h4", { class: "set-sub", text: "내보내기" }),
+    h("div", { class: "set-row" }, expBtn),
     note,
+    h("h4", { class: "set-sub", text: "되돌리기" }),
     h("div", { class: "file-row" }, fileIn),
     pickNote,
-    h("div", { class: "row" }, impBtn),
-    err,
-    h("p", { class: "tip", text: "되돌리면 지금 저장된 기록을 백업 파일 내용으로 덮어씁니다." }));
+    h("div", { class: "set-row" }, impBtn),
+  ], err);
 }
 
 /* ---------- 교무수첩 ---------- */
@@ -1981,13 +2033,13 @@ function renderBook() {
   document.querySelectorAll("#bookSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.page === bookPage)));
   const ks = keyStateNow();
   if (ks !== "open") {
-    body.replaceChildren(noneLine(ks === "locked" || ks === "recovery" ? "수첩은 잠겨 있어요. 위 '우리 반'에서 비밀번호를 넣으면 열려요."
-      : ks === "none" ? "비밀번호를 먼저 만들면 수첩을 쓸 수 있어요."
-      : "수첩을 여는 중이에요."));
+    body.replaceChildren(noneLine(ks === "locked" || ks === "recovery" ? "수첩은 잠겨 있습니다. 위 '우리 반'에서 비밀번호를 넣으면 열립니다."
+      : ks === "none" ? "비밀번호를 먼저 만들면 수첩을 쓸 수 있습니다."
+      : "수첩을 여는 중입니다."));
     return;
   }
-  if (!state.year.configured) { body.replaceChildren(noneLine("'올해 설정'에서 담임 반과 수업 반을 넣으면 수첩을 쓸 수 있어요.")); return; }
-  if (!bookReady()) { body.replaceChildren(noneLine("기록을 여는 중이에요.")); return; }
+  if (!state.year.configured) { body.replaceChildren(noneLine("'올해 설정'에서 담임 반과 수업 반을 넣으면 수첩을 쓸 수 있습니다.")); return; }
+  if (!bookReady()) { body.replaceChildren(noneLine("기록을 여는 중입니다.")); return; }
   const kids = bookPage === "today" ? todayPage()
     : bookPage === "student" ? studentPage()
     : bookPage === "consult" ? consultPage()
@@ -1999,10 +2051,10 @@ function renderBook() {
 /* ---------- 오늘 ---------- */
 function todayPage() {
   const now = new Date(), st = status(now), row = todayRow(now), today = todayKey();
-  const goCls = (c) => { goClass(c); toast(classLabel(c) + "으로 옮겼어요"); };
+  const goCls = (c) => { goClass(c); toast(classLabel(c) + "으로 옮겼습니다"); };
 
   const classes = panel("오늘 수업", (() => {
-    if (!row) return noneLine("주말에는 수업이 없어요.");
+    if (!row) return noneLine("주말에는 수업이 없습니다.");
     const kids = [];
     for (let i = 0; i < 7; i++) {
       const c = row[i].trim();
@@ -2035,12 +2087,12 @@ function todayPage() {
         parts.length ? h("div", { class: "body", text: parts.join(" · ") }) : h("div", { class: "body", text: "전원 출석" }),
         h("div", { class: "marks" }, h("button", { class: "btn small secondary", type: "button", text: "이 반 보기", onclick: () => goCls(c) })));
     }).filter(Boolean);
-    return rows.length ? h("ul", { class: "lines" }, ...rows) : noneLine("명단을 넣은 반이 아직 없어요.");
+    return rows.length ? h("ul", { class: "lines" }, ...rows) : noneLine("명단을 넣은 반이 아직 없습니다.");
   })());
 
   const notes = panel("오늘 전달사항", (() => {
     const items = docs.notices.value.items.filter(n => !n.done);
-    if (!items.length) return noneLine("전달할 내용이 없어요.");
+    if (!items.length) return noneLine("전달할 내용이 없습니다.");
     return h("ul", { class: "lines" }, ...items.map(n => h("li", { class: "line" },
       h("div", { class: "top" },
         h("span", { class: "ttl", text: n.text }),
@@ -2051,7 +2103,7 @@ function todayPage() {
     const todos = state.todos.filter(t => !t.done).slice(0, 6);
     const works = docs.works.value.items.filter(w => !w.done && w.due && dnum(w.due) <= 7)
       .sort((a, b) => a.due.localeCompare(b.due));
-    if (!todos.length && !works.length) return noneLine("급한 일이 없어요.");
+    if (!todos.length && !works.length) return noneLine("급한 일이 없습니다.");
     return h("ul", { class: "lines" },
       ...works.map(w => {
         const n = dnum(w.due);
@@ -2065,7 +2117,7 @@ function todayPage() {
   const cons = panel("오늘 상담·민원", (() => {
     const items = docs.consults.value.items.filter(x => x.at === today);
     const addBtn = h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "상담·민원 적기", onclick: () => { bookPage = "consult"; renderBook(); } }));
-    if (!items.length) return h("div", { class: "panel-body" }, noneLine("오늘 적은 기록이 없어요."), addBtn);
+    if (!items.length) return h("div", { class: "panel-body" }, noneLine("오늘 적은 기록이 없습니다."), addBtn);
     return h("div", null, h("ul", { class: "lines" }, ...items.map(consultLine)), addBtn);
   })());
 
@@ -2076,13 +2128,13 @@ function todayPage() {
 function studentPage() {
   const cls = bCls(), list = rosterOf(cls), ym = ymOf(todayKey());
   const pickRow = clsRow(cls, goClass);
-  if (!list.length) return [panel("학생", pickRow, noneLine("이 반은 명단이 비어 있어요. 위 카드의 '명단 편집'에서 넣어 주세요."))];
+  if (!list.length) return [panel("학생", pickRow, noneLine("이 반은 명단이 비어 있습니다. 위 카드의 '명단 편집'에서 넣어 주세요."))];
   if (!list.find(s => s.id === bookSid)) bookSid = "";
   const grid = h("div", { class: "stu-pick" }, ...list.map(s => h("button", {
     type: "button", "aria-pressed": String(s.id === bookSid), "aria-label": who(s),
     onclick: () => { bookSid = s.id === bookSid ? "" : s.id; renderBook(); },
   }, h("span", { class: "n", text: String(s.n) }), shownName(s) ? h("span", { class: "nm", text: s.name }) : null)));
-  const left = panel("학생 고르기", pickRow, grid, h("p", { class: "tip", text: "학생을 누르면 그 학생의 기록이 옆에 열려요." }));
+  const left = panel("학생 고르기", pickRow, grid, h("p", { class: "tip", text: "학생을 누르면 그 학생의 기록이 옆에 열립니다." }));
   if (!bookSid) return [left, panel("학생 기록", noneLine("학생을 골라 주세요."))];
 
   const st = stuOf(cls, bookSid);
@@ -2101,27 +2153,27 @@ function studentPage() {
       disabled: attBusy ? "" : null,
       onclick: () => { if (loaded) for (const d of monthDays(ym)) attCache.delete(attKeyOf(d, cls)); loadMonth(ym, cls); },
     })),
-    h("p", { class: "tip", text: "지난 날짜의 출결은 날마다 따로 보관돼서, 누를 때 모아 와요." }));
+    h("p", { class: "tip", text: "지난 날짜의 출결은 날마다 따로 보관돼서, 누를 때 모아 옵니다." }));
 
   const miss = panel("수합 미제출", (() => {
     const items = docs.collects.value.items.filter(c => itemCls(c) === cls && !(c.got || []).includes(bookSid));
     return items.length ? h("ul", { class: "lines" }, ...items.map(c => h("li", { class: "line" },
       h("div", { class: "top" }, h("span", { class: "ttl", text: c.title }), h("span", { class: "tag open", text: "미제출" })))))
-      : noneLine("미제출이 없어요.");
+      : noneLine("미제출이 없습니다.");
   })());
 
   const mine = docs.consults.value.items.filter(x => x.sid === bookSid);
   const cons = panel("이 학생 상담·민원",
-    mine.length ? h("ul", { class: "lines" }, ...mine.slice().sort((a, b) => b.at.localeCompare(a.at)).map(consultLine)) : noneLine("기록이 없어요."),
+    mine.length ? h("ul", { class: "lines" }, ...mine.slice().sort((a, b) => b.at.localeCompare(a.at)).map(consultLine)) : noneLine("기록이 없습니다."),
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "이 학생 상담 적기", onclick: () => { bookPage = "consult"; renderBook(); } })));
 
   const noteEl = h("textarea", { id: "stuNote", placeholder: "학급 운영에 필요한 것만 짧게. 건강·가정 형편처럼 민감한 내용은 꼭 필요할 때만 적어 주세요.", value: rec.note || "" });
   const note = panel("학생 메모", noteEl,
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "저장", onclick: () => {
       S.value.byId[bookSid] = { ...rec, note: noteEl.value.trim() };
-      saveEnc(S); toast("메모를 저장했어요"); renderBook();
+      saveEnc(S); toast("메모를 저장했습니다"); renderBook();
     } })),
-    h("p", { class: "tip", text: "이 메모는 이 기기에서 암호로 잠근 뒤 저장돼요." }));
+    h("p", { class: "tip", text: "이 메모는 이 기기에서 암호로 잠근 뒤 저장됩니다." }));
 
   const head = panel("학생",
     h("div", { class: "who" },
@@ -2182,7 +2234,7 @@ function consultPage() {
       cls: clsIn.value, sid: sidIn.value, title: titleIn.value.trim().slice(0, 80),
       body: bodyIn.value.trim().slice(0, 2000), action: actIn.value.trim().slice(0, 1000), done: false,
     });
-    saveEnc(D); bookSid = sidIn.value || bookSid; renderBook(); toast("기록했어요");
+    saveEnc(D); bookSid = sidIn.value || bookSid; renderBook(); toast("기록했습니다");
   } },
     h("div", { class: "form-grid" },
       field("날짜", atIn), field("종류", kindIn), field("대상", whoIn),
@@ -2196,7 +2248,7 @@ function consultPage() {
   const items = D.value.items.slice().sort((a, b) => (a.done === b.done ? b.at.localeCompare(a.at) : a.done ? 1 : -1));
   const open = items.filter(x => !x.done).length;
   const list = panel("기록 " + items.length + "건" + (open ? " · 진행 중 " + open : ""),
-    items.length ? h("ul", { class: "lines" }, ...items.map(consultLine)) : noneLine("상담이나 민원을 적어 두면 여기 쌓여요."));
+    items.length ? h("ul", { class: "lines" }, ...items.map(consultLine)) : noneLine("상담이나 민원을 적어 두면 여기 쌓입니다."));
   return [panel("새 기록", form), list];
 }
 
@@ -2232,11 +2284,11 @@ function lessonPage() {
       unit: unitIn.value.trim().slice(0, 60), body: bodyIn.value.trim().slice(0, 1000), hw: hwIn.value.trim().slice(0, 120),
       clId: clIn.value || "",
     });
-    saveEnc(D); renderBook(); toast(classLabel(cls) + " 수업을 적었어요");
+    saveEnc(D); renderBook(); toast(classLabel(cls) + " 수업을 적었습니다");
   } },
     h("div", { class: "form-grid" },
       field("날짜", atIn), field("교시", perIn),
-      lessons.length ? h("label", { class: "field wide" }, "호클래스 차시 (고르면 날짜와 단원을 채워 줘요)", clIn) : null,
+      lessons.length ? h("label", { class: "field wide" }, "호클래스 차시 (고르면 날짜와 단원을 채워 줍니다)", clIn) : null,
       h("label", { class: "field wide" }, "단원", unitIn),
       h("label", { class: "field wide" }, "내용", bodyIn),
       h("label", { class: "field wide" }, "과제", hwIn)),
@@ -2256,7 +2308,7 @@ function lessonPage() {
 
   return [
     panel("새 수업 기록", pickRow, form),
-    panel(classLabel(cls) + " 기록 " + mine.length + "건", lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("이 반 수업을 적어 두면 여기 쌓여요.")),
+    panel(classLabel(cls) + " 기록 " + mine.length + "건", lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("이 반 수업을 적어 두면 여기 쌓입니다.")),
     hcPanel(cls, lessons),
   ];
 }
@@ -2264,7 +2316,7 @@ function lessonPage() {
 /* ---------- 호클래스 차시 칸 (연동) ---------- */
 function hcPanel(cls, lessons) {
   if (!hcHas(cls)) return null;
-  if (!lessons.length) return panel("호클래스 차시", noneLine("이 강의실에 꽂힌 차시가 없어요. 호클래스 어드민에서 강의를 꽂아 주세요."));
+  if (!lessons.length) return panel("호클래스 차시", noneLine("이 강의실에 연결된 차시가 없습니다. 호클래스 어드민에서 강의를 연결해 주세요."));
   if (sendPlan) return panel("결석 보내기 확인", sendConfirm());
   const rows = lessons.map(x => h("li", { class: "line" },
     h("div", { class: "top" },
@@ -2275,16 +2327,16 @@ function hcPanel(cls, lessons) {
       h("button", { class: "btn small secondary", type: "button", text: "결석 보내기", onclick: () => planSend(cls, x) }),
       x.date ? null : h("button", { class: "btn small secondary", type: "button", text: "오늘 날짜 넣기", onclick: () => putDate(x) }))));
   return panel("호클래스 차시", h("ul", { class: "lines" }, ...rows),
-    h("p", { class: "tip", text: "결석을 보내면 호클래스에서 그 차시 성적 영역이 미달성으로 고정돼요. 지각·조퇴는 성적과 상관없으니 보내지 않습니다." }));
+    h("p", { class: "tip", text: "결석을 보내면 호클래스에서 그 차시 성적 영역이 미달성으로 고정됩니다. 지각·조퇴는 성적과 상관없으니 보내지 않습니다." }));
 }
 async function putDate(x) {
   if (sendBusy) return;
   sendBusy = true;
   try {
     const ok = await fillLessonDate(FB, x.clId, todayKey());
-    toast(ok ? "차시 날짜를 넣었어요" : "이미 날짜가 적혀 있어요");
+    toast(ok ? "차시 날짜를 넣었습니다" : "이미 날짜가 적혀 있습니다");
     await loadHcLessons();
-  } catch (e) { toast("날짜를 넣지 못했어요"); }
+  } catch (e) { toast("날짜를 넣지 못했습니다"); }
   finally { sendBusy = false; renderBook(); }
 }
 // 그 차시 날짜의 수첩 출결에서 결석만 골라 확인 화면을 만든다.
@@ -2306,7 +2358,7 @@ function sendConfirm() {
       h("span", { class: "meta", text: `${classLabel(p.cls)} · ${p.day}` })),
   ];
   if (!p.absent.length) {
-    kids.push(noneLine("그날 그 반에 결석으로 적은 학생이 없어요."));
+    kids.push(noneLine("그날 그 반에 결석으로 적은 학생이 없습니다."));
   } else {
     kids.push(h("p", { class: "tip", text: "보낼 학생을 확인해 주세요. 빼고 싶으면 눌러서 꺼 주세요." }));
     kids.push(h("div", { class: "stu-pick" }, ...p.absent.map(st => h("button", {
@@ -2315,7 +2367,7 @@ function sendConfirm() {
     }, h("span", { class: "n", text: String(st.n) }), shownName(st) ? h("span", { class: "nm", text: st.name }) : null))));
   }
   if (p.other.length) {
-    kids.push(h("div", { class: "missing", text: "지각·조퇴 " + p.other.map(who).join(", ") + " 는 성적과 상관없어서 보내지 않아요." }));
+    kids.push(h("div", { class: "missing", text: "지각·조퇴 " + p.other.map(who).join(", ") + " 는 성적과 상관없어서 보내지 않습니다." }));
   }
   kids.push(h("div", { class: "row" },
     h("button", {
@@ -2334,10 +2386,10 @@ async function doSend() {
   try {
     const nos = [...p.picked];
     await setAbsent(FB, { clId: p.x.clId, courseId: p.x.courseId, lessonId: p.x.lessonId }, nos, true);
-    toast(`호클래스 ${p.x.order}차시에 결석 ${nos.length}명을 보냈어요`);
+    toast(`호클래스 ${p.x.order}차시에 결석 ${nos.length}명을 보냈습니다`);
     sendPlan = null;
   } catch (e) {
-    toast("보내지 못했어요. 다시 해 보세요");
+    toast("보내지 못했습니다. 다시 해 보세요");
   } finally { sendBusy = false; renderBook(); }
 }
 
@@ -2356,7 +2408,7 @@ function workPage() {
       id: uid(), title: titleIn.value.trim().slice(0, 100), due: dueIn.value || "",
       from: fromIn.value.trim().slice(0, 60), memo: memoIn.value.trim().slice(0, 1000), done: false,
     });
-    saveEnc(D); renderBook(); toast("업무를 적었어요");
+    saveEnc(D); renderBook(); toast("업무를 적었습니다");
   } },
     h("div", { class: "form-grid" },
       h("label", { class: "field wide" }, "업무", titleIn),
@@ -2381,7 +2433,7 @@ function workPage() {
         x.due ? h("span", { class: "when", text: dotDate(x.due) }) : null),
       x.memo ? h("div", { class: "body", text: x.memo }) : null,
       h("div", { class: "row" },
-        h("button", { class: "btn small secondary", type: "button", text: x.done ? "다시 하기" : "다 했어요", onclick: () => { x.done = !x.done; saveEnc(D); renderBook(); } }),
+        h("button", { class: "btn small secondary", type: "button", text: x.done ? "다시 하기" : "다 했습니다", onclick: () => { x.done = !x.done; saveEnc(D); renderBook(); } }),
         armed("삭제", "삭제", () => { D.value.items = items.filter(y => y.id !== x.id); saveEnc(D); renderBook(); })));
   });
   const left = items.filter(x => !x.done).length;
@@ -2389,7 +2441,7 @@ function workPage() {
   return [
     panel("새 업무", form),
     panel("업무 " + left + "건 남음" + (over ? " · 기한 지남 " + over : ""),
-      lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("공문이나 맡은 일을 적어 두면 기한 가까운 것부터 보여 줘요.")),
+      lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("공문이나 맡은 일을 적어 두면 기한 가까운 것부터 보여 줍니다.")),
   ];
 }
 
@@ -2424,7 +2476,7 @@ function renderDdays() {
   const list = $("ddayList");
   const t0 = parseDate(todayKey());
   const items = allDdays();
-  if (!items.length) { list.replaceChildren(h("li", { class: "empty", text: "기말고사, 방학식, 생기부 마감일을 추가해 보세요. '일정 붙여넣기'로 한 번에 넣을 수도 있어요." })); return; }
+  if (!items.length) { list.replaceChildren(h("li", { class: "empty", text: "기말고사, 방학식, 생기부 마감일을 추가해 보세요. '일정 붙여넣기'로 한 번에 넣을 수도 있습니다." })); return; }
   list.replaceChildren(...items.map((x) => {
     const dt = parseDate(x.date);
     const diff = Math.round((dt - t0) / 86400000);

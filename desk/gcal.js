@@ -40,20 +40,20 @@ export function forgetToken() { try { sessionStorage.removeItem(KEY); } catch (e
 /* 무엇이 빠졌는지 알아내 쉬운 말로 바꾼다. */
 export function why(e) {
   const c = (e && e.code) || (e && e.message) || "";
-  if (/unauthorized-domain/.test(c)) return { step: 1, msg: "이 주소가 파베에 등록돼 있지 않아요. 승인된 도메인에 hoseong911.github.io 를 넣어 주세요." };
-  if (/operation-not-allowed|provider-disabled|configuration-not-found/.test(c)) return { step: 2, msg: "파베에서 구글 로그인이 아직 꺼져 있어요. 아래 주소에서 Google 을 켜 주세요(한 번만 하면 됩니다)." };
-  if (/popup-blocked/.test(c)) return { step: 0, msg: "브라우저가 창 띄우기를 막았어요. 주소줄 오른쪽에서 허용해 주세요." };
-  if (/popup-closed-by-user|cancelled-popup-request/.test(c)) return { step: 0, msg: "연결을 취소했어요." };
-  if (/credential-already-in-use|account-exists/.test(c)) return { step: 0, msg: "그 구글 계정이 다른 곳에 이미 이어져 있어요." };
-  if (/calendar.*not been used|accessNotConfigured|SERVICE_DISABLED/i.test(c)) return { step: 3, msg: "구글 클라우드에서 Calendar API 가 꺼져 있어요. 켜고 1~2분 뒤에 다시 해 주세요." };
-  if (/insufficient|insufficientPermissions|403/.test(c)) return { step: 3, msg: "캘린더를 읽을 권한이 없어요. 연결할 때 캘린더 보기를 허용해 주세요." };
-  if (/401|invalid_token|Invalid Credentials/i.test(c)) return { step: 0, msg: "연결이 만료됐어요. 다시 연결해 주세요." };
-  return { step: 0, msg: "구글 캘린더에 이어 붙이지 못했어요. " + (c || "까닭을 모르겠어요") };
+  if (/unauthorized-domain/.test(c)) return { step: 1, msg: "이 주소가 파베에 등록돼 있지 않습니다. 승인된 도메인에 hoseong911.github.io 를 넣어 주세요." };
+  if (/operation-not-allowed|provider-disabled|configuration-not-found/.test(c)) return { step: 2, msg: "파베에서 구글 로그인이 아직 꺼져 있습니다. 아래 주소에서 Google 을 켜 주세요(한 번만 하면 됩니다)." };
+  if (/popup-blocked/.test(c)) return { step: 0, msg: "브라우저가 창 띄우기를 막았습니다. 주소줄 오른쪽에서 허용해 주세요." };
+  if (/popup-closed-by-user|cancelled-popup-request/.test(c)) return { step: 0, msg: "연결을 취소했습니다." };
+  if (/credential-already-in-use|account-exists/.test(c)) return { step: 0, msg: "그 구글 계정이 다른 곳에 이미 이어져 있습니다." };
+  if (/calendar.*not been used|accessNotConfigured|SERVICE_DISABLED/i.test(c)) return { step: 3, msg: "구글 클라우드에서 Calendar API 가 꺼져 있습니다. 켜고 1~2분 뒤에 다시 해 주세요." };
+  if (/insufficient|insufficientPermissions|403/.test(c)) return { step: 3, msg: "캘린더를 읽을 권한이 없습니다. 연결할 때 캘린더 보기를 허용해 주세요." };
+  if (/401|invalid_token|Invalid Credentials/i.test(c)) return { step: 0, msg: "연결이 만료됐습니다. 다시 연결해 주세요." };
+  return { step: 0, msg: "구글 캘린더에 이어 붙이지 못했습니다. " + (c || "까닭을 모르겠습니다") };
 }
 
 /* 구글을 이어 붙이고 열쇠를 받는다. 창을 띄우므로 반드시 선생님이 누를 때만 부른다. */
 export async function connect(FB) {
-  if (!FB.GoogleAuthProvider) throw new Error("이 화면에서는 구글 연결을 쓸 수 없어요.");
+  if (!FB.GoogleAuthProvider) throw new Error("이 화면에서는 구글 연결을 쓸 수 없습니다.");
   const user = FB.auth.currentUser;
   if (!user) throw new Error("먼저 로그인해 주세요.");
   const provider = new FB.GoogleAuthProvider();
@@ -66,7 +66,7 @@ export async function connect(FB) {
     : await FB.linkWithPopup(user, provider);
   const cred = FB.GoogleAuthProvider.credentialFromResult(result);
   const token = cred && cred.accessToken;
-  if (!token) throw new Error("구글이 열쇠를 주지 않았어요.");
+  if (!token) throw new Error("구글이 열쇠를 주지 않았습니다.");
   keepToken(token, 3300);
   return token;
 }
