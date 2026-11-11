@@ -14,7 +14,7 @@
 
 <!-- 로그인 문. 파이어베이스 Auth를 지나야 아래 화면이 보인다. -->
 <div class="gate" id="gate">
-  <form class="gate-card" id="gateForm">
+  <form class="gate-card" id="gateForm" onsubmit="return false">
     <h1>나의 책상</h1>
     <p class="gate-sub">선생님 계정으로 들어와 주세요. 호클래스 어드민과 같은 계정입니다.</p>
     <label class="field">메일<input type="email" id="gateEmail" autocomplete="username" required></label>
@@ -166,5 +166,13 @@
 </div>
 
 <script type="module" src="./desk.js"></script>
+<script>
+// 화면 코드를 못 불러오면(인터넷·오류) 선생님이 영문도 모르고 기다리지 않게 알린다.
+setTimeout(function () {
+  if (window.__deskReady) return;
+  var e = document.getElementById("gateErr");
+  if (e && !e.textContent) e.textContent = "화면을 불러오지 못했어요. 새로고침해 주세요. 그래도 안 되면 인터넷 연결을 확인해 주세요.";
+}, 5000);
+</script>
 </body>
 </html>

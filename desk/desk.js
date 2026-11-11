@@ -2117,4 +2117,5 @@ booted = true;
 renderAll(); renderClass(); tick();
 setInterval(tick, 1000);
 setSync("", "연결 중");
+window.__deskReady = true;   // index.html 의 안내가 이걸 본다
 connect();

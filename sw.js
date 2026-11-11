@@ -14,7 +14,7 @@
    캐시 로직을 바꿀 땐 CACHE 이름의 버전을 올린다(예: v1 → v2). 그러면 activate에서
    옛 캐시를 지운다.
    ════════════════════════════════════════════════════════════════ */
-const CACHE = 'lms2027-v2';
+const CACHE = 'lms2027-v3';
 
 /* 폰트는 install 때 미리 받아 둔다(선생님 지시 2026-10-31: 기기마다 폰트가 늦거나 다르게 떠서 분량이
    달라지지 않게). 주소가 고정인 Paperlogy(제목)와 구글폰트 CSS만 프리캐시하고, 구글폰트가 참조하는
@@ -47,6 +47,10 @@ self.addEventListener('activate', (e) => e.waitUntil((async () => {
 // Firebase 실시간/인증 계열 호스트: SW가 관여하지 않고 네트워크로 그대로 보낸다.
 const BYPASS = /firestore\.googleapis|firebasedatabase\.app|firebaseio\.com|identitytoolkit\.googleapis|securetoken\.googleapis/;
 
+/* 수첩(desk/)은 파일 이름에 ?v= 를 붙이지 않는다. 캐시 우선으로 두면 고친 것이
+   다음 접속에야 보여서, 한 번 잘못 받으면 계속 그것을 쓴다. 늘 네트워크를 먼저 본다. */
+const FRESH = /\/desk\//;
+
 // 이름은 그대로 두고 내용만 바뀌는 자원: 그림. 캐시보다 네트워크를 먼저 본다.
 const IMAGE = /\.(png|jpe?g|gif|webp|avif|svg|ico)$/i;
 
@@ -74,8 +78,8 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // 그림: 네트워크 우선, 실패하면(오프라인) 캐시
-  if (req.destination === 'image' || IMAGE.test(url.pathname)) {
+  // 수첩과 그림: 네트워크 우선, 실패하면(오프라인) 캐시
+  if (FRESH.test(url.pathname) || req.destination === 'image' || IMAGE.test(url.pathname)) {
     e.respondWith((async () => {
       try {
         const fresh = await fetch(req);
