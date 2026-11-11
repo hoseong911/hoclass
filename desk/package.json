@@ -1,0 +1,11 @@
+{
+  "name": "hoclass-desk",
+  "private": true,
+  "description": "나의 책상 — 교사용 수첩. 시험만 돌리는 설정이다(앱은 빌드 없이 그대로 돌아간다).",
+  "scripts": {
+    "test": "node test/desk.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0"
+  }
+}
