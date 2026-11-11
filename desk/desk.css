@@ -440,7 +440,9 @@ body { overflow: hidden; }
   body { overflow: auto; }
   #app { height: auto; }
   .deck { display: flex; flex-direction: column; }
-  .wg { grid-area: auto !important; }
+  /* 세로로 세울 때는 높이가 내용에 따라 늘어나야 한다.
+     container-type: size 를 그대로 두면 칸 높이가 0으로 접힌다. */
+  .wg { grid-area: auto !important; container-type: inline-size; }
   .wg > .card { height: auto; max-height: 72vh; }
   .deck.arranging .wg { outline: none; cursor: auto; }
   .deck.arranging .wg > .card { pointer-events: auto; }
@@ -527,3 +529,226 @@ body { overflow: hidden; }
   .pagebar { display: none; }
   .tools { opacity: 1; }
 }
+
+/* ══════════ 칸이 작아지면 줄어든다 — 2026-11-11 ══════════
+   선생님 지시: "배치에서 크기를 줄이면 스크롤이 생기는데 스크롤이 안 생기게
+   반응형으로 축소되게 해줘."
+
+   바깥 창 폭이 아니라 '그 우젯 칸의 크기'를 보고 줄인다(컨테이너 쿼리).
+   칸마다 크기가 다르니 @media 로는 안 되고 이 방법이어야 한다.
+   아주 작은 칸에 긴 목록이 들어가면 끝내 넘칠 수 있다. 그때는 스크롤로 넘기되
+   막대는 화면에서 치운다(아래 .no-bar). */
+.wg { container-type: size; }
+
+/* 조금 작을 때 — 칸 높이 max-height: 320px */
+@container (max-height: 320px) {
+  .card { padding: 14px; gap: 10px; }
+  .card-title { font-size: 12.5px; }
+  .card-aside { font-size: 11.5px; }
+  .text-btn { font-size: 11.5px; }
+  .tip { font-size: 11.5px; }
+  .empty { font-size: 13px; }
+  .greet { font-size: 13.5px; }
+  .date-main { font-size: 18px; }
+  .chip { font-size: 11.5px; }
+  .now-sub { font-size: 13px; }
+  .now-next { font-size: 13px; }
+  .period .p { font-size: 13px; }
+  .period .tm { font-size: 11px; }
+  .period .c { font-size: 13.5px; }
+  .class-name { font-size: 17px; }
+  .seg button { font-size: 12px; }
+  .cpick { font-size: 12px; }
+  .sum .k { font-size: 10.5px; }
+  .sum .v { font-size: 17px; }
+  .stu .n { font-size: 13px; }
+  .stu .nm { font-size: 10.5px; }
+  .stu .st { font-size: 10px; }
+  .missing { font-size: 12px; }
+  .ctab { font-size: 12px; }
+  .todo { font-size: 13px; }
+  .todo-progress { font-size: 12px; }
+  .dday .d { font-size: 15px; }
+  .dday .t { font-size: 13.5px; }
+  .dday .dt { font-size: 11px; }
+  .tt td { font-size: 12.5px; }
+  .tt th { font-size: 11px; }
+  .memo { font-size: 13.5px; }
+  .line .ttl { font-size: 13.5px; }
+  .line .when { font-size: 11px; }
+  .line .body { font-size: 12px; }
+  .tag { font-size: 10.5px; }
+  .panel > h3 { font-size: 11.5px; }
+  .count .v { font-size: 16px; }
+  .count .k { font-size: 10.5px; }
+  .gcal-ev { font-size: 12.5px; }
+  .book-seg button { font-size: 12.5px; }
+  .link { font-size: 13px; }
+  .mono-tile { font-size: 12px; }
+}
+
+/* 작을 때 — 칸 높이 max-height: 230px */
+@container (max-height: 230px) {
+  .card { padding: 11px; gap: 7px; }
+  .card-title { font-size: 11.5px; }
+  .card-aside { font-size: 11px; }
+  .text-btn { font-size: 11px; }
+  .tip { font-size: 11px; }
+  .empty { font-size: 12px; }
+  .greet { font-size: 12.5px; }
+  .date-main { font-size: 16px; }
+  .chip { font-size: 11px; }
+  .now-sub { font-size: 12px; }
+  .now-next { font-size: 12px; }
+  .period .p { font-size: 12px; }
+  .period .tm { font-size: 10.5px; }
+  .period .c { font-size: 12.5px; }
+  .class-name { font-size: 15px; }
+  .seg button { font-size: 11.5px; }
+  .cpick { font-size: 11.5px; }
+  .sum .k { font-size: 10px; }
+  .sum .v { font-size: 15px; }
+  .stu .n { font-size: 12px; }
+  .stu .nm { font-size: 10px; }
+  .stu .st { font-size: 9.5px; }
+  .missing { font-size: 11.5px; }
+  .ctab { font-size: 11.5px; }
+  .todo { font-size: 12px; }
+  .todo-progress { font-size: 11.5px; }
+  .dday .d { font-size: 13.5px; }
+  .dday .t { font-size: 12.5px; }
+  .dday .dt { font-size: 10.5px; }
+  .tt td { font-size: 11.5px; }
+  .tt th { font-size: 10.5px; }
+  .memo { font-size: 12.5px; }
+  .line .ttl { font-size: 12.5px; }
+  .line .when { font-size: 10.5px; }
+  .line .body { font-size: 11.5px; }
+  .tag { font-size: 10px; }
+  .panel > h3 { font-size: 11px; }
+  .count .v { font-size: 14px; }
+  .count .k { font-size: 10px; }
+  .gcal-ev { font-size: 11.5px; }
+  .book-seg button { font-size: 11.5px; }
+  .link { font-size: 12px; }
+  .mono-tile { font-size: 11px; }
+}
+
+/* 아주 작을 때 — 칸 높이 max-height: 160px */
+@container (max-height: 160px) {
+  .card { padding: 9px; gap: 5px; }
+  .card-title { font-size: 11px; }
+  .card-aside { font-size: 10.5px; }
+  .text-btn { font-size: 10.5px; }
+  .tip { font-size: 10.5px; }
+  .empty { font-size: 11.5px; }
+  .greet { font-size: 12px; }
+  .date-main { font-size: 14px; }
+  .chip { font-size: 10.5px; }
+  .now-sub { font-size: 11.5px; }
+  .now-next { font-size: 11.5px; }
+  .period .p { font-size: 11.5px; }
+  .period .tm { font-size: 10px; }
+  .period .c { font-size: 12px; }
+  .class-name { font-size: 14px; }
+  .seg button { font-size: 11px; }
+  .cpick { font-size: 11px; }
+  .sum .k { font-size: 10px; }
+  .sum .v { font-size: 14px; }
+  .stu .n { font-size: 11.5px; }
+  .stu .nm { font-size: 9.5px; }
+  .stu .st { font-size: 9px; }
+  .missing { font-size: 11px; }
+  .ctab { font-size: 11px; }
+  .todo { font-size: 11.5px; }
+  .todo-progress { font-size: 11px; }
+  .dday .d { font-size: 13px; }
+  .dday .t { font-size: 12px; }
+  .dday .dt { font-size: 10px; }
+  .tt td { font-size: 11px; }
+  .tt th { font-size: 10px; }
+  .memo { font-size: 12px; }
+  .line .ttl { font-size: 12px; }
+  .line .when { font-size: 10px; }
+  .line .body { font-size: 11px; }
+  .tag { font-size: 9.5px; }
+  .panel > h3 { font-size: 10.5px; }
+  .count .v { font-size: 13px; }
+  .count .k { font-size: 10px; }
+  .gcal-ev { font-size: 11px; }
+  .book-seg button { font-size: 11px; }
+  .link { font-size: 11.5px; }
+  .mono-tile { font-size: 10.5px; }
+}
+
+/* 좁을 때 */
+@container (max-width: 240px) {
+  .card { padding-left: 10px; padding-right: 10px; }
+  .card-head { gap: 6px; }
+}
+@container (max-width: 170px) {
+  .card { padding-left: 8px; padding-right: 8px; }
+  .card-aside, .text-btn { display: none; }   /* 좁으면 보조 글씨는 접는다 */
+}
+
+/* 스크롤 막대를 화면에서 치운다. 넘치면 굴려서 보면 된다. */
+.wg .no-bar, .wg > .card, #classBody, #bookBody, .todo-list, .dday-list,
+.periods, .lines, .tt-scroll, .memo, .students, .stu-pick, #gcalBody {
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.wg .no-bar::-webkit-scrollbar, .wg > .card::-webkit-scrollbar,
+#classBody::-webkit-scrollbar, #bookBody::-webkit-scrollbar,
+.todo-list::-webkit-scrollbar, .dday-list::-webkit-scrollbar,
+.periods::-webkit-scrollbar, .lines::-webkit-scrollbar,
+.tt-scroll::-webkit-scrollbar, .memo::-webkit-scrollbar,
+.students::-webkit-scrollbar, .stu-pick::-webkit-scrollbar,
+#gcalBody::-webkit-scrollbar { width: 0; height: 0; }
+
+/* 배치하는 동안은 아예 넘치지 않게 잘라 둔다(막대도 움직임도 없게) */
+.deck.arranging .wg > .card { overflow: hidden; }
+
+/* 메모는 칸을 꽉 채우되 스스로 늘어나지 않는다 */
+.memo { min-height: 0; }
+
+
+/* ── 가로로 넘치는 것들도 같이 줄인다 ──
+   표와 격자는 '최소 폭'이 박혀 있어서 칸이 좁아지면 옆으로 넘친다.
+   칸 폭에 따라 그 최소 폭을 풀어 준다. */
+@container (max-width: 520px) {
+  .tt { min-width: 0; border-spacing: 3px; }
+  .tt th.ph { width: 78px; }
+  .tt td { height: 34px; padding: 5px 3px; }
+  .students { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); }
+  .stu-pick { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
+  .form-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .counts { grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); }
+  .wg-list { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+  .book-cols { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .summary { gap: 4px; }
+}
+@container (max-width: 340px) {
+  .tt th.ph { width: 58px; }
+  .tt th.ph .tm { display: none; }          /* 좁으면 종 시간은 접는다 */
+  .tt td { height: 28px; }
+  .students { grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 4px; }
+  .stu-pick { grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 3px; }
+  .stu .nm, .stu-pick button .nm { display: none; }   /* 이름은 눌러서 본다 */
+  .form-grid, .book-cols { grid-template-columns: minmax(0, 1fr); }
+  .counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wg-list { grid-template-columns: minmax(0, 1fr); }
+  .dday { grid-template-columns: 56px minmax(0, 1fr); }
+  .dday .del { display: none; }
+  .timeline { grid-template-columns: 42px minmax(0, 1fr); }
+  .period { grid-template-columns: 40px 70px minmax(0, 1fr); gap: 6px; padding: 5px 7px; }
+  .book-seg button { padding: 6px 10px; }
+  .links { gap: 6px; }
+  .link { padding: 5px 9px 5px 5px; }
+}
+/* 아주 좁으면 바로가기 글씨는 접고 타일만 남긴다 */
+@container (max-width: 200px) {
+  .link > span:not(.mono-tile) { display: none; }
+  .link { padding: 5px; }
+  .period { grid-template-columns: 36px minmax(0, 1fr); }
+  .period .tm { display: none; }
+}
+

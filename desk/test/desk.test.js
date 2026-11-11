@@ -165,6 +165,24 @@ const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 /* hidden 을 붙여도 숨지 않을 수 있다. .gate{display:grid} 같은 규칙이 이기기 때문이다.
    실제로 그래서 로그인 창이 안 사라지고 수첩 위를 덮었다(2026-11-11).
    jsdom 은 이 싸움을 그대로 흉내 내지 않아(규칙을 빼도 통과했다) 글자로 확인한다. */
+/* 칸이 작아지면 줄어드는 규칙이 있는지 본다.
+   jsdom 은 컨테이너 쿼리를 재지 않으므로(실제로 줄어드는지는 못 본다) 규칙이 있는지만 확인한다.
+   이게 빠지면 칸을 줄일 때 스크롤이 생긴다. */
+function checkShrinkRules() {
+  const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
+  const need = [
+    [".wg { container-type: size; }", "칸 크기를 재는 바탕"],
+    ["scrollbar-width: none", "스크롤 막대 치우기"],
+    [".deck.arranging .wg > .card { overflow: hidden; }", "배치 중에는 안 넘치게 자르기"],
+    ["container-type: inline-size", "좁은 화면에서는 가로만 재기(안 하면 칸 높이가 0으로 접힌다)"],
+  ];
+  for (const [text, why] of need) {
+    assert(css.includes(text), "desk.css 에 `" + text + "` 가 있어야 한다 — " + why);
+  }
+  const n = (css.match(/@container/g) || []).length;
+  assert(n >= 7, "칸 크기에 따라 줄이는 규칙이 모자란다(@container " + n + "개)");
+}
+
 function checkHiddenRule() {
   const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
   assert(/\[hidden\][^{]*\{[^}]*display:\s*none\s*!important/.test(css),
@@ -173,6 +191,7 @@ function checkHiddenRule() {
 
 (async () => {
   checkHiddenRule();
+  checkShrinkRules();
   seedHoclass();
   const A = device();
 
