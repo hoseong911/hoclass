@@ -3,6 +3,8 @@ import { loadHoclass, loadLessons, loadSubmissions, setAbsent, fillLessonDate,
          nameChanges, snapshotNames, clsToRoom, studentNoOf } from "./hoclass.js";
 
 const $ = (id) => document.getElementById(id);
+// 로그인 칸 아래 진단 줄에 한 줄 적는다. 선생님이 콘솔을 안 열어도 보이게.
+const step = (m) => { try { window.__deskShow("단계", m); } catch (e) {} };
 let booted = false;
 const uid = () => Math.random().toString(36).slice(2, 10);
 const pad = (n) => String(n).padStart(2, "0");
@@ -557,7 +559,7 @@ function authMsg(e) {
   if (c.includes("too-many-requests")) return "너무 여러 번 시도했어요. 잠시 뒤에 다시 해 주세요.";
   if (c.includes("network")) return "인터넷 연결을 확인해 주세요.";
   if (c.includes("user-disabled")) return "잠긴 계정이에요.";
-  return "들어가지 못했어요." + (c ? " (" + c + ")" : "");
+  return "들어가지 못했어요. " + (c || (e && e.message) || "까닭을 모르겠어요");
 }
 function showGate(msg) {
   $("gate").hidden = false;
@@ -589,10 +591,13 @@ $("gateForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const btn = $("gateBtn");
   btn.disabled = true; $("gateErr").textContent = "";
+  step("로그인 보냄");
   try {
     await FB.signInWithEmailAndPassword(FB.auth, $("gateEmail").value.trim(), $("gatePass").value);
+    step("로그인 받아들여짐");
   } catch (err) {
     $("gateErr").textContent = authMsg(err);
+    step("로그인 거절 " + ((err && err.code) || ""));
   } finally {
     btn.disabled = false; $("gatePass").value = "";
   }
@@ -608,7 +613,9 @@ if (window.__TAURI__ && window.__TAURI__.window) {
 }
 
 function connect() {
+  step("로그인 상태 확인 시작");
   FB.onAuthStateChanged(FB.auth, (user) => {
+    step(user ? "로그인되어 있음" : "로그인 안 되어 있음");
     if (user) openApp(user);
     else if (signedIn) { signedIn = null; showGate("로그인이 풀렸어요. 다시 들어와 주세요."); }
     else showGate();
@@ -2118,4 +2125,5 @@ renderAll(); renderClass(); tick();
 setInterval(tick, 1000);
 setSync("", "연결 중");
 window.__deskReady = true;   // index.html 의 안내가 이걸 본다
+step("화면 다 불러옴");
 connect();

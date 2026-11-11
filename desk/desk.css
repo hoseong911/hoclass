@@ -323,3 +323,10 @@ button.region:hover { border-color: var(--accent); color: var(--accent); }
 .gate-card .btn { margin-top: 4px; }
 .gate-card .tip { margin-top: 2px; }
 .foot-right { display: inline-flex; gap: 10px; align-items: center; }
+
+.gate-diag {
+  margin: 0; font-family: var(--font-num); font-size: 11.5px; line-height: 1.5;
+  color: var(--faint); background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 9px; overflow-wrap: anywhere;
+}
+.gate-card .text-btn { align-self: flex-start; }
