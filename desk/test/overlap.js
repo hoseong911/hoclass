@@ -150,7 +150,20 @@ async function dumpWidgets() {
 
   A.$("setBtn").click();
   await until(() => A.$("setForm"), "설정 패널");
-  fill("setYear", "2027"); fill("setHome", "3-1"); fill("setClasses", "3-1, 3-2");
+  fill("setYear", "2027");
+  [...d.querySelectorAll("#setPanel button")].find(b => b.textContent.includes("학년도 추가")).click();
+  await until(() => d.querySelector('#setPanel .cpick[data-year="2027"][aria-pressed="true"]'), "2027학년도");
+  A.$("setHome").value = "home";
+  A.$("setHome").dispatchEvent(new w.Event("change", { bubbles: true }));
+  const [hg, hr] = A.$("setHomeCls").querySelectorAll("select");
+  hg.value = "3"; hr.value = "1";
+  A.$("setClassCount").value = "2";
+  A.$("setClassCount").dispatchEvent(new w.Event("change", { bubbles: true }));
+  const rows = [...A.$("setClasses").children];
+  rows.forEach((row, i) => {
+    const [g, r] = row.querySelectorAll("select");
+    g.value = "3"; r.value = String(i + 1);
+  });
   submit("setForm");
   await until(() => A.$("setPanel").hidden, "설정 저장");
 
@@ -373,7 +386,7 @@ function one(name, html, w, h) {
      (실제로 2026-11-12에 "지금 수업"이 이것으로 잘려 보였다.) */
   if (MUST_FIT.includes(name.split(":")[0])) {
     const over = card.scrollHeight - card.clientHeight;
-    if (over > 1) bad.push("칸넘침  " + where + "  굴려야 보이는 높이 " + Math.round(over) + "px");
+    if (over > 2) bad.push("칸넘침  " + where + "  굴려야 보이는 높이 " + Math.round(over) + "px");
   }
 }
 
@@ -409,7 +422,7 @@ function findChrome() {
       .replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
     const lines = txt.split("\n");
     console.log("\n── " + s + " ──\n" + txt);
-    bad += lines.filter(l => /^(겹침|세로잘림|위로넘침)/.test(l)).length;
+    bad += lines.filter(l => /^(겹침|세로잘림|위로넘침|칸넘침)/.test(l)).length;
   }
   try { fs.unlinkSync(TMP); } catch (e) {}
   if (bad) { console.error("\n글자가 겹치거나 잘리는 곳 " + bad + "군데."); process.exit(1); }

@@ -42,7 +42,7 @@ export const okGrid = (g) => ({
   cols: clamp(g && g.cols, GRID_MIN.cols, GRID_MAX.cols) || DEFAULT_GRID.cols,
   rows: clamp(g && g.rows, GRID_MIN.rows, GRID_MAX.rows) || DEFAULT_GRID.rows,
 });
-/* 숫자가 아니면 기본값. clamp 만 쓰면 인자를 빼먹었을 때 모든 우젯이 1장으로 끌려온다. */
+/* 숫자가 아니면 기본값. clamp 만 쓰면 인자를 빼먹었을 때 모든 위젯이 1장으로 끌려온다. */
 export const okPages = (n) => {
   const v = Math.round(Number(n));
   return Number.isFinite(v) && v >= 1 ? Math.min(v, MAX_PAGES) : DEFAULT_PAGES;

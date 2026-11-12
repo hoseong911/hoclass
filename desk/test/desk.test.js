@@ -1,6 +1,7 @@
 // 가짜 파이어스토어와 Auth 로 끝까지 돌린다. 실제 파베는 건드리지 않는다. (cd desk && npm test)
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const { JSDOM } = require("jsdom");
+const { checkKorean } = require("./korean.js");
 const webcrypto = require("crypto").webcrypto;
 
 const DIR = path.join(__dirname, "..");
@@ -246,14 +247,24 @@ function checkHiddenRule() {
   assert(A.$("setClose"), "머리줄에 닫기 단추가 있다");
   assert(!A.$("setScrim").hidden, "열면 뒤가 가려진다");
   assert.deepStrictEqual([...A.d.querySelectorAll("#setPanel .set-tab")].map(b => b.textContent),
-    ["올해", "화면", "백업", "비밀번호"], "탭 넷");
+    ["학년도", "화면", "백업", "비밀번호"], "탭 넷");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden && A.$("setScrim").hidden, "닫기 단추로 닫힌다");
   A.$("setBtn").click();
-  await until(() => A.$("setForm"), "다시 열면 올해 탭");
-  A.fill("setYear", "2027"); A.fill("setHome", "3-9"); A.fill("setClasses", "");
+  await until(() => A.$("setForm"), "다시 열면 학년도 탭");
+  /* 학년도를 더하고, 담임 반은 글이 아니라 고르개로 정한다 */
+  A.fill("setYear", "2027");
+  A.btn("#setPanel", "학년도 추가").click();
+  await until(() => A.d.querySelector('#setPanel .cpick[data-year="2027"][aria-pressed="true"]'), "2027학년도를 더하고 고른다");
+  A.$("setHome").value = "home";
+  A.$("setHome").dispatchEvent(new A.w.Event("change", { bubbles: true }));
+  const [hg, hr] = A.$("setHomeCls").querySelectorAll("select");
+  hg.value = "3"; hr.value = "9";
+  A.$("setClassCount").value = "0";
+  A.$("setClassCount").dispatchEvent(new A.w.Event("change", { bubbles: true }));
   A.submit("setForm");
   await until(() => A.$("setPanel").hidden, "저장하면 닫힌다");
+  await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state; return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9"; }, "담임 반이 3-9 로 저장된다");
 
   /* ---------- 시계 ---------- */
   const clockText = A.wg("clock").textContent;
@@ -297,7 +308,7 @@ function checkHiddenRule() {
   await until(() => qCells()[3].textContent.includes("급한 공문 회신"), "손가락으로 끌면 칸이 바뀐다");
   assert(!A.d.querySelector(".q-ghost"), "놓으면 집어 든 그림이 사라진다");
 
-  /* ---------- 구글 캘린더 우젯 ---------- */
+  /* ---------- 구글 캘린더 위젯 ---------- */
   await until(() => A.$("gcalBody").textContent.includes("이어 붙이면"), "연결 전에는 안내가 보인다");
   assert(!A.$("gcalBtn").hidden, "연결 단추가 보인다");
 
@@ -344,7 +355,7 @@ function checkHiddenRule() {
   await until(() => !A.wg("class").hidden, "1장");
   A.btn("#setPanel", "이 장 지우기").click();
   await wait(120);
-  assert.strictEqual(dots().length, 2, "우젯이 있는 장은 안 지워진다");
+  assert.strictEqual(dots().length, 2, "위젯이 있는 장은 안 지워진다");
 
   A.fill("setCols", "12"); A.fill("setRows", "8");
   A.btn("#setPanel", "바꾸기").click();
@@ -357,12 +368,27 @@ function checkHiddenRule() {
     assert(x + w - 1 <= 12 && y + h - 1 <= 8, id + " 가 칸 밖으로 나갔다: " + A.area(id));
   }
 
-  const ttBtn = () => [...A.d.querySelectorAll("#setPanel .wg-toggle")].find(b => b.textContent.startsWith("주간 시간표"));
-  assert(ttBtn().textContent.includes("장"), "몇 장에 있는지 보여 준다: " + ttBtn().textContent);
-  ttBtn().click();
-  await until(() => ttBtn().textContent.includes("꺼짐"), "끄면 꺼짐으로 바뀐다");
-  ttBtn().click();
-  await until(() => !ttBtn().textContent.includes("꺼짐"), "다시 켜진다");
+  /* 장마다 "이 장에 넣을 위젯"을 체크로 고른다 */
+  const ttBoxes = () => [...A.d.querySelectorAll('#setPanel .wg-check input[data-wg="tt"]')];
+  assert.strictEqual(ttBoxes().length, 2, "장 수만큼 체크 칸이 생긴다");
+  assert(ttBoxes()[1].checked && !ttBoxes()[0].checked, "주간 시간표는 2장에 있다");
+  ttBoxes()[1].click();
+  await until(() => ttBoxes().every(b => !b.checked), "체크를 풀면 어느 장에도 없다");
+  assert(A.wg("tt").hidden, "꺼진 위젯은 화면에서 사라진다");
+  ttBoxes()[1].click();
+  await until(() => ttBoxes()[1].checked, "다시 체크하면 2장으로 돌아온다");
+
+  A.btn("#setPanel", "장 더하기").click();
+  await until(() => ttBoxes().length === 3, "장을 더하면 체크 칸도 늘어난다");
+  ttBoxes()[2].click();
+  await until(() => ttBoxes()[2].checked && !ttBoxes()[1].checked, "다른 장에서 체크하면 그 장으로 옮겨진다");
+  ttBoxes()[1].click();
+  await until(() => ttBoxes()[1].checked, "2장으로 되돌린다");
+  dots()[2].click();
+  await until(() => A.wg("class").hidden, "3장으로 넘어간다");
+  A.btn("#setPanel", "이 장 지우기").click();
+  await until(() => dots().length === 2, "빈 3장은 지워진다");
+  dots()[0].click();
 
   const back = () => A.btn("#setPanel", "기본 배치로 되돌리기") || A.btn("#setPanel", "한 번 더 누르면 되돌리기");
   back().click(); back().click();
