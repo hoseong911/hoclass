@@ -119,6 +119,12 @@ function device() {
     why: (e) => ({ step: 0, msg: String((e && e.message) || "") }),
     CONSOLE_URL: "https://example.invalid/",
   };
+  /* 나이스는 바깥 인터넷이라 시험에서는 부르지 않는다 */
+  w.__NEIS__ = {
+    findSchools: async () => [], loadSchedule: async () => [], loadMeal: async () => [],
+    loadMyWeek: async () => [], loadClassDay: async () => [],
+    mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "",
+  };
   w.URL.createObjectURL = () => "blob:fake";
   w.URL.revokeObjectURL = () => {};
   const sideCode = ["grid.js", "hoclass.js"].map(f => fs.readFileSync(path.join(DIR, f), "utf8").replace(/^export /gm, "")).join("\n");
@@ -126,7 +132,8 @@ function device() {
     .replace(/^import \{ FB \} from "\.\/fb-desk\.js";$/m, "const FB = window.__FB__;")
     .replace(/^import \{[^}]*\} from "\.\/hoclass\.js";$/m, "")
     .replace(/^import \{[^}]*\} from "\.\/grid\.js";$/m, "")
-    .replace(/^import \* as GCal from "\.\/gcal\.js";$/m, "const GCal = window.__GCAL__;");
+    .replace(/^import \* as GCal from "\.\/gcal\.js";$/m, "const GCal = window.__GCAL__;")
+    .replace(/^import \* as Neis from "\.\/neis\.js";$/m, "const Neis = window.__NEIS__;");
   w.eval(sideCode + "\n" + deskCode);
   return { w, d, $: (id) => d.getElementById(id) };
 }

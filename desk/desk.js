@@ -1,5 +1,6 @@
 import { FB } from "./fb-desk.js";
 import * as GCal from "./gcal.js";
+import * as Neis from "./neis.js";
 import { WIDGETS, widgetDef, DEFAULT_GRID, DEFAULT_PAGES, MAX_PAGES, GRID_MIN, GRID_MAX,
          okGrid, okPages, normalize, pagesIn, hits, freeSlot, turnOn, moveToPage,
          cellSize, moved } from "./grid.js";
@@ -94,6 +95,7 @@ const state = {
   pages: DEFAULT_PAGES,
   layout: normalize(null, DEFAULT_GRID, DEFAULT_PAGES),
   school: "",
+  neis: { key: "", school: null, subject: "" },   // 나이스에서 받아오기
   cal: [], calSchool: "", calAt: "",
 };
 
@@ -162,7 +164,7 @@ const SPECS = [
   { key: "desk_settings",
     /* 주간 시간표는 5×7 이지만 **한 줄로 펴서** 담는다.
        파이어스토어는 배열 안에 배열을 담지 못한다(넣으려 들면 저장이 통째로 막힌다). */
-    pick: () => ({ links: state.links, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, idleMin: state.idleMin, school: state.school }),
+    pick: () => ({ links: state.links, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, idleMin: state.idleMin, school: state.school, neis: state.neis }),
     put: (s) => {
       if (arr(s.links)) state.links = s.links.filter(l => l && typeof l.url === "string");
       if (arr(s.bells) && s.bells.length === 7) state.bells = s.bells.map(b => ({ s: String(b.s || ""), e: String(b.e || "") }));
@@ -175,6 +177,15 @@ const SPECS = [
       state.ttExample = !!s.ttExample;
       if ([5, 15, 30, 60].includes(s.idleMin)) state.idleMin = s.idleMin;
       if (typeof s.school === "string") state.school = s.school.slice(0, 40);
+      if (s.neis && typeof s.neis === "object") {
+        const n = s.neis, sc = n.school;
+        state.neis = {
+          key: typeof n.key === "string" ? n.key : "",
+          subject: typeof n.subject === "string" ? n.subject.slice(0, 20) : "",
+          school: sc && typeof sc.atpt === "string" && typeof sc.code === "string"
+            ? { name: String(sc.name || ""), atpt: sc.atpt, code: sc.code, kind: String(sc.kind || "") } : null,
+        };
+      }
     } },
   { key: "desk_year",
     pick: () => state.year,
@@ -1269,7 +1280,7 @@ function tick() {
   if (k !== lastDay) {
     lastDay = k;
     $("dateMain").textContent = `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 ${WD[now.getDay()]}요일`;
-    ensureAtt(k); renderDdays(); renderClass();
+    ensureAtt(k); renderDdays(); renderClass(); loadMeal();
   }
   if (dataKey && Date.now() - lastActive > state.idleMin * 60000) lockNow();
   renderNow(now);
@@ -1416,10 +1427,12 @@ function passField(id, label, auto) {
 const SET_TABS = [
   { key: "year", name: "학년도" },
   { key: "grid", name: "화면" },
+  { key: "neis", name: "나이스" },
   { key: "back", name: "백업" },
   { key: "pass", name: "비밀번호" },
 ];
 let setTab = "year", setPage = 1;
+let mealToday = null;          // 오늘 급식 { day, list }
 function closeSet() { setOpen = false; renderSet(); }
 const setField = (name, el) => h("label", { class: "field" }, name, el);
 /* 묶음마다 소제목과 테두리를 둬서 빽빽하지 않게 (선생님 지시 2026-11-12) */
@@ -1450,6 +1463,7 @@ function renderSet() {
       onclick: () => { setTab = t.key; renderSet(); },
     }))),
     setTab === "grid" ? gridSection()
+      : setTab === "neis" ? neisSection()
       : setTab === "back" ? backupSection()
       : setTab === "pass" ? passSection()
       : yearSection());
@@ -1572,6 +1586,103 @@ function yearSection() {
     h("div", { class: "set-foot" },
       h("button", { class: "btn small", type: "submit", id: "setSave", text: "저장" })));
   return h("section", { class: "set-sec" }, h("h3", { text: "학년도 설정" }), form);
+}
+
+/* ---------- 나이스에서 받아오기 ---------- */
+function neisSection() {
+  const N = state.neis;
+  const err = h("p", { class: "form-err", role: "alert" });
+  const note = h("p", { class: "set-state", id: "neisNote" });
+  const busy = (btn, on) => { btn.disabled = on; btn.textContent = on ? "받는 중…" : btn.dataset.label; };
+  const run = (btn, fn) => async () => {
+    err.textContent = ""; note.textContent = "";
+    busy(btn, true);
+    try { await fn(); } catch (e) { err.textContent = (e && e.message) || "받지 못했습니다."; }
+    busy(btn, false);
+  };
+  const doBtn = (id, label, fn) => {
+    const b = h("button", { class: "btn small secondary", type: "button", id, text: label });
+    b.dataset.label = label;
+    b.addEventListener("click", run(b, () => fn(b)));
+    return b;
+  };
+
+  /* 인증키 */
+  const keyIn = h("input", { type: "text", id: "neisKey", value: N.key || "", autocomplete: "off", spellcheck: "false" });
+  const subjIn = h("input", { type: "text", id: "neisSubject", value: N.subject || "", maxlength: "20", autocomplete: "off" });
+
+  /* 학교 찾기 */
+  const findIn = h("input", { type: "text", id: "neisFind", value: (N.school && N.school.name) || state.school || "", autocomplete: "off" });
+  const found = h("div", { class: "set-row", id: "neisFound" });
+  const pickSchool = (s) => {
+    state.neis = { ...state.neis, school: { name: s.name, atpt: s.atpt, code: s.code, kind: s.kind } };
+    if (!state.school) state.school = s.name;
+    save(true); renderSet();
+    mealToday = null; loadMeal();
+    toast(s.name + "으로 정했습니다");
+  };
+  const findBtn = doBtn("neisFindBtn", "학교 찾기", async () => {
+    const list = await Neis.findSchools(findIn.value.trim(), keyIn.value.trim());
+    if (!list.length) { err.textContent = "그 이름의 학교를 찾지 못했습니다."; return; }
+    found.replaceChildren(...list.slice(0, 8).map(s => h("button", {
+      class: "cpick", type: "button", text: s.name + " (" + s.office.replace("교육청", "") + ")",
+      onclick: () => pickSchool(s),
+    })));
+  });
+
+  const school = N.school;
+  const now = new Date();
+  const kids = [
+    setBlock("인증키", [
+      h("div", { class: "set-grid" }, setField("나이스 인증키", keyIn), setField("내 과목", subjIn)),
+      h("div", { class: "set-row" },
+        h("button", { class: "btn small", type: "button", id: "neisSave", text: "저장", onclick: () => {
+          state.neis = { ...state.neis, key: keyIn.value.trim(), subject: subjIn.value.trim().slice(0, 20) };
+          save(true); renderSet(); toast("저장했습니다");
+        } }),
+        h("a", { class: "text-btn", href: "https://open.neis.go.kr", target: "_blank", rel: "noopener", text: "인증키 받으러 가기" })),
+    ]),
+    setBlock("학교", [
+      h("div", { class: "set-row" }, findIn, findBtn),
+      found,
+      h("p", { class: "set-state", text: school ? school.name + " " + school.kind + " (" + school.atpt + " " + school.code + ")" : "학교를 아직 정하지 않았습니다." }),
+    ]),
+  ];
+  if (school) {
+    kids.push(setBlock("받아오기", [
+      h("div", { class: "set-row" },
+        doBtn("neisCal", "학사 일정", async () => {
+          const list = await Neis.loadSchedule(school, state.year.current, N.key);
+          if (!list.length) { err.textContent = "그 학년도의 학사 일정이 없습니다."; return; }
+          state.cal = list.map(x => ({ d: x.d, name: x.name })).slice(0, 400);
+          state.calSchool = school.name;
+          state.calAt = new Date().toISOString();
+          save(true); renderDdays(); renderCalBox();
+          note.textContent = list.length + "건을 받았습니다." + (list.short ? " " + Neis.KEY_HINT : "");
+        }),
+        doBtn("neisTT", "이번 주 시간표", async () => {
+          const classes = (cfg().classes || []).slice();
+          if (!classes.length && cfg().homeroom) classes.push(cfg().homeroom);
+          if (!classes.length) { err.textContent = "학년도 설정에서 수업 반이나 담임 반을 먼저 넣어 주세요."; return; }
+          const tt = await Neis.loadMyWeek(school, state.year.current, Neis.semesterOf(now),
+            Neis.mondayOf(now), classes, N.subject, N.key);
+          const n = tt.flat().filter(Boolean).length;
+          if (!n) { err.textContent = "그 주에 내 과목 수업을 찾지 못했습니다. 과목 이름을 확인해 주세요."; return; }
+          state.tt = tt; state.ttExample = false;
+          save(true); renderTT(); renderPeriods(); renderNow(new Date());
+          note.textContent = n + "칸을 채웠습니다." + (tt.short ? " " + Neis.KEY_HINT : "");
+        }),
+        doBtn("neisMeal", "오늘 급식", async () => {
+          const list = await Neis.loadMeal(school, todayKey().replace(/-/g, ""), N.key);
+          mealToday = { day: todayKey(), list };
+          renderBook();
+          note.textContent = list.length ? list.map(m => m.kind + ": " + m.dishes.join(", ")).join(" / ") : "오늘 급식이 없습니다.";
+        })),
+      h("p", { class: "set-state", text: "학사 일정은 D-day 에, 시간표는 주간 시간표에, 급식은 교무수첩 오늘 화면에 들어갑니다." }),
+    ]));
+  }
+  kids.push(note);
+  return setSec("나이스에서 받아오기", kids, err);
 }
 
 /* 비밀번호 바꾸기 */
@@ -2356,7 +2467,34 @@ function todayPage() {
     return h("div", null, h("ul", { class: "lines" }, ...items.map(consultLine)), addBtn);
   })());
 
-  return [classes, attToday, jobs, notes, cons];
+  const meal = panel("오늘 급식", (() => {
+    if (!state.neis.school) return h("div", { class: "panel-body" }, noneLine("설정의 나이스 탭에서 학교를 정하면 급식이 보입니다."));
+    const list = mealToday && mealToday.day === today ? mealToday.list : null;
+    if (!list) return h("div", { class: "panel-body" }, noneLine("급식을 받는 중입니다."));
+    if (!list.length) return h("div", { class: "panel-body" }, noneLine("오늘 급식이 없습니다."));
+    return h("ul", { class: "lines" }, ...list.map(m => h("li", { class: "line" },
+      h("span", { class: "ttl", text: m.kind }),
+      h("span", { class: "body", text: m.dishes.join(", ") }),
+      m.kcal ? h("span", { class: "when", text: m.kcal }) : null)));
+  })());
+
+  return [classes, attToday, jobs, notes, cons, meal];
+}
+
+/* 오늘 급식은 하루 한 번만 받는다. */
+let mealBusy = false;
+async function loadMeal() {
+  const day = todayKey();
+  if (mealBusy || !state.neis.school || (mealToday && mealToday.day === day)) return;
+  mealBusy = true;
+  try {
+    const list = await Neis.loadMeal(state.neis.school, day.replace(/-/g, ""), state.neis.key);
+    mealToday = { day, list };
+    renderBook();
+  } catch (e) {
+    mealToday = { day, list: [] };
+  }
+  mealBusy = false;
 }
 
 /* ---------- 학생 ---------- */

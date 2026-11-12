@@ -121,6 +121,16 @@ function device() {
     why: (e) => ({ step: 0, msg: String((e && e.message) || "") }),
     CONSOLE_URL: "https://example.invalid/",
   };
+  /* 나이스는 바깥 인터넷이라 시험에서는 부르지 않는다 */
+  w.__NEIS__ = {
+    findSchools: async () => [{ name: "인천동양중학교", atpt: "E10", code: "7331219", kind: "중학교", office: "인천광역시교육청", address: "" }],
+    loadSchedule: async () => [{ d: "2027-03-02", name: "입학식" }, { d: "2027-07-20", name: "여름방학식" }],
+    loadMeal: async () => [{ kind: "중식", dishes: ["흑미밥", "된장국"], kcal: "800 Kcal" }],
+    loadMyWeek: async () => [["3-1", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+                             ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]],
+    loadClassDay: async () => [],
+    mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "",
+  };
   w.URL.createObjectURL = (blob) => { saved.push(blob); return "blob:fake/" + saved.length; };
   w.URL.revokeObjectURL = () => {};
   w.HTMLAnchorElement.prototype.click = function () { this.dispatchEvent(new w.Event("click")); };
@@ -134,7 +144,8 @@ function device() {
     .replace(/^import \{ FB \} from "\.\/fb-desk\.js";$/m, "const FB = window.__FB__;")
     .replace(/^import \{[^}]*\} from "\.\/hoclass\.js";$/m, "")
     .replace(/^import \{[^}]*\} from "\.\/grid\.js";$/m, "")
-    .replace(/^import \* as GCal from "\.\/gcal\.js";$/m, "const GCal = window.__GCAL__;");
+    .replace(/^import \* as GCal from "\.\/gcal\.js";$/m, "const GCal = window.__GCAL__;")
+    .replace(/^import \* as Neis from "\.\/neis\.js";$/m, "const Neis = window.__NEIS__;");
   const code = sideCode + "\n" + deskCode;
   if (/^\s*(import|export)\s/m.test(code)) throw new Error("import/export 를 못 걷어냈다");
   w.eval(code);
@@ -249,7 +260,7 @@ function checkHiddenRule() {
   assert(A.$("setClose"), "머리줄에 닫기 단추가 있다");
   assert(!A.$("setScrim").hidden, "열면 뒤가 가려진다");
   assert.deepStrictEqual([...A.d.querySelectorAll("#setPanel .set-tab")].map(b => b.textContent),
-    ["학년도", "화면", "백업", "비밀번호"], "탭 넷");
+    ["학년도", "화면", "나이스", "백업", "비밀번호"], "탭 다섯");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden && A.$("setScrim").hidden, "닫기 단추로 닫힌다");
   A.$("setBtn").click();
@@ -469,9 +480,10 @@ function checkHiddenRule() {
   renameHoclassStudent("301", 2, "전학온애");
   A.setTab("year");
   await until(() => A.$("setForm"), "설정 다시");
-  A.fill("setYear", "2027"); A.fill("setHome", "3-9");
   A.submit("setForm");
   await until(() => A.text().includes("학번에 붙은 이름이 달라졌습니다"), "파수꾼이 알린다", 30000);
+  await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state;
+    return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9"; }, "다시 저장해도 담임 반이 지워지지 않는다");
   assert(A.text().includes("30102번: 이주서에서 전학온애(으)로"), "바뀐 학번과 이름: " + A.text().slice(0, 160));
   A.btn("#classBody", "확인").click();
   await until(() => !A.text().includes("학번에 붙은 이름이 달라졌습니다"), "확인하면 경고가 사라진다");
@@ -536,6 +548,27 @@ function checkHiddenRule() {
   assert(!store.has("hoclass_course_grades/cl1_30103"), "출석한 학생은 보내지 않았다");
   assert.deepStrictEqual([...new Set(hcWrites.map(p => p.split("/")[0]))].sort(),
     ["hoclass_course_grades", "hoclass_course_lessons"], "호클래스에 쓴 컬렉션: " + hcWrites.join(", "));
+
+  /* ---------- 나이스에서 받아오기 ---------- */
+  A.setTab("neis");
+  await until(() => A.$("neisKey"), "나이스 탭");
+  A.fill("neisKey", "시험열쇠"); A.fill("neisSubject", "역사");
+  A.$("neisSave").click();
+  await until(() => A.$("neisKey") && A.$("neisKey").value === "시험열쇠", "인증키가 남는다");
+  A.$("neisFindBtn").click();
+  await until(() => A.d.querySelector("#neisFound .cpick"), "학교를 찾아 보여 준다");
+  A.d.querySelector("#neisFound .cpick").click();
+  await until(() => A.$("neisCal"), "학교를 정하면 받아오기 단추가 생긴다");
+  A.$("neisCal").click();
+  await until(() => A.$("ddayList").textContent.includes("입학식"), "학사 일정이 D-day 에 들어온다");
+  A.$("neisTT").click();
+  await until(() => A.$("tt").textContent.includes("3-1"), "시간표가 주간 시간표에 들어온다");
+  await until(() => { const st = JSON.parse(store.get("desk_settings/general") || "{}").state;
+    return st && st.neis && st.neis.school && st.neis.school.code === "7331219"; }, "학교가 저장된다");
+  A.$("setClose").click();
+  await until(() => A.$("setPanel").hidden, "설정 닫기");
+  A.tab("today");
+  await until(() => A.book().includes("흑미밥"), "오늘 급식이 수첩 오늘 화면에 보인다");
 
   /* ---------- 백업 ---------- */
   A.setTab("back");
