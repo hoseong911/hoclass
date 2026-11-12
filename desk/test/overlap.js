@@ -11,6 +11,7 @@
 const fs = require("fs"), path = require("path"), { execFileSync } = require("child_process");
 const { JSDOM } = require("jsdom");
 const webcrypto = require("crypto").webcrypto;
+const { checkFirestoreValue } = require("./fsvalue.js");
 
 const DIR = path.join(__dirname, "..");
 const TMP = path.join(__dirname, ".overlap.html");
@@ -73,6 +74,7 @@ function makeFB() {
     getDoc: async (ref) => mkSnap(ref._p),
     setDoc: async (ref, body) => {
       if (!current) { const e = new Error("no auth"); e.code = "permission-denied"; throw e; }
+      checkFirestoreValue(body, ref._p, false);
       put(ref._p, clone(body)); notify(ref._p);
     },
     getDocs: async (q) => {
@@ -95,7 +97,7 @@ function makeFB() {
     signOut: async () => { current = null; authCbs.forEach(cb => cb(null)); },
     onAuthStateChanged: (_a, cb) => { authCbs.push(cb); setTimeout(() => cb(current), 0); return () => {}; },
     query: (c) => c, where: () => ({}), orderBy: () => ({}), limit: () => ({}),
-    runTransaction: async (_db, fn) => fn({ get: async (ref) => mkSnap(ref._p), set: (ref, body) => { put(ref._p, clone(body)); notify(ref._p); } }),
+    runTransaction: async (_db, fn) => fn({ get: async (ref) => mkSnap(ref._p), set: (ref, body) => { checkFirestoreValue(body, ref._p, false); put(ref._p, clone(body)); notify(ref._p); } }),
   };
 }
 

@@ -2,6 +2,7 @@
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const { JSDOM } = require("jsdom");
 const { checkKorean } = require("./korean.js");
+const { checkFirestoreValue } = require("./fsvalue.js");
 const webcrypto = require("crypto").webcrypto;
 
 const DIR = path.join(__dirname, "..");
@@ -67,6 +68,7 @@ function makeFB() {
     getDoc: async (ref) => mkSnap(ref._p),
     setDoc: async (ref, body) => {
       if (!current) { const e = new Error("no auth"); e.code = "permission-denied"; throw e; }
+      checkFirestoreValue(body, ref._p, false);
       (ref._p.startsWith("hoclass_") ? hcWrites : writes).push(ref._p);
       put(ref._p, clone(body)); notify(ref._p);
     },
@@ -93,7 +95,7 @@ function makeFB() {
     query: (c) => c, where: () => ({}), orderBy: () => ({}), limit: () => ({}),
     runTransaction: async (_db, fn) => fn({
       get: async (ref) => mkSnap(ref._p),
-      set: (ref, body) => { writes.push(ref._p); put(ref._p, clone(body)); notify(ref._p); },
+      set: (ref, body) => { checkFirestoreValue(body, ref._p, false); writes.push(ref._p); put(ref._p, clone(body)); notify(ref._p); },
     }),
   };
 }
@@ -546,7 +548,7 @@ function checkHiddenRule() {
   // 눌러도 "저장소에 연결된 뒤에 할 수 있습니다" 만 나오는 칸을 보여 주었다.
   assert(A.$("sync").textContent.includes("저장"), "끊기기 전: " + A.$("sync").textContent);
   breakCloud();
-  await until(() => A.$("sync").textContent.includes("다시 연결"), "끊기면 다시 붙는 중이라고 알린다");
+  await until(() => A.$("sync").textContent.includes("끊"), "끊기면 까닭을 알린다: " + A.$("sync").textContent);
   assert(A.$("tools").classList.contains("alert"), "저장이 어긋나면 우상단 도구가 저절로 보인다");
   await until(() => A.$("sync").textContent.includes("모든 기기에 저장됨"), "스스로 다시 붙는다", 30000);
   assert(!A.$("tools").classList.contains("alert"), "다시 붙으면 도구가 다시 숨는다");

@@ -160,12 +160,18 @@ function parseClasses(text) {
 
 const SPECS = [
   { key: "desk_settings",
-    pick: () => ({ links: state.links, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt, ttExample: state.ttExample, idleMin: state.idleMin, school: state.school }),
+    /* 주간 시간표는 5×7 이지만 **한 줄로 펴서** 담는다.
+       파이어스토어는 배열 안에 배열을 담지 못한다(넣으려 들면 저장이 통째로 막힌다). */
+    pick: () => ({ links: state.links, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, idleMin: state.idleMin, school: state.school }),
     put: (s) => {
       if (arr(s.links)) state.links = s.links.filter(l => l && typeof l.url === "string");
       if (arr(s.bells) && s.bells.length === 7) state.bells = s.bells.map(b => ({ s: String(b.s || ""), e: String(b.e || "") }));
       if (Number.isInteger(s.lunchAfter)) state.lunchAfter = s.lunchAfter;
-      if (arr(s.tt) && s.tt.length === 5) state.tt = s.tt.map(r => Array.from({ length: 7 }, (_, i) => String((r || [])[i] || "")));
+      // 펴서 담은 35칸, 옛 5×7 모양 둘 다 읽는다(브라우저에 남은 옛 사본이 있다)
+      if (arr(s.tt)) {
+        const flat = arr(s.tt[0]) ? s.tt.flat() : s.tt;
+        state.tt = Array.from({ length: 5 }, (_, d) => Array.from({ length: 7 }, (_, p) => String(flat[d * 7 + p] || "")));
+      }
       state.ttExample = !!s.ttExample;
       if ([5, 15, 30, 60].includes(s.idleMin)) state.idleMin = s.idleMin;
       if (typeof s.school === "string") state.school = s.school.slice(0, 40);
@@ -342,8 +348,16 @@ const encDocs = () => Object.values(docs).filter(Boolean);
 const allDocs = () => [C, ...plainDocs, ...encDocs()];
 const sameBody = (a, b) => !!a && !!b && (a.c ? a.c === b.c : a.at === b.at);
 
+/* 끊긴 까닭을 사람이 읽을 말로. 모르면 코드라도 보여 준다(이게 없으면 원인을 못 찾는다). */
+function whyOffline(e) {
+  const c = (e && e.code) || "";
+  if (c.includes("permission-denied")) return "저장소를 읽을 권한이 없습니다";
+  if (c.includes("unauthenticated")) return "로그인이 풀렸습니다";
+  if (c.includes("unavailable") || c.includes("deadline")) return "저장소에 닿지 않습니다";
+  return "저장소 연결이 끊겼습니다" + (c ? " (" + c + ")" : "");
+}
 function refreshSync() {
-  if (!cloud) { setSync("warn", retryTimer ? "다시 연결하는 중" : "이 브라우저에만 저장됨"); return; }
+  if (!cloud) { setSync("warn", syncNote || (retryTimer ? "다시 연결하는 중" : "이 브라우저에만 저장됨")); return; }
   if (syncNote) { setSync("warn", syncNote); return; }
   if (allDocs().some(d => d.dirty || d.writing || d.pendingBody)) setSync("", "저장 중");
   else setSync("ok", "모든 기기에 저장됨");
@@ -361,7 +375,7 @@ function goOffline() {
 }
 function reconnect() {
   if (!signedIn || cloud) return;
-  cloud = cloudRef; cloudFailed = false;
+  cloud = cloudRef; cloudFailed = false; syncNote = "";
   for (const d of allDocs()) subscribe(d);
   refreshSync(); softClass();
 }
@@ -395,7 +409,11 @@ async function flushDoc(d) {
         if (code.includes("permission-denied") || code.includes("unauthenticated")) {
           d.pendingBody = null; syncNote = "저장 권한이 없습니다. 다시 로그인해 주세요."; goOffline(); break;
         }
-        if (code.includes("invalid-argument") || code.includes("not-found")) { d.pendingBody = null; goOffline(); break; }
+        if (code.includes("invalid-argument") || code.includes("not-found")) {
+          d.pendingBody = null;
+          syncNote = "저장할 수 없는 자료가 있습니다 (" + d.key + ")";
+          goOffline(); break;
+        }
         if (code.includes("resource-exhausted") || code.includes("quota")) {
           d.pendingBody = null; syncNote = "저장 공간이 가득 찼습니다. 지난 기록을 줄여 주세요."; break;
         }
@@ -439,11 +457,11 @@ async function openEnc(d) {
 }
 function subscribe(d) {
   if (!cloud || d.unsub) return;
-  try { d.ref = cloud(d.key); } catch (e) { goOffline(); return; }
+  try { d.ref = cloud(d.key); } catch (e) { syncNote = "저장할 곳을 못 찾았습니다: " + (e && e.message || ""); goOffline(); return; }
   d.unsub = d.ref.onSnapshot((snap) => {
     const { fromCache, hasPendingWrites } = snap.metadata;
     if (hasPendingWrites) return;
-    if (!fromCache) d.confirmed = true;
+    if (!fromCache) { if (!d.confirmed) retryWait = 6000; d.confirmed = true; }
     if (!snap.exists) {
       if (!fromCache) {
         if (d.body) { if (!d.dirty && !d.pendingBody) { d.pendingBody = d.body; flushDoc(d); } }
@@ -459,7 +477,7 @@ function subscribe(d) {
     d.body = body; lsSet(d.key, body);
     if (d.enc) openEnc(d).then(softClass);
     else if (d.apply) d.apply(body);
-  }, () => { goOffline(); });
+  }, (e) => { syncNote = whyOffline(e); goOffline(); });
 }
 function attach(d) {
   if (d.enc) openEnc(d).then(softClass);
@@ -1779,7 +1797,7 @@ function renderClass() {
   const note = (text) => [h("p", { class: "empty", text })];
   if (ks === "loading") { body.replaceChildren(...note("저장소를 확인하는 중입니다.")); return; }
   if (ks === "unsupported") { body.replaceChildren(...note("이 화면에서는 암호화를 쓸 수 없습니다. 학생 정보를 저장하지 않도록 명단과 출결을 닫아 두었습니다. 다른 브라우저에서 열어 주세요.")); return; }
-  if (ks === "offline") { body.replaceChildren(...note("저장소에 연결되지 않아 보호 비밀번호를 만들 수 없습니다. 인터넷 연결을 확인해 주세요.")); return; }
+  if (ks === "offline") { body.replaceChildren(...note("저장소에 연결되지 않아 보호 비밀번호를 만들 수 없습니다. " + (syncNote || "인터넷 연결을 확인해 주세요."))); return; }
   if (ks === "none") { body.replaceChildren(...setupView()); return; }
   if (ks === "recovery") { body.replaceChildren(...recoveryView()); return; }
   if (ks === "locked") { body.replaceChildren(...unlockView()); return; }
