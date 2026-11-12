@@ -82,7 +82,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .text-btn:hover { color: var(--accent); }
 .hint { font-size: 12px; color: var(--muted); background: var(--warn-soft); border-radius: 8px; padding: 6px 10px; margin: 0; }
 
-input[type="text"], input[type="password"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
   border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 8px 12px; outline: none; min-width: 0;
 }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); background: var(--surface); }
@@ -298,18 +298,11 @@ button.region:hover { border-color: var(--accent); color: var(--accent); }
   border-radius: var(--r); padding: 28px 26px; display: flex; flex-direction: column; gap: 12px;
 }
 .gate-card h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
-.gate-sub { margin: 0; font-size: 14px; color: var(--muted); }
 .gate-card .field { gap: 5px; }
 .gate-card .field input { font-size: 16px; }
 .gate-card .btn { margin-top: 4px; }
 .gate-card .tip { margin-top: 2px; }
 
-.gate-diag {
-  margin: 0; font-family: var(--font-num); font-size: 12px; line-height: 1.5;
-  color: var(--faint); background: var(--surface-2); border: 1px solid var(--line);
-  border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere;
-}
-.gate-card .text-btn { align-self: flex-start; }
 
 /* ══════════ 칸(그리드) 틀: --gap, --pad 는 grid.js 의 GAP, PAD 와 같아야 한다 ══════════ */
 :root { --cols: 24; --rows: 16; --gap: 10px; --pad: 12px; }

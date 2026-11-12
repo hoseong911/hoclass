@@ -34,13 +34,10 @@ window.__deskLog = [];
 <div class="gate" id="gate">
   <form class="gate-card" id="gateForm" onsubmit="return false">
     <h1>나의 책상</h1>
-    <p class="gate-sub">호클래스 어드민과 같은 계정입니다.</p>
     <label class="field">메일<input type="email" id="gateEmail" autocomplete="username" required></label>
     <label class="field">비밀번호<input type="password" id="gatePass" autocomplete="current-password" required></label>
     <p class="form-err" id="gateErr" role="alert"></p>
     <button class="btn" type="submit" id="gateBtn">들어가기</button>
-    <p class="gate-diag" id="gateDiag">화면을 불러오는 중…</p>
-    <button class="text-btn" type="button" id="gateReload">새로 받기 (저장해 둔 것 버리고)</button>
   </form>
 </div>
 
@@ -207,22 +204,5 @@ window.__deskLog = [];
 </div><!-- /app -->
 
 <script type="module" src="./desk.js"></script>
-<script>
-document.getElementById("gateReload").addEventListener("click", async function () {
-  try {
-    if (window.caches) { var ks = await caches.keys(); await Promise.all(ks.map(function (k) { return caches.delete(k); })); }
-    if (navigator.serviceWorker) {
-      var rs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(rs.map(function (r) { return r.unregister(); }));
-    }
-  } catch (e) {}
-  location.reload();
-});
-setTimeout(function () {
-  if (window.__deskReady) return;
-  var e = document.getElementById("gateErr");
-  if (e && !e.textContent) e.textContent = "화면을 불러오지 못했습니다. 아래 '새로 받기'를 눌러 주세요.";
-}, 5000);
-</script>
 </body>
 </html>

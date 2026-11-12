@@ -1029,7 +1029,7 @@ async function signOutNow() {
   cloud = null; signedIn = null;
   GCal.forgetToken(); gcalDays = []; gcalErr = "";
   try { await FB.signOut(FB.auth); } catch (e) {}
-  showGate("나왔습니다.");
+  showGate();
 }
 $("gateForm").addEventListener("submit", async (e) => {
   e.preventDefault();
