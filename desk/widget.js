@@ -1,7 +1,4 @@
-// 바탕화면 위젯 (2026-11-11).
-// 암호가 걸리지 않은 세 문서만 읽는다: 시간표와 종 시간(desk_settings), 할 일, 학사 일정.
-// 출결, 수합, 상담, 학생 메모는 암호문이라 비밀번호 없이는 읽을 수 없고,
-// 뒤로 사람이 지나가도 학생 이름이 보이면 안 되므로 일부러 올리지 않는다.
+// 암호가 걸린 것과 학생 이름은 올리지 않는다.
 import { FB } from "./fb-desk.js";
 
 const $ = (id) => document.getElementById(id);
@@ -66,7 +63,6 @@ function li(k, v, cls) {
   return el;
 }
 
-// 할 일은 중요도와 긴급도로 가른 네 칸에 들어 있다(desk.js 의 QUADS). 급한 칸부터 보여 준다.
 const Q_HINT = ["지금", "계획", "빨리", "천천히"];
 const todoQ = (t) => [0, 1, 2, 3].includes(t.q) ? t.q : 0;
 function renderTodos() {
@@ -115,7 +111,7 @@ function start() {
 
 FB.onAuthStateChanged(FB.auth, (user) => {
   if (user) {
-    $("wNote").textContent = "출결, 수합, 상담은 잠겨 있습니다. 수첩을 열면 보입니다.";
+    $("wNote").textContent = "";
     start();
   } else {
     $("wNote").textContent = "수첩을 열어 로그인해 주세요.";
@@ -126,7 +122,6 @@ FB.onAuthStateChanged(FB.auth, (user) => {
 });
 
 /* ---------- 수첩 열기 ---------- */
-// 타우리 앱에서는 수첩 창을 띄운다. 브라우저에서는 그냥 그 쪽으로 간다.
 $("wOpen").addEventListener("click", async () => {
   const T = window.__TAURI__;
   if (T && T.window) {

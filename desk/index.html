@@ -10,8 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="./desk.css">
 <script>
-/* 오류 받이. 선생님이 콘솔을 열지 않아도 화면에서 무슨 일인지 보이게 한다.
-   모듈(desk.js)보다 먼저 떠야 모듈 오류까지 잡으므로 여기 둔다. */
+/* 모듈(desk.js)보다 먼저 떠야 모듈 오류까지 잡는다. */
 window.__deskLog = [];
 (function () {
   function show(kind, msg) {
@@ -32,16 +31,14 @@ window.__deskLog = [];
 </head>
 <body>
 
-<!-- 로그인 문. 파이어베이스 Auth를 지나야 아래 화면이 보인다. -->
 <div class="gate" id="gate">
   <form class="gate-card" id="gateForm" onsubmit="return false">
     <h1>나의 책상</h1>
-    <p class="gate-sub">선생님 계정으로 들어와 주세요. 호클래스 어드민과 같은 계정입니다.</p>
+    <p class="gate-sub">호클래스 어드민과 같은 계정입니다.</p>
     <label class="field">메일<input type="email" id="gateEmail" autocomplete="username" required></label>
     <label class="field">비밀번호<input type="password" id="gatePass" autocomplete="current-password" required></label>
     <p class="form-err" id="gateErr" role="alert"></p>
     <button class="btn" type="submit" id="gateBtn">들어가기</button>
-    <p class="tip">여기 넣는 비밀번호는 계정 비밀번호입니다. 상담과 학생 메모를 여는 수첩 비밀번호는 들어간 뒤에 따로 넣습니다.</p>
     <p class="gate-diag" id="gateDiag">화면을 불러오는 중…</p>
     <button class="text-btn" type="button" id="gateReload">새로 받기 (저장해 둔 것 버리고)</button>
   </form>
@@ -49,11 +46,9 @@ window.__deskLog = [];
 
 <div id="app" hidden>
 
-<!-- 24×16 칸에 우젯을 놓는다. 칸 수는 설정에서 바꾼다. -->
 <div class="deck" id="deck">
 
   <section class="wg" data-w="clock">
-    <!-- 시간, 날짜, 날씨만 둔다(선생님 지시 2026-11-12). 주차, 수업 완료, D-day는 뺐다. -->
     <section class="card wg-clock">
       <div class="cw-time">
         <div class="clock" id="clock" aria-live="off">--:--<span class="sec">--</span></div>
@@ -143,7 +138,6 @@ window.__deskLog = [];
   </section>
 
   <section class="wg" data-w="todos">
-    <!-- 중요도와 긴급도로 가른 네 칸(선생님 지시 2026-11-12). 칸끼리 끌어 옮긴다. -->
     <section class="card wg-todo" aria-labelledby="todoTitle">
       <div class="card-head">
         <h2 class="card-title" id="todoTitle">업무 할 일</h2>
@@ -163,7 +157,7 @@ window.__deskLog = [];
       <ul class="dday-list" id="ddayList"></ul>
       <form class="dday-form" id="ddayForm">
         <label class="sr" for="ddayName">일정 이름</label>
-        <input type="text" id="ddayName" placeholder="예: 기말고사, 방학식" maxlength="60" autocomplete="off">
+        <input type="text" id="ddayName" maxlength="60" autocomplete="off">
         <label class="sr" for="ddayDate">날짜</label>
         <input type="date" id="ddayDate">
         <button class="btn" type="submit">추가</button>
@@ -178,7 +172,7 @@ window.__deskLog = [];
         <span class="card-aside" id="memoStatus"></span>
       </div>
       <label class="sr" for="memo">메모</label>
-      <textarea class="memo" id="memo" placeholder="교무회의 내용, 다음 수업 준비물 등을 적어두세요. 메모는 암호화되지 않으니 학생 이름이나 상담 내용은 적지 마세요."></textarea>
+      <textarea class="memo" id="memo"></textarea>
     </section>
   </section>
 
@@ -188,23 +182,19 @@ window.__deskLog = [];
         <h2 class="card-title" id="weekTitle">주간 시간표</h2>
         <button class="btn small secondary" type="button" id="ttEdit">편집</button>
       </div>
-      <p class="hint" id="ttHint" hidden>예시 시간표와 중학교 기준 예시 종 시간이 들어 있습니다. '편집'을 눌러 내 시간표로 바꿔 주세요.</p>
       <div class="tt-scroll"><table class="tt" id="tt"></table></div>
     </section>
   </section>
 
 </div><!-- /deck -->
 
-<!-- 우상단 도구. 마우스를 올리면 나타난다. -->
 <div class="tools" id="tools">
   <button class="tool" type="button" id="arrange" title="위젯 이동과 크기 조절"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>배치</button>
   <button class="tool" type="button" id="toolSet" title="설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>설정</button>
 </div>
 
-<!-- 페이지 바. 아래 가운데. -->
 <div class="pagebar" id="pagebar"></div>
 
-<!-- 아래 도구줄 -->
 <div class="bar" id="bar">
   <span class="sync" id="sync">불러오는 중</span>
   <span class="bar-right">
@@ -215,7 +205,6 @@ window.__deskLog = [];
   </span>
 </div>
 
-<!-- 설정 패널. 뒤를 가리는 막을 누르거나 ESC 로도 닫힌다. -->
 <div class="scrim" id="setScrim" hidden></div>
 <section class="card float" id="setPanel" hidden aria-labelledby="setTitle"></section>
 
@@ -223,7 +212,6 @@ window.__deskLog = [];
 
 <script type="module" src="./desk.js"></script>
 <script>
-// 저장해 둔 것(서비스워커 캐시)을 버리고 새로 받는다. 옛 파일을 쓰고 있을 때 쓴다.
 document.getElementById("gateReload").addEventListener("click", async function () {
   try {
     if (window.caches) { var ks = await caches.keys(); await Promise.all(ks.map(function (k) { return caches.delete(k); })); }
@@ -234,7 +222,6 @@ document.getElementById("gateReload").addEventListener("click", async function (
   } catch (e) {}
   location.reload();
 });
-// 화면 코드를 못 불러오면(인터넷이나 오류) 선생님이 영문도 모르고 기다리지 않게 알린다.
 setTimeout(function () {
   if (window.__deskReady) return;
   var e = document.getElementById("gateErr");

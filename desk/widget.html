@@ -6,9 +6,7 @@
 <title>나의 책상 위젯</title>
 <link rel="stylesheet" href="./desk.css">
 <style>
-/* 바탕화면에 깔리는 위젯. 암호가 걸리지 않은 것만 띄운다.
-   출결, 수합, 상담, 업무는 암호문이라 비밀번호 없이는 읽을 수 없고,
-   뒤로 사람이 지나가도 학생 이름이 보이지 않아야 하므로 일부러 올리지 않는다. */
+/* 암호가 걸린 것과 학생 이름은 올리지 않는다. */
 body { background: transparent; }
 .wg { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; height: 100vh; box-sizing: border-box; }
 .wg-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
@@ -62,7 +60,7 @@ body { background: transparent; }
   </div>
 
   <div class="wg-foot">
-    <span class="wg-note" id="wNote">출결, 수합, 상담은 잠겨 있습니다. 수첩을 열면 보입니다.</span>
+    <span class="wg-note" id="wNote"></span>
     <button class="wg-open" type="button" id="wOpen">수첩 열기</button>
   </div>
 </div>

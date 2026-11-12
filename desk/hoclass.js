@@ -1,10 +1,4 @@
-// 호클래스에서 읽어 오는 것만 모은다 (2026-11-11).
-// 여기서는 호클래스에 쓰지 않는다. 쓰는 곳은 출결 보내기 하나뿐이고 그건 따로 만든다.
-//
-// 반 이름 짝
-//   호클래스 강의실: grade "3" + classNo "1"  에서  방 번호 "301"
-//   학번: 방 번호 + 두 자리 번호              에서  "30101" (3학년 1반 1번)
-//   수첩: "3-1"
+// 호클래스에 쓰는 곳은 맨 아래 둘뿐이다.
 
 export const roomOf = (c) => String(c.grade) + String(c.classNo).padStart(2, "0");
 export const roomToCls = (room) => String(room).slice(0, 1) + "-" + String(Number(String(room).slice(1)));
@@ -12,14 +6,10 @@ export function clsToRoom(cls) {
   const m = /^(\d+)-(\d+)$/.exec(String(cls || ""));
   return m ? m[1] + String(m[2]).padStart(2, "0") : "";
 }
-// 학번에서 번호만 꺼낸다. "30101" 에서 1
 export const noOf = (studentNo) => Number(String(studentNo).slice(-2));
-// 반과 번호로 학번을 만든다. ("3-1", 7) 에서 "30107"
 export const studentNoOf = (cls, no) => clsToRoom(cls) + String(no).padStart(2, "0");
 
-/* 한 학년도의 강의실과 명단을 읽는다.
-   강의실과 명단 문서가 다 합쳐 160장 남짓이라 통째로 받아 걸러 쓴다.
-   (year가 글자인지 숫자인지 섞여 있어도 되게 String으로 맞춰 본다) */
+/* year 가 글자인지 숫자인지 섞여 있어 String 으로 맞춰 본다. */
 export async function loadHoclass(FB, year) {
   const [cs, ss] = await Promise.all([
     FB.getDocs(FB.collection(FB.db, "hoclass_courses")),
@@ -53,9 +43,6 @@ export async function loadHoclass(FB, year) {
   return { year: String(year), courses, byCls, classes, at: Date.now() };
 }
 
-/* 지난번에 본 이름과 달라진 학번을 찾는다.
-   호클래스는 기록을 학번(반+번호)에 붙이므로, 학기 중 전입으로 번호가 밀리면
-   어제 적은 출결이 다른 학생에게 붙는다. 조용히 엉키지 않게 여기서 알려만 준다. */
 export function nameChanges(hc, seen) {
   const out = [];
   if (!hc || !seen) return out;
@@ -68,7 +55,6 @@ export function nameChanges(hc, seen) {
   }
   return out;
 }
-// 지금 본 이름을 기준으로 적어 둔다.
 export function snapshotNames(hc) {
   const out = {};
   if (!hc) return out;
@@ -80,8 +66,7 @@ export function snapshotNames(hc) {
   return out;
 }
 
-/* ---------- 차시 (강의실에 연결한 강의) ---------- */
-// 강의실마다 연결한 차시와, 그 차시가 가리키는 강의의 제목을 묶어 돌려준다.
+/* ---------- 차시 ---------- */
 export async function loadLessons(FB, hc) {
   const byCls = {};
   if (!hc || !hc.courses.length) return byCls;
@@ -108,7 +93,6 @@ export async function loadLessons(FB, hc) {
 }
 
 /* ---------- 제출 현황 ---------- */
-// 한 차시의 제출물을 학번별로 모은다. { 학번: { 칸이름: true } }
 export async function loadSubmissions(FB, clId) {
   const out = {};
   if (!clId) return out;
@@ -122,16 +106,12 @@ export async function loadSubmissions(FB, clId) {
   return out;
 }
 
-/* ---------- 호클래스에 쓰는 곳 (여기 둘뿐이다) ---------- */
-// 성적에서 한 칸을 차지하는 영역. model.js의 GRADE_AREAS와 같아야 한다.
+/* ---------- 호클래스에 쓰는 곳 ---------- */
+// model.js 의 GRADE_AREAS 와 같아야 한다.
 export const GRADE_AREAS = ["concept", "mission", "question"];
 const emptyBlock = () => ({ achievedN: 0, onTimeN: 0 });
 
-/* 그 차시를 결석으로 둔다.
-   호클래스에서 결석은 단순한 표시가 아니다. 켜면 그 차시 성적 영역이 전부
-   미달성으로 고정되고 손댈 수 없게 잠긴다(model.js toggleGradeAbsent와 같은 처리).
-   그래서 호클래스가 하는 것을 그대로 따라 쓴다: 영역 비우기 + manual 표시.
-   이미 있는 기록은 읽어서 다른 칸(feedback 같은 것)을 지키고 덮어쓴다. */
+/* 결석을 켜면 그 차시 성적 영역이 미달성으로 잠긴다. model.js toggleGradeAbsent 와 같게 처리한다. */
 export async function setAbsent(FB, { clId, courseId, lessonId }, studentNos, on = true) {
   const done = [];
   for (const no of studentNos) {
@@ -151,7 +131,6 @@ export async function setAbsent(FB, { clId, courseId, lessonId }, studentNos, on
   return done;
 }
 
-// 차시의 날짜 칸이 비어 있을 때만 채운다. 이미 적힌 날짜는 건드리지 않는다.
 export async function fillLessonDate(FB, clId, date) {
   const ref = FB.doc(FB.db, "hoclass_course_lessons", clId);
   const cur = await FB.getDoc(ref);

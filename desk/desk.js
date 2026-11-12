@@ -7,7 +7,6 @@ import { loadHoclass, loadLessons, loadSubmissions, setAbsent, fillLessonDate,
          nameChanges, snapshotNames, clsToRoom, studentNoOf } from "./hoclass.js";
 
 const $ = (id) => document.getElementById(id);
-// 로그인 칸 아래 진단 줄에 한 줄 적는다. 선생님이 콘솔을 안 열어도 보이게.
 const step = (m) => { try { window.__deskShow("단계", m); } catch (e) {} };
 let booted = false;
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -28,7 +27,6 @@ function h(tag, props, ...kids) {
   for (const c of kids) if (c != null && c !== false) el.append(c);
   return el;
 }
-// 페이지 넘김 단추 그림. 화살표 글자는 화면 규칙상 쓰지 않아서 그림으로 그린다.
 const CHEV = (d) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 const CHEV_L = CHEV("M15 6l-6 6 6 6"), CHEV_R = CHEV("M9 6l6 6-6 6");
 let toastT = null;
@@ -48,7 +46,7 @@ async function copyText(text) {
   }
 }
 
-/* ---------- 일반 정보 (시간표, 할 일, 일정, 메모): 잠금 없이 보이는 자료 ---------- */
+/* ---------- 일반 정보 ---------- */
 const DEFAULT_BELLS = [
   { s: "09:00", e: "09:45" }, { s: "09:55", e: "10:40" }, { s: "10:50", e: "11:35" }, { s: "11:45", e: "12:30" },
   { s: "13:30", e: "14:15" }, { s: "14:25", e: "15:10" }, { s: "15:20", e: "16:05" },
@@ -118,8 +116,8 @@ async function loadHc() {
     renderClass(); renderBook();
   }
 }
-let hcLessons = {};                 // 반마다 차시 목록
-const subCache = new Map();         // 차시id 마다 { 학번: { 칸: true } }
+let hcLessons = {};
+const subCache = new Map();
 let sendBusy = false, sendPlan = null;
 
 async function loadHcLessons() {
@@ -130,16 +128,14 @@ async function loadHcLessons() {
 const lessonsOf = (cls) => hcLessons[cls] || [];
 async function wantSubs(clId) {
   if (!clId || subCache.has(clId)) return;
-  subCache.set(clId, {});                            // 두 번 받지 않게 먼저 자리를 잡는다
+  subCache.set(clId, {});
   try { subCache.set(clId, await loadSubmissions(FB, clId)); } catch (e) {}
-  renderClass(); renderBook();   // 수합은 가운데 카드에 있다
+  renderClass(); renderBook();
 }
 
-// 호클래스가 명단을 들고 있는 반
 const hcClasses = () => (hc && hc.year === String(state.year.current) ? hc.classes : []);
 const hcHas = (cls) => hcClasses().includes(cls);
 
-// 가운데 카드에서 볼 수 있는 반. 담임 반이 맨 앞, 그 뒤로 호클래스 수업 반, 그 뒤로 손으로 넣은 반.
 function cardClasses() {
   const c = cfg(), out = [];
   if (c.homeroom) out.push(c.homeroom);
@@ -148,7 +144,6 @@ function cardClasses() {
   return out;
 }
 let pickedCls = "";
-// 지금 보고 있는 반. 설정이 바뀌어 없어진 반이면 맨 앞 반으로 돌아간다.
 function picked() {
   const list = cardClasses();
   if (!list.includes(pickedCls)) pickedCls = list[0] || "";
@@ -184,16 +179,13 @@ const SPECS = [
       }
       state.year = { configured: !!s.configured, current: Number.isInteger(s.current) ? s.current : academicYear(), years };
     } },
-  // 칸 수와 우젯 자리. 기기마다 화면이 다르지만 한 벌로 쓴다(선생님이 바꾸면 모두 따라간다).
   { key: "desk_grid",
     pick: () => ({ grid: state.grid, pages: state.pages, layout: state.layout }),
     put: (s) => {
       state.grid = okGrid(s.grid);
-      // 페이지 수가 안 적혀 있으면 자리에 적힌 가장 큰 쪽수로 센다(옛 저장본 대비).
       state.pages = okPages(s.pages || pagesIn(s.layout));
       state.layout = normalize(s.layout, state.grid, state.pages);
     } },
-  // 학사일정은 바깥에서 채워 준다. 이 쪽은 읽기만 하고 그대로 돌려 쓴다.
   { key: "desk_calendar",
     pick: () => ({ school: state.calSchool, at: state.calAt, items: state.cal }),
     put: (s) => {
@@ -212,7 +204,7 @@ const SPECS = [
     put: (s) => { if (document.activeElement !== memoEl && typeof s.text === "string") state.memo = s.text; } },
 ];
 
-/* ---------- 암호화: 비밀번호와 복구 키가 각각 같은 자료 키를 감싼다 ---------- */
+/* ---------- 암호화 ---------- */
 const KDF_ITER = 600000, te = new TextEncoder(), td = new TextDecoder();
 const hasCrypto = !!(window.crypto && window.crypto.subtle);
 const rnd = (n) => crypto.getRandomValues(new Uint8Array(n));
@@ -262,7 +254,7 @@ const showRecovery = (s) => s.match(/.{1,4}/g).join("-");
 
 let dataKey = null, recoveryToShow = null;
 
-/* ---------- 저장: 문서를 나눠서 기기끼리 덮어쓰지 않게 한다 ---------- */
+/* ---------- 저장 ---------- */
 const LS_PREFIX = "my-desk-v3:";
 function lsGet(k) { try { const r = localStorage.getItem(LS_PREFIX + k); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
 function lsSet(k, v) { try { localStorage.setItem(LS_PREFIX + k, JSON.stringify(v)); } catch (e) {} }
@@ -271,9 +263,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 let cloud = null, cloudFailed = false, syncNote = "";
 let signedIn = null;
 
-/* ---------- 저장 창구 ----------
-   화면 코드는 논리 이름 하나(y2027_roster 같은 것)로만 말을 건다.
-   어느 컬렉션의 어느 문서인지는 여기서만 안다. */
+/* ---------- 저장 창구 ---------- */
 const DOC_MAP = {
   desk_settings: ["desk_settings", "general"],
   desk_year:     ["desk_years",    "all"],
@@ -285,7 +275,6 @@ const DOC_MAP = {
   desk_crypto:   ["desk_crypto",   "keys"],
 };
 const YEAR_COLS = ["roster", "collects", "notices", "students", "consults", "lessons", "works"];
-// 백업이 훑을 컬렉션 전부
 const DESK_COLS = [...new Set(Object.values(DOC_MAP).map(p => p[0]))]
   .concat(["desk_att"], YEAR_COLS.map(k => "desk_" + k));
 const RE_ATT = /^y(\d{4})_att_(\d{4}-\d{2}-\d{2})_(.+)$/;
@@ -299,14 +288,13 @@ function docPath(key) {
   if (m) return ["desk_" + m[2], m[1]];
   throw new Error("모르는 문서 이름: " + key);
 }
-// 꼬리표는 평문으로 함께 적는다. 찾기와 보안 규칙에 쓰고, 내용은 암호문이다.
+// 꼬리표(year, room, date)는 평문, 내용은 암호문이다.
 function docTags(key) {
   const m = RE_ATT.exec(key);
   if (m) return { year: m[1], room: m[3], date: m[2] };
   const y = /^y(\d{4})_/.exec(key);
   return y ? { year: y[1] } : {};
 }
-// 파이어스토어 쪽 모양을 예전 보관함과 같게 감싼다. 그래서 화면 코드가 그대로 돈다.
 const wrapSnap = (s) => ({ exists: s.exists(), data: () => s.data(), metadata: s.metadata });
 function cloudRef(key) {
   const [col, id] = docPath(key);
@@ -315,8 +303,7 @@ function cloudRef(key) {
     get: async () => wrapSnap(await FB.getDoc(ref)),
     set: (body) => FB.setDoc(ref, body),
     onSnapshot: (next, err) => FB.onSnapshot(ref, (snap) => next(wrapSnap(snap)), err),
-    // 비어 있을 때만 넣는다. 읽기와 쓰기를 한 묶음(트랜잭션)으로 해서
-    // 두 기기가 동시에 만들어도 한 쪽만 들어간다.
+    // 두 기기가 동시에 만들어도 한쪽만 들어가게 트랜잭션으로 쓴다.
     createOnce: (body, taken) => FB.runTransaction(FB.db, async (tx) => {
       const cur = await tx.get(ref);
       const data = cur.exists() ? cur.data() : null;
@@ -467,13 +454,11 @@ function closeDoc(d) {
 }
 
 let yearOpen = null, attDay = "", attCls = "";
-// 출결은 한 반의 하루가 문서 한 장이다. 금요일에 여섯 반을 적어도 서로 덮어쓰지 않는다.
 function ensureAtt(day, cls) {
   if (yearOpen == null) return;
   const c = cls || picked();
   if (!c) return;
   if (attDay === day && attCls === c) return;
-  // 떠나는 반의 값을 사본으로 남긴다. 오늘 출결 요약이 그걸 읽는다.
   if (docs.att) { if (docs.att.ready) attCache.set(docs.att.key, docs.att.value); closeDoc(docs.att); }
   attDay = day; attCls = c;
   docs.att = makeDoc(`y${yearOpen}_att_${day}_${c}`, { enc: true, makeDefault: () => ({ marks: {} }) });
@@ -483,7 +468,6 @@ function openYearDocs() {
   const y = state.year.current;
   if (yearOpen === y) return;
   for (const d of encDocs()) closeDoc(d);
-  // 학년도가 바뀌면 보던 반을 놓고 담임 반부터 다시 본다.
   yearOpen = y; attDay = ""; attCls = ""; docs.att = null; activeCollect = null; pickedCls = "";
   attCache.clear(); attLoaded = ""; todayAttLoaded = "";
   docs.roster = makeDoc(`y${y}_roster`, { enc: true, makeDefault: () => ({ classes: {} }) });
@@ -574,8 +558,6 @@ async function rewrap(secret, newPass) {
 }
 
 /* ---------- 구글 캘린더 ---------- */
-/* 세 가지 중 ①승인된 도메인과 ③Calendar API 는 2026-11-11에 관리 API로 켜 두었다.
-   ②구글 로그인만 콘솔에서 해야 한다(OAuth 클라이언트를 만드는 공개 API가 없다). */
 const GCAL_STEPS = [
   { done: true,  text: "승인된 도메인에 hoseong911.github.io 넣기" },
   { done: false, text: "파베 콘솔의 Authentication 메뉴, Sign-in method 탭에서 Google 켜기" },
@@ -620,8 +602,7 @@ function renderGcal() {
   if (gcalErr) {
     const kids = [h("p", { class: "hint", text: gcalErr })];
     if (gcalStep >= 1) {
-      kids.push(h("p", { class: "tip", text: "세 가지가 켜져 있어야 합니다. 둘은 제가 켜 두었습니다." }));
-      kids.push(h("ul", { class: "lines" }, ...GCAL_STEPS.map((st, i) =>
+        kids.push(h("ul", { class: "lines" }, ...GCAL_STEPS.map((st, i) =>
         h("li", { class: "line" + (st.done ? " done" : "") },
           h("div", { class: "top" },
             h("span", { class: "ttl", text: (i + 1) + ". " + st.text }),
@@ -638,9 +619,8 @@ function renderGcal() {
   }
   if (!linked) {
     box.replaceChildren(
-      h("p", { class: "empty", text: "구글 캘린더를 이어 붙이면 앞으로 3주 일정이 여기 보입니다." }),
-      h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "구글 캘린더 연결", onclick: () => gcalConnect() })),
-      h("p", { class: "tip", text: "읽기만 합니다. 캘린더에 쓰지 않습니다." }));
+      h("p", { class: "empty", text: "구글 캘린더를 이어 붙이면 일정이 보입니다." }),
+      h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "구글 캘린더 연결", onclick: () => gcalConnect() })));
     return;
   }
   if (!gcalDays.length) {
@@ -663,7 +643,6 @@ function renderGcal() {
 const deck = $("deck");
 let arranging = false, curPage = 1;
 
-// 페이지에 무엇이 있는지로 이름을 짓는다(교무수첩만 있으면 "교무수첩").
 function pageName(p) {
   const on = WIDGETS.filter(d => state.layout[d.id].on && state.layout[d.id].pg === p);
   if (!on.length) return p + "장 (빈 장)";
@@ -691,10 +670,8 @@ function applyGrid() {
     const el = deck.querySelector('.wg[data-w="' + def.id + '"]');
     if (!el) continue;
     const b = state.layout[def.id];
-    // 세워 보는 화면(폰, 세로 태블릿)에는 페이지 바가 없다. 그래서 모든 장의 위젯을 이어서 보여 준다.
     el.hidden = !b.on || (!stacked && b.pg !== curPage);
     el.style.gridArea = b.y + " / " + b.x + " / span " + b.h + " / span " + b.w;
-    // 2단일 때 어느 단에 둘지: 넓은 것은 두 단을 다 쓰고, 나머지는 칸 가운데가 왼쪽 반이면 왼쪽 단.
     const wide = b.w > g.cols * 0.6, left = (b.x - 1 + b.w / 2) <= g.cols / 2;
     el.style.setProperty("--col", wide ? "1 / -1" : left ? "1" : "2");
   }
@@ -704,9 +681,7 @@ function applyGrid() {
   renderPagebar();
 }
 
-/* ---------- 세워 보는 화면: 폰은 1단, 세로 태블릿은 2단 (2026-11-12) ----------
-   선생님 지시: "갤럭시탭 세로 버전도 만들어줘. 세로 버전은 보통 2단 구성으로 가면 될듯".
-   desk.css 의 같은 조건과 맞춰야 한다(STACK_MQ, TWO_MQ). */
+/* ---------- 세워 보는 화면: 폰 1단, 세로 태블릿 2단. 조건은 desk.css 와 같아야 한다 ---------- */
 const STACK_MQ = "(max-width: 820px), (orientation: portrait) and (max-width: 1100px)";
 const TWO_MQ = "(min-width: 600px) and (orientation: portrait) and (max-width: 1100px)";
 const mq = (q) => (typeof window.matchMedia === "function" ? window.matchMedia(q) : null);
@@ -715,8 +690,7 @@ const isStacked = () => !!(stackMq && stackMq.matches);
 const isTwoCol = () => !!(twoMq && twoMq.matches);
 for (const m of [stackMq, twoMq]) if (m && m.addEventListener) m.addEventListener("change", () => applyGrid());
 
-// 세워 볼 때 위젯 순서: 장, 왼쪽 단부터, 단 안에서는 위에서 아래(1단, 2단, 3단, 4단 차례). 순서가 그대로면 건드리지 않는다
-// (옮기면 메모를 쓰던 중에 커서가 빠진다).
+// 순서가 그대로면 옮기지 않는다(옮기면 쓰던 글의 커서가 빠진다).
 function stackOrder() {
   const els = [...deck.querySelectorAll(":scope > .wg")];
   const key = (el) => { const b = state.layout[el.dataset.w] || { pg: 9, y: 99, x: 99 }; return b.pg * 1e6 + b.x * 1e3 + b.y; };
@@ -724,7 +698,6 @@ function stackOrder() {
   if (want.every((el, i) => el === els[i])) return;
   for (const el of want) deck.append(el);
 }
-// 2단은 두 단이 따로 쌓이게(벽돌 쌓기) 위젯마다 4px 줄을 몇 개 쓸지 카드 높이로 정한다.
 const SPAN_UNIT = 4;
 let spanObs = null;
 function fitSpans() {
@@ -739,7 +712,6 @@ function spanOf(el) {
   el.style.setProperty("--span", String(Math.max(1, Math.ceil((hgt + gap) / SPAN_UNIT))));
 }
 
-/* 아래 가운데 페이지 바. 배치 중에는 장을 더하고 지우는 단추도 나온다. */
 function renderPagebar() {
   const bar = $("pagebar");
   if (!bar) return;
@@ -773,7 +745,6 @@ function delPage() {
   if (n <= 1) return;
   const here = WIDGETS.filter(d => state.layout[d.id].on && state.layout[d.id].pg === curPage);
   if (here.length) { toast("이 장에 우젯이 " + here.length + "개 있습니다. 다른 장으로 옮기거나 끄고 지워 주세요"); return; }
-  // 뒷장들을 한 칸 당긴다
   for (const def of WIDGETS) {
     const g = state.layout[def.id];
     if (g.pg > curPage) g.pg -= 1;
@@ -784,7 +755,6 @@ function delPage() {
   if (setOpen) renderSet();
   toast("장을 지웠습니다");
 }
-// 키보드 화살표로도 넘긴다(글을 치는 중이면 넘기지 않는다)
 document.addEventListener("keydown", (e) => {
   if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
   const a = document.activeElement;
@@ -827,7 +797,6 @@ $("toolSet").addEventListener("click", () => { setOpen = !setOpen; renderSet(); 
 $("setScrim").addEventListener("click", closeSet);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && setOpen) closeSet(); });
 
-// 끌어 옮기기와 크기 바꾸기. 겹치는 자리에는 놓지 않는다.
 deck.addEventListener("pointerdown", (e) => {
   if (!arranging) return;
   const el = e.target.closest(".wg");
@@ -844,7 +813,6 @@ deck.addEventListener("pointerdown", (e) => {
   try { el.setPointerCapture(e.pointerId); } catch (err) {}
   let overDot = null;
   const markDot = (ev) => {
-    // 페이지 점 위에 놓으면 그 장으로 옮긴다
     const under = document.elementFromPoint(ev.clientX, ev.clientY);
     const dot = under && under.closest && under.closest(".pg-dot");
     if (dot !== overDot) {
@@ -884,7 +852,6 @@ deck.addEventListener("pointerdown", (e) => {
   e.preventDefault();
 });
 
-/* 화면 배치 묶음 (설정 패널의 '화면' 탭) */
 function gridSection() {
   const G = okGrid(state.grid);
   const colIn = h("input", { type: "number", id: "setCols", value: String(G.cols), min: String(GRID_MIN.cols), max: String(GRID_MAX.cols) });
@@ -904,7 +871,6 @@ function gridSection() {
       onclick: () => {
         if (b.on) { b.on = false; }
         else if (!turnOn(state.layout, def.id, state.grid)) {
-          // 4단으로 꽉 채워 두었으니 빈자리가 없는 게 보통이다. 세로를 늘려서 놓아 준다.
           let G = okGrid(state.grid), done = false;
           while (!done && G.rows < GRID_MAX.rows) {
             G = okGrid({ cols: G.cols, rows: G.rows + 2 });
@@ -927,7 +893,6 @@ function gridSection() {
       h("div", { class: "field" }, "칸 수",
         h("button", { class: "btn small", type: "button", text: "바꾸기", onclick: apply }))),
     h("div", { class: "set-row" },
-      h("span", { class: "set-state", text: okPages(state.pages) + "장 가운데 " + curPage + "장을 보고 있습니다." }),
       h("button", { class: "btn small secondary", type: "button", text: "장 더하기", onclick: () => addPage() }),
       h("button", { class: "btn small secondary", type: "button", text: "이 장 지우기", onclick: () => delPage() })),
     h("h4", { class: "set-sub", text: "우젯" }),
@@ -997,7 +962,6 @@ $("gateForm").addEventListener("submit", async (e) => {
 });
 $("signOut").addEventListener("click", () => { signOutNow(); });
 
-// 타우리 앱에서만 쓰는 단추. 수첩 창을 숨기면 바탕화면 위젯이 다시 보인다.
 if (window.__TAURI__ && window.__TAURI__.window) {
   $("toWidget").hidden = false;
   $("toWidget").addEventListener("click", async () => {
@@ -1005,8 +969,6 @@ if (window.__TAURI__ && window.__TAURI__.window) {
   });
 }
 
-// 세 기기 동시 미리보기(preview.html). 웹판에서만 띄운다.
-// 미리보기 속 화면(아이프레임 안)에서는 또 열 까닭이 없어서 숨긴다.
 let inFrame = true;
 try { inFrame = window.self !== window.top; } catch (e) {}
 if (!inFrame && !window.__TAURI__) {
@@ -1014,13 +976,7 @@ if (!inFrame && !window.__TAURI__) {
   $("toPreview").addEventListener("click", () => { window.open("./preview.html", "_blank", "noopener"); });
 }
 
-/* ---------- 해상도에 맞춰 칸 속을 키우고 줄인다 ----------
-   선생님 지시 2026-11-12: "pc도 해상도에 따라 반응형으로 위젯 안의 내용 크기들이 다 바껴야".
-   1920×1080 화면을 기준(1배)으로 보고, 화면이 크면 키우고 작으면 줄인다.
-   desk.css 의 .wg { zoom: var(--k) } 가 이 값을 쓴다. 우젯 칸 속 전체(글씨, 여백, 단추)가
-   한꺼번에 커지고 작아진다. 칸 크기를 재는 규칙(@container)도 줄어든 크기로 재므로,
-   어느 해상도에서든 같은 칸은 같은 모양으로 보인다.
-   폰처럼 좁은 화면(820px 이하)은 칸을 세로로 세우므로 1배로 둔다(desk.css). */
+// desk.css 의 .wg { zoom: var(--k) } 가 쓴다. 1920×1080 이 1배다.
 const SCALE_BASE = { w: 1920, h: 1080 }, SCALE_MIN = 0.75, SCALE_MAX = 2.5;
 function fitScale() {
   const k = Math.min(window.innerWidth / SCALE_BASE.w, window.innerHeight / SCALE_BASE.h);
@@ -1075,14 +1031,10 @@ function status(now) {
   return { kind: "after" };
 }
 
-/* ---------- 날씨 ----------
-   선생님 지시 2026-11-12: 시간 우젯에는 시간, 날짜, 날씨만 둔다(바탕화면 대시보드 mydesk 를 따라).
-   mydesk 처럼 open-meteo 를 부른다. 열쇠가 필요 없고 학교 밖으로 보내는 것은 좌표뿐이다.
-   위치는 학교가 있는 인천으로 정해 둔다. 30분마다 새로 받는다. */
+/* ---------- 날씨 (open-meteo, 인천) ---------- */
 const WX_PLACE = { name: "인천", lat: 37.4563, lon: 126.7052 };
 const WX_EVERY = 30 * 60 * 1000;
 const svgIcon = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-// 날씨 번호(WMO)를 말과 그림으로 바꾼다. mydesk 의 표를 그대로 쓴다.
 function wxKind(code) {
   if (code === 0) return { t: "맑음", c: "sun", i: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' };
   if (code <= 2) return { t: "구름 조금", c: "sun", i: '<circle cx="8" cy="9" r="3"/><path d="M18 18a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1"/>' };
@@ -1116,7 +1068,6 @@ async function loadWx(force) {
     if (!j.current || typeof j.current.temperature_2m !== "number") throw new Error("모양이 다름");
     wx = { temp: j.current.temperature_2m, code: j.current.weather_code };
   } catch (e) {
-    // 받아 둔 날씨가 있으면 그대로 둔다. 처음부터 못 받았을 때만 못 받았다고 알린다.
     if (!wx || wx.err) wx = { err: true };
   }
   wxAt = Date.now(); wxBusy = false;
@@ -1137,15 +1088,15 @@ function renderNow(now) {
   $("nowAside").textContent = row ? `오늘 수업 ${classCount(row)}시간` : "";
   let mainKids, subText = "", prog = null, nextKids = null;
   switch (s.kind) {
-    case "weekend": mainKids = ["주말입니다"]; subText = "월요일 시간표는 아래 주간 시간표에서 볼 수 있습니다."; break;
-    case "noclass": mainKids = ["오늘은 수업이 없습니다"]; subText = "주간 시간표에서 오늘 칸을 채우면 여기에 표시됩니다."; break;
+    case "weekend": mainKids = ["주말입니다"]; subText = ""; break;
+    case "noclass": mainKids = ["오늘은 수업이 없습니다"]; subText = ""; break;
     case "invalid": mainKids = ["종 시간을 확인해 주세요"]; subText = "주간 시간표 편집에서 교시별 시작과 끝 시간을 넣어 주세요."; break;
     case "before": mainKids = ["수업 전"]; subText = `첫 수업까지 ${fmtLeft(s.until)}`; nextKids = nextLine(s.next, s.until); break;
     case "class": mainKids = [`${label(s.i)} `, h("span", { class: "cls", text: row[s.i] })]; subText = `${B[s.i].e} 종료, ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
     case "free": mainKids = [`${label(s.i)} 공강`]; subText = `${B[s.i].e}까지, ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
     case "break": mainKids = ["쉬는 시간"]; subText = `${fmtLeft(s.left)} 뒤 ${label(s.i + 1)} 종`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
     case "lunch": mainKids = ["점심시간"]; subText = `${B[s.i + 1].s}에 ${label(s.i + 1)} 시작, ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
-    case "after": mainKids = ["오늘 수업 끝"]; subText = "종례하고 업무 할 일을 정리해 보세요."; break;
+    case "after": mainKids = ["오늘 수업 끝"]; subText = ""; break;
   }
   main.replaceChildren(...mainKids);
   sub.textContent = subText;
@@ -1205,9 +1156,8 @@ function renderPeriods(now = new Date()) {
 /* ---------- 주간 시간표 ---------- */
 let ttEditing = false;
 function renderTT() {
-  if (ttEditing && $("tt").contains(document.activeElement)) return; // 입력 중엔 다시 그리지 않음
+  if (ttEditing && $("tt").contains(document.activeElement)) return;
   const now = new Date(), di = dayIdx(now), m = now.getHours() * 60 + now.getMinutes();
-  $("ttHint").hidden = !state.ttExample;
   $("ttEdit").textContent = ttEditing ? "편집 완료" : "편집";
   const head = h("tr", null, h("th", { class: "ph", text: "교시" }), ...["월", "화", "수", "목", "금"].map((d, i) => h("th", { class: i === di ? "today" : "", text: d + (i === di ? " (오늘)" : "") })));
   const rows = [head];
@@ -1284,8 +1234,8 @@ function renderLinks() {
       state.links.push({ id: uid(), name: $("linkName").value.trim().slice(0, 30), url });
       showLinkForm = false; save(); renderLinks();
     } },
-      h("input", { type: "text", id: "linkName", placeholder: "이름 (예: 학교 홈페이지)", maxlength: "30", autocomplete: "off" }),
-      h("input", { type: "text", id: "linkUrl", placeholder: "주소 (예: 학교 홈페이지 주소)", autocomplete: "off", oninput: (e) => e.target.setCustomValidity("") }),
+      field("이름", h("input", { type: "text", id: "linkName", maxlength: "30", autocomplete: "off" })),
+      field("주소", h("input", { type: "text", id: "linkUrl", autocomplete: "off", oninput: (e) => e.target.setCustomValidity("") })),
       h("button", { class: "btn", type: "submit", text: "추가" }),
       h("button", { class: "btn secondary", type: "button", text: "취소", onclick: () => { showLinkForm = false; renderLinks(); } })));
   }
@@ -1310,14 +1260,6 @@ function guardForm(btn, errEl, fn) {
 function passField(id, label, auto) {
   return h("label", { class: "field" }, label, h("input", { type: "password", id, autocomplete: auto }));
 }
-/* 설정 패널.
-   2026-11-11 선생님 지시: "설정창에 닫기 버튼 만들어주고, ui가 엉망진창이니 정리해바.
-   말투도 좀 정형화되어서 정리해놔".
-   전에는 묶음 넷(올해, 비밀번호, 화면, 백업)이 한 패널에 세로로 쌓여 한참 내려가야 했고,
-   머리줄이 묶음마다 달랐고(card-title 와 h3), 닫기가 저장 단추 옆에 묻혀 있었다.
-   지금은 머리줄의 닫기 하나, 탭으로 한 묶음씩, 묶음 모양은 setSec 하나로 같다.
-   문구는 레포 CLAUDE.md 규칙을 따른다: 경어(~습니다), 칸 이름표는 짧은 명사,
-   칸 밑에 작은 글씨 설명을 달지 않는다, 플레이스홀더를 쓰지 않는다. */
 const SET_TABS = [
   { key: "year", name: "올해" },
   { key: "grid", name: "화면" },
@@ -1326,9 +1268,7 @@ const SET_TABS = [
 ];
 let setTab = "year";
 function closeSet() { setOpen = false; renderSet(); }
-// 칸 하나. 이름표는 떠 있는 패널 안이라 두어도 되는 자리다(CLAUDE.md 플레이스홀더 규칙의 예외).
 const setField = (name, el) => h("label", { class: "field" }, name, el);
-// 묶음 하나. 제목, 속, 오류, 맨 아래 단추 줄 순서를 네 묶음이 똑같이 쓴다.
 function setSec(title, body, err, foot) {
   return h("section", { class: "set-sec" },
     h("h3", { text: title }),
@@ -1342,7 +1282,6 @@ function renderSet() {
   p.hidden = !setOpen;
   scrim.hidden = !setOpen;
   if (!setOpen) { p.replaceChildren(); return; }
-  // 비밀번호 묶음은 비밀번호를 만든 뒤에만 보인다.
   const tabs = SET_TABS.filter(t => t.key !== "pass" || (C.body && C.body.pass));
   if (!tabs.some(t => t.key === setTab)) setTab = "year";
   p.replaceChildren(
@@ -1439,15 +1378,13 @@ function studentsAll() {
   const c = v && v.classes && v.classes[picked()];
   return c && Array.isArray(c.students) ? c.students : [];
 }
-// 출결 문서 한 장은 한 반의 하루다. 그래서 칸을 그대로 꺼낸다.
 function attMarks() {
   const v = docs.att.value;
   if (!v.marks || typeof v.marks !== "object") v.marks = {};
-  attCache.set(docs.att.key, v);   // 살아 있는 값을 사본 자리에도 넣어 둔다
+  attCache.set(docs.att.key, v);
   return v.marks;
 }
-/* 학번에 기록이 붙어 있으므로, 같은 학번의 이름이 달라지면 기록이 다른 학생에게
-   붙었다는 뜻이다. 조용히 엉키지 않게 알려만 주고, 옮길지는 선생님이 정하신다. */
+// 같은 학번의 이름이 바뀌면 기록이 다른 학생에게 붙은 것이다. 알리기만 한다.
 function checkNames() {
   const R = docs.roster;
   if (!hc || !R || !R.ready) { hcWarns = []; return; }
@@ -1476,17 +1413,14 @@ function warnBanner() {
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "확인", onclick: () => acceptNames() })));
 }
 
-// 수합과 전달사항은 문서 하나에 모아 두고 반 이름으로 갈라 본다.
 // 반 이름이 없는 항목은 1단계에서 담임 반에 적은 것이다.
 const itemCls = (x) => x.cls || cfg().homeroom;
 const mine = (list) => list.filter(x => itemCls(x) === picked());
-// 1단계에 적어 둔 항목에 반 이름을 한 번만 박아 둔다. 담임 반을 지워도 길을 잃지 않게.
 function stampCls(D) {
   let n = 0;
   for (const x of D.value.items) if (!x.cls) { x.cls = cfg().homeroom || picked(); n++; }
   if (n) saveEnc(D);
 }
-// 가운데 카드가 보는 명단. 호클래스에 있는 반은 호클래스 것, 없는 반은 수첩에 손으로 넣은 것.
 const roster = () => rosterOf(picked());
 const shownName = (st) => hideNames ? "" : st.name;
 const who = (st) => shownName(st) ? `${st.n}번 ${st.name}` : `${st.n}번`;
@@ -1516,11 +1450,10 @@ function renderRoster() {
   const lines = [];
   for (const s of list) lines[s.n - 1] = s.name;
   const cntIn = h("input", { type: "number", id: "rCount", value: String(list.length ? Math.max(...list.map(s => s.n)) : 28), min: "1", max: "60" });
-  const ta = h("textarea", { id: "rNames", value: Array.from(lines, x => x || "").join("\n"), placeholder: "한 줄에 한 명씩, 번호 순서대로\n김민준\n이서연\n…" });
+  const ta = h("textarea", { id: "rNames", value: Array.from(lines, x => x || "").join("\n") });
   box.replaceChildren(h("div", { class: "roster-editor" },
     h("div", { class: "row" }, h("label", { class: "grow" }, "반", h("input", { type: "text", value: classLabel(picked()), disabled: true })), h("label", null, "학생 수", cntIn)),
     h("label", null, "학생 이름 (붙여넣기 가능)", ta),
-    h("p", { class: "tip", text: "이름은 이 기기에서 암호화한 뒤 저장합니다. 전출로 빠진 번호는 줄을 비워 두면 번호가 밀리지 않습니다. 호클래스에 있는 반은 호클래스 명단을 그대로 쓰니 여기서 고치지 않습니다." }),
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", id: "rSave", text: "저장", onclick: () => {
         const names = ta.value.split(/\r?\n/).map(s => s.replace(/^\s*\d+[.)\s]*/, "").trim());
@@ -1550,7 +1483,6 @@ function saveRoster(names, count) {
     const s = prev.find(p => !used.has(p.id) && p.no === i + 1 && (!(p.name || "") || !nameAt(i)));
     if (s) claim(i, s);
   }
-  // 학번(반 + 두 자리 번호)으로 묶는다. 호클래스와 같은 기준이어야 짝이 맞는다.
   const next = slots.map((id, i) => ({ id: id || studentNoOf(picked(), i + 1), no: i + 1, name: nameAt(i) }));
   const gone = studentsAll().filter(s => s.gone || !used.has(s.id)).map(s => ({ ...s, gone: true }));
   const v = docs.roster.value;
@@ -1570,7 +1502,6 @@ function setupView() {
     renderClass();
   }) },
     h("h3", { text: "학생 정보 보호 비밀번호 만들기" }),
-    h("p", { text: "명단과 출결은 이 비밀번호로 암호화한 뒤 저장합니다. 서버와 Claude는 내용을 읽을 수 없습니다. 쓰시는 기기마다 같은 비밀번호로 엽니다." }),
     passField("setupPass", "비밀번호 (8자 이상)", "new-password"),
     passField("setupPass2", "비밀번호 확인", "new-password"),
     err, h("div", { class: "row" }, btn))];
@@ -1613,12 +1544,11 @@ function unlockView() {
     renderClass();
   }) },
     h("h3", { text: "잠겨 있습니다" }),
-    h("p", { text: "명단과 출결을 보려면 비밀번호를 넣어 주세요. 시간표와 할 일은 잠겨 있어도 쓸 수 있습니다." }),
+    h("p", { text: "명단과 출결을 보려면 비밀번호를 넣어 주세요." }),
     passField("unlockPass", "비밀번호", "current-password"),
     err,
     h("div", { class: "row" }, btn, h("button", { class: "text-btn", type: "button", id: "recoverLink", text: "비밀번호를 잊었습니다", onclick: () => { recoverMode = true; renderClass(); } })))];
 }
-// 이 단추는 올해 설정을 넣어 달라는 자리에서 누르므로 늘 올해 탭을 연다.
 const openSetBtn = () => h("button", { class: "btn small", type: "button", text: "올해 설정 열기", onclick: () => { setTab = "year"; setOpen = true; renderSet(); } });
 
 function softClass() {
@@ -1626,7 +1556,6 @@ function softClass() {
   const a = document.activeElement;
   const typing = (id) => a && $(id).contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
   const ks = keyStateNow();
-  // 입력 폼은 자료가 도착해도 다시 그리지 않는다
   if (!typing("classBody") && !(ks === lastKs && (ks === "none" || ks === "locked" || ks === "recovery"))) renderClass();
   if (!typing("bookBody")) renderBook();
 }
@@ -1647,7 +1576,6 @@ function renderClass() {
   $("classPick").hidden = !(open && list.length > 1);
   if (open && list.length > 1) renderPick(list, pick);
   $("classSeg").hidden = !tabs;
-  // 호클래스가 명단을 들고 있는 반은 여기서 고치지 않는다.
   $("rosterBtn").hidden = !tabs || hcHas(pick);
   $("hideBtn").hidden = !open;
   $("lockBtn").hidden = !open;
@@ -1656,7 +1584,7 @@ function renderClass() {
   const note = (text) => [h("p", { class: "empty", text })];
   if (ks === "loading") { body.replaceChildren(...note("저장소를 확인하는 중입니다.")); return; }
   if (ks === "unsupported") { body.replaceChildren(...note("이 화면에서는 암호화를 쓸 수 없습니다. 학생 정보를 저장하지 않도록 명단과 출결을 닫아 두었습니다. 다른 브라우저에서 열어 주세요.")); return; }
-  if (ks === "offline") { body.replaceChildren(...note("저장소에 연결되지 않아 보호 비밀번호를 만들 수 없습니다. claude.ai에 로그인된 브라우저에서 열어 주세요.")); return; }
+  if (ks === "offline") { body.replaceChildren(...note("저장소에 연결되지 않아 보호 비밀번호를 만들 수 없습니다. 인터넷 연결을 확인해 주세요.")); return; }
   if (ks === "none") { body.replaceChildren(...setupView()); return; }
   if (ks === "recovery") { body.replaceChildren(...recoveryView()); return; }
   if (ks === "locked") { body.replaceChildren(...unlockView()); return; }
@@ -1667,7 +1595,7 @@ function renderClass() {
     : (hcBusy && !hc) ? h("p", { class: "tip", text: "호클래스 명단을 읽는 중입니다." }) : null;
   const head = [rollover, banner, hcNote].filter(Boolean);
   const wrap = (kids) => body.replaceChildren(...[...head, ...kids]);
-  if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "올해 담임 반과 수업 반을 넣어 주세요" }), h("p", { text: "담임이 아닌 해에는 담임 반을 비워 두시면 됩니다." }), h("div", { class: "row" }, openSetBtn()))]); return; }
+  if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "올해 담임 반과 수업 반을 넣어 주세요" }), h("div", { class: "row" }, openSetBtn()))]); return; }
   ensureAtt(todayKey(), pick);
   if (!pick) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "올해 들어가는 반이 없습니다" }), h("p", { text: "'올해 설정'에서 담임 반이나 수업 반을 넣으면 출결과 수합을 쓸 수 있습니다." }), h("div", { class: "row" }, openSetBtn()))]); return; }
   if (encDocs().some(d => d.broken)) { wrap(note("일부 기록을 풀지 못했습니다. 페이지를 새로고침한 뒤 다시 열어 주세요. 기록은 그대로 있습니다.")); return; }
@@ -1713,7 +1641,6 @@ function attView() {
   };
   return [
     h("div", { class: "summary" }, sum("", "출석/재적", `${present}/${list.length}`), sum("absent", "결석", absent.length), sum("late", "지각", late.length), sum("early", "조퇴", early.length)),
-    h("p", { class: "tip", text: "학생 칸을 누를 때마다 결석, 지각, 조퇴, 출석 순으로 바뀝니다." }),
     h("div", { class: "students" }, ...tiles),
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", text: "출결 요약 복사", onclick: () => copyText(report()) }),
@@ -1741,10 +1668,10 @@ function collectView() {
     const t = $("colName").value.trim(); if (!t) return;
     const c = { id: uid(), title: t.slice(0, 40), got: [], cls: picked(), clId: colCl.value || "", part: colPart.value || "" };
     items.unshift(c); activeCollect = c.id; saveEnc(D); renderClass();
-  } }, h("input", { type: "text", id: "colName", class: "grow", placeholder: "새 수합 항목 (예: 현장체험학습 동의서)", maxlength: "40", autocomplete: "off" }),
+  } }, h("input", { type: "text", id: "colName", class: "grow", "aria-label": "새 수합 항목", maxlength: "40", autocomplete: "off" }),
     myLessons.length ? colCl : null, myLessons.length ? colPart : null,
     h("button", { class: "btn small", type: "submit", text: "추가" }));
-  if (!activeCollect) return [addForm, h("p", { class: "empty", text: "가정통신문 회신, 동의서처럼 걷어야 할 것을 추가해 보세요." })];
+  if (!activeCollect) return [addForm, h("p", { class: "empty", text: "수합 항목이 없습니다." })];
   const c = ours.find(x => x.id === activeCollect);
   const ids = new Set(list.map(st => st.id));
   const cntOf = (x) => {
@@ -1769,7 +1696,6 @@ function collectView() {
   const missText = missing.length ? `${c.title} 미제출 ${missing.length}명: ${missing.map(who).join(", ")}` : `${c.title} 전원 제출`;
   return [
     addForm, tabs,
-    linked ? h("p", { class: "tip", text: "호클래스 제출을 그대로 보는 항목입니다. 손으로 체크하지 않습니다." }) : null,
     h("div", { class: "missing" }, missing.length ? h("b", { text: `미제출 ${missing.length}명 ` }) : h("b", { style: "color:var(--accent)", text: "전원 제출 " }), missing.length ? missing.map(st => st.n).join(", ") : ""),
     h("div", { class: "students" }, ...tiles),
     h("div", { class: "row" },
@@ -1788,14 +1714,14 @@ function noticeView() {
     e.preventDefault();
     const t = $("noticeIn").value.trim(); if (!t) return;
     items.push({ id: uid(), text: t.slice(0, 200), done: false, cls: picked() }); saveEnc(D); renderClass(); $("noticeIn") && $("noticeIn").focus();
-  } }, h("input", { type: "text", id: "noticeIn", class: "grow", placeholder: "조회와 종례 때 전할 내용", maxlength: "200", autocomplete: "off" }), h("button", { class: "btn small", type: "submit", text: "추가" }));
+  } }, h("input", { type: "text", id: "noticeIn", class: "grow", "aria-label": "전달사항", maxlength: "200", autocomplete: "off" }), h("button", { class: "btn small", type: "submit", text: "추가" }));
   const ours = mine(items);
   const list = ours.length ? ours.map(n => {
     const chk = h("button", { class: "check", type: "button", "aria-label": n.done ? "전달 취소" : "전달함으로 표시", "aria-pressed": String(!!n.done), onclick: () => { n.done = !n.done; saveEnc(D); renderClass(); } });
     chk.innerHTML = CHECK;
     return h("li", { class: "todo" + (n.done ? " done" : "") }, chk, h("span", { class: "todo-text", text: n.text }),
       h("button", { class: "del", type: "button", "aria-label": "삭제", text: "×", onclick: () => { D.value.items = items.filter(x => x.id !== n.id); saveEnc(D); renderClass(); } }));
-  }) : [h("li", { class: "empty", text: "전달할 내용을 적어두고, 전달하면 체크하세요." })];
+  }) : [h("li", { class: "empty", text: "전달사항이 없습니다." })];
   const doneCount = ours.filter(n => n.done).length;
   return [
     form,
@@ -1807,9 +1733,6 @@ function noticeView() {
 }
 
 /* ---------- 학사일정 가져오기 ---------- */
-// 아티팩트 안에서는 바깥 주소를 직접 부를 수 없다. 그래서 두 길로 받는다.
-// 1) 선생님이 학사일정을 붙여넣으면 날짜를 뽑아 D-day로 넣는다.
-// 2) desk_calendar 문서를 밖에서 채워 주면 읽어서 함께 보여 준다. (나이스 공개 API는 바깥에서 받아 넣는다)
 let calOpen = false;
 
 // 2026-12-24 / 2026.12.24 / 12.24 / 12/24 / 12월 24일 / 12.24.(수) 를 모두 받는다.
@@ -1840,7 +1763,6 @@ function parseSchedule(text, baseYear) {
   return out;
 }
 
-// 나이스에서 받아 둔 일정과 손으로 넣은 D-day를 한 줄로 합친다.
 function allDdays() {
   const mine = state.ddays.map(x => ({ ...x, src: "" }));
   const have = new Set(mine.map(x => x.date + " " + x.title));
@@ -1855,10 +1777,9 @@ function renderCalBox() {
   box.hidden = !calOpen;
   $("calPaste").textContent = calOpen ? "닫기" : "일정 붙여넣기";
   if (!calOpen) { box.replaceChildren(); return; }
-  const ta = h("textarea", { id: "calText", placeholder: "학사일정을 그대로 붙여넣으세요.\n예)\n12.24.(수) 겨울방학식\n2027-02-05 졸업식\n3월 2일 시업식" });
+  const ta = h("textarea", { id: "calText", "aria-label": "학사일정" });
   const err = h("p", { class: "form-err", role: "alert" });
-  const note = h("p", { class: "tip", text: "나이스나 학교 홈페이지의 학사일정을 긁어 붙이면 날짜를 찾아 D-day로 넣습니다." });
-  box.replaceChildren(h("div", { class: "roster-editor" }, ta, note, err,
+  box.replaceChildren(h("div", { class: "roster-editor" }, ta, err,
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", id: "calAdd", text: "날짜 찾아 넣기", onclick: () => {
         const found = parseSchedule(ta.value, state.year.current);
@@ -1880,7 +1801,7 @@ function renderCalBox() {
 /* ---------- 백업 파일과 복원 ---------- */
 // 암호화된 기록은 암호문 그대로 파일에 담는다. 파일만 새어 나가도 내용은 열리지 않는다.
 const BACKUP_TAG = "my-desk-backup";
-let bkBusy = false, bkPicked = null, bkNote = "", bkErr = ""; // 안내 글은 동기화로 다시 그려도 남아 있게 들고 있는다
+let bkBusy = false, bkPicked = null, bkNote = "", bkErr = "";
 
 async function collectBodies() {
   const out = {};
@@ -2012,15 +1933,12 @@ document.querySelectorAll("#bookSeg button").forEach(b => b.addEventListener("cl
   renderBook();
 }));
 
-// 보는 반은 카드와 수첩이 하나다. 카드에서 바꾸면 수첩도 따라간다.
 const bCls = () => picked();
-// 반을 바꾼다. 카드와 수첩을 같이 다시 그린다.
 function goClass(c) {
   if (pickedCls === c) return;
   pickedCls = c; bookSid = ""; rosterOpen = false; activeCollect = null; sendPlan = null;
   renderRoster(); renderClass(); renderBook();
 }
-// 호클래스에 있는 반은 호클래스가 정본이다. 없는 반(담임 반 같은 것)만 수첩에 손으로 넣는다.
 function rosterOf(cls) {
   if (hcHas(cls)) return (hc.byCls[cls] || []).map(s => ({ id: s.id, n: s.n, name: s.name }));
   const v = docs.roster && docs.roster.value;
@@ -2029,10 +1947,8 @@ function rosterOf(cls) {
   return list.filter(s => !s.gone).sort((a, b) => a.no - b.no).map(s => ({ id: s.id, n: s.no, name: (s.name || "").trim() }));
 }
 function stuOf(cls, sid) { return rosterOf(cls).find(s => s.id === sid) || null; }
-// 받아 둔 출결 문서에서 칸을 꺼낸다. 고치지 않고 읽기만 한다.
 function marksIn(v) { return (v && v.marks) || {}; }
 const attKeyOf = (day, cls) => `y${yearOpen}_att_${day}_${cls}`;
-// 지금 열려 있는 반은 살아 있는 값을, 나머지는 받아 둔 사본을 쓴다.
 function attValueOf(day, cls) {
   if (docs.att && docs.att.ready && attDay === day && attCls === cls) return docs.att.value;
   return attCache.get(attKeyOf(day, cls)) || null;
@@ -2055,7 +1971,6 @@ function monthDays(ym) {
   return out;
 }
 // 지난 날짜의 출결 문서를 하나씩 받아 풀어 둔다. 선생님이 단추를 누를 때만 받는다.
-// 한 문서를 받아 풀어서 사본으로 둔다.
 async function fetchAtt(key) {
   if (attCache.has(key)) return;
   if (!cloud || !dataKey) { attCache.set(key, null); return; }
@@ -2075,14 +1990,13 @@ async function loadMonth(ym, cls) {
     attLoaded = ym + "|" + cls;
   } finally { attBusy = false; renderBook(); }
 }
-// 오늘 출결 요약은 반별 문서를 따로 받아야 한다. 오늘 화면을 열면 한 번만 받는다.
 let todayAttLoaded = "";
 async function loadTodayAtt() {
   const day = todayKey(), want = day + "|" + cardClasses().join(",");
   if (todayAttLoaded === want || attBusy || !cloud || !dataKey) return;
   todayAttLoaded = want;
   for (const c of cardClasses()) {
-    if (attDay === day && attCls === c) continue;   // 열려 있는 반은 살아 있는 값을 쓴다
+    if (attDay === day && attCls === c) continue;
     await fetchAtt(attKeyOf(day, c));
   }
   renderBook();
@@ -2226,7 +2140,7 @@ function studentPage() {
     type: "button", "aria-pressed": String(s.id === bookSid), "aria-label": who(s),
     onclick: () => { bookSid = s.id === bookSid ? "" : s.id; renderBook(); },
   }, h("span", { class: "n", text: String(s.n) }), shownName(s) ? h("span", { class: "nm", text: s.name }) : null)));
-  const left = panel("학생 고르기", pickRow, grid, h("p", { class: "tip", text: "학생을 누르면 그 학생의 기록이 옆에 열립니다." }));
+  const left = panel("학생 고르기", pickRow, grid);
   if (!bookSid) return [left, panel("학생 기록", noneLine("학생을 골라 주세요."))];
 
   const st = stuOf(cls, bookSid);
@@ -2244,8 +2158,7 @@ function studentPage() {
       text: attBusy ? "불러오는 중…" : loaded ? "다시 불러오기" : "이번 달 출결 모아 보기",
       disabled: attBusy ? "" : null,
       onclick: () => { if (loaded) for (const d of monthDays(ym)) attCache.delete(attKeyOf(d, cls)); loadMonth(ym, cls); },
-    })),
-    h("p", { class: "tip", text: "지난 날짜의 출결은 날마다 따로 보관돼서, 누를 때 모아 옵니다." }));
+    })));
 
   const miss = panel("수합 미제출", (() => {
     const items = docs.collects.value.items.filter(c => itemCls(c) === cls && !(c.got || []).includes(bookSid));
@@ -2259,13 +2172,12 @@ function studentPage() {
     mine.length ? h("ul", { class: "lines" }, ...mine.slice().sort((a, b) => b.at.localeCompare(a.at)).map(consultLine)) : noneLine("기록이 없습니다."),
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "이 학생 상담 적기", onclick: () => { bookPage = "consult"; renderBook(); } })));
 
-  const noteEl = h("textarea", { id: "stuNote", placeholder: "학급 운영에 필요한 것만 짧게. 건강이나 가정 형편처럼 민감한 내용은 꼭 필요할 때만 적어 주세요.", value: rec.note || "" });
+  const noteEl = h("textarea", { id: "stuNote", value: rec.note || "" });
   const note = panel("학생 메모", noteEl,
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "저장", onclick: () => {
       S.value.byId[bookSid] = { ...rec, note: noteEl.value.trim() };
       saveEnc(S); toast("메모를 저장했습니다"); renderBook();
-    } })),
-    h("p", { class: "tip", text: "이 메모는 이 기기에서 암호로 잠근 뒤 저장됩니다." }));
+    } })));
 
   const head = panel("학생",
     h("div", { class: "who" },
@@ -2313,9 +2225,9 @@ function consultPage() {
   };
   fillSid();
   clsIn.addEventListener("change", fillSid);
-  const titleIn = h("input", { type: "text", id: "coTitle", placeholder: "무슨 일인지 한 줄 (예: 지각 잦음 상담)", maxlength: "80", autocomplete: "off" });
-  const bodyIn = h("textarea", { id: "coBody", placeholder: "오고 간 이야기" });
-  const actIn = h("textarea", { id: "coAction", placeholder: "조치와 다음에 할 일" });
+  const titleIn = h("input", { type: "text", id: "coTitle", maxlength: "80", autocomplete: "off" });
+  const bodyIn = h("textarea", { id: "coBody" });
+  const actIn = h("textarea", { id: "coAction" });
   const err = h("p", { class: "form-err", role: "alert" });
   const form = h("form", { class: "book-form", id: "coForm", onsubmit: (e) => {
     e.preventDefault();
@@ -2340,7 +2252,7 @@ function consultPage() {
   const items = D.value.items.slice().sort((a, b) => (a.done === b.done ? b.at.localeCompare(a.at) : a.done ? 1 : -1));
   const open = items.filter(x => !x.done).length;
   const list = panel("기록 " + items.length + "건" + (open ? ", 진행 중 " + open : ""),
-    items.length ? h("ul", { class: "lines" }, ...items.map(consultLine)) : noneLine("상담이나 민원을 적어 두면 여기 쌓입니다."));
+    items.length ? h("ul", { class: "lines" }, ...items.map(consultLine)) : noneLine("기록이 없습니다."));
   return [panel("새 기록", form), list];
 }
 
@@ -2354,8 +2266,7 @@ function lessonPage() {
   const atIn = h("input", { type: "date", id: "leAt", value: todayKey() });
   const perIn = h("select", { id: "lePeriod" }, ...Array.from({ length: 7 }, (_, i) => h("option", { value: String(i + 1), text: (i + 1) + "교시" })));
   if (row) { const i = row.findIndex(c => c.trim() === cls); if (i >= 0) perIn.value = String(i + 1); }
-  const unitIn = h("input", { type: "text", id: "leUnit", placeholder: "단원 (예: 3단원 조선의 성립)", maxlength: "60", autocomplete: "off" });
-  // 호클래스 차시를 고르면 날짜와 단원을 채워 준다.
+  const unitIn = h("input", { type: "text", id: "leUnit", maxlength: "60", autocomplete: "off" });
   const clIn = h("select", { id: "leCl" }, h("option", { value: "", text: "고르지 않음" }),
     ...lessons.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || "제목 없음"}${x.date ? " (" + x.date + ")" : ""}` })));
   clIn.addEventListener("change", () => {
@@ -2364,8 +2275,8 @@ function lessonPage() {
     if (x.date) atIn.value = x.date;
     if (x.title && !unitIn.value.trim()) unitIn.value = x.title;
   });
-  const bodyIn = h("textarea", { id: "leBody", placeholder: "한 것, 남은 것" });
-  const hwIn = h("input", { type: "text", id: "leHw", placeholder: "과제 (없으면 비워 두세요)", maxlength: "120", autocomplete: "off" });
+  const bodyIn = h("textarea", { id: "leBody" });
+  const hwIn = h("input", { type: "text", id: "leHw", maxlength: "120", autocomplete: "off" });
   const err = h("p", { class: "form-err", role: "alert" });
   const form = h("form", { class: "book-form", id: "leForm", onsubmit: (e) => {
     e.preventDefault();
@@ -2400,7 +2311,7 @@ function lessonPage() {
 
   return [
     panel("새 수업 기록", pickRow, form),
-    panel(classLabel(cls) + " 기록 " + mine.length + "건", lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("이 반 수업을 적어 두면 여기 쌓입니다.")),
+    panel(classLabel(cls) + " 기록 " + mine.length + "건", lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("기록이 없습니다.")),
     hcPanel(cls, lessons),
   ];
 }
@@ -2431,7 +2342,6 @@ async function putDate(x) {
   } catch (e) { toast("날짜를 넣지 못했습니다"); }
   finally { sendBusy = false; renderBook(); }
 }
-// 그 차시 날짜의 수첩 출결에서 결석만 골라 확인 화면을 만든다.
 async function planSend(cls, x) {
   const day = x.date || todayKey();
   await fetchAtt(attKeyOf(day, cls));
@@ -2452,7 +2362,6 @@ function sendConfirm() {
   if (!p.absent.length) {
     kids.push(noneLine("그날 그 반에 결석으로 적은 학생이 없습니다."));
   } else {
-    kids.push(h("p", { class: "tip", text: "보낼 학생을 확인해 주세요. 빼고 싶으면 눌러서 꺼 주세요." }));
     kids.push(h("div", { class: "stu-pick" }, ...p.absent.map(st => h("button", {
       type: "button", "aria-pressed": String(p.picked.has(st.id)),
       onclick: () => { if (p.picked.has(st.id)) p.picked.delete(st.id); else p.picked.add(st.id); renderBook(); },
@@ -2488,10 +2397,10 @@ async function doSend() {
 /* ---------- 업무 ---------- */
 function workPage() {
   const D = docs.works, items = D.value.items;
-  const titleIn = h("input", { type: "text", id: "woTitle", placeholder: "업무 (예: 학교폭력 실태조사 회신)", maxlength: "100", autocomplete: "off" });
+  const titleIn = h("input", { type: "text", id: "woTitle", maxlength: "100", autocomplete: "off" });
   const dueIn = h("input", { type: "date", id: "woDue" });
-  const fromIn = h("input", { type: "text", id: "woFrom", placeholder: "어디서 온 일 (예: 교육청 공문)", maxlength: "60", autocomplete: "off" });
-  const memoIn = h("textarea", { id: "woMemo", placeholder: "해야 할 것, 참고" });
+  const fromIn = h("input", { type: "text", id: "woFrom", maxlength: "60", autocomplete: "off" });
+  const memoIn = h("textarea", { id: "woMemo" });
   const err = h("p", { class: "form-err", role: "alert" });
   const form = h("form", { class: "book-form", id: "woForm", onsubmit: (e) => {
     e.preventDefault();
@@ -2533,15 +2442,13 @@ function workPage() {
   return [
     panel("새 업무", form),
     panel("업무 " + left + "건 남음" + (over ? ", 기한 지남 " + over : ""),
-      lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("공문이나 맡은 일을 적어 두면 기한 가까운 것부터 보여 줍니다.")),
+      lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("업무가 없습니다.")),
   ];
 }
 
 /* ---------- 할 일 ---------- */
 const CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
-/* 중요도와 긴급도로 가른 네 칸 (선생님 지시 2026-11-12, 바탕화면 대시보드 mydesk 를 따라).
-   할 일마다 q(0~3)를 적는다. q 가 없는 옛 할 일은 '중요 긴급' 칸에 둔다.
-   먼저 눈에 띄어야 선생님이 제자리로 끌어 옮길 수 있기 때문이다. */
+// q 가 없는 옛 할 일은 0번 칸에 둔다.
 const QUADS = [
   { q: 0, name: "중요 긴급", hint: "지금 하기",   c: "q0" },
   { q: 1, name: "중요 여유", hint: "계획하기",    c: "q1" },
@@ -2549,9 +2456,8 @@ const QUADS = [
   { q: 3, name: "일반 여유", hint: "천천히",      c: "q3" },
 ];
 const todoQ = (t) => [0, 1, 2, 3].includes(t.q) ? t.q : 0;
-let todoDrag = null;
 function renderTodos() {
-  // 다른 기기에서 고친 것이 들어와 다시 그릴 때, 쓰고 있던 칸의 글을 잃지 않게 한다.
+  // 다른 기기에서 고친 것이 들어와 다시 그려도 쓰던 글을 잃지 않게 한다.
   const act = document.activeElement;
   const typing = act && act.classList && act.classList.contains("q-in") ? { q: act.dataset.q, v: act.value } : null;
   $("clearDone").hidden = !state.todos.some(t => t.done);
@@ -2561,12 +2467,13 @@ function renderTodos() {
     const list = h("ul", { class: "q-list" }, ...ordered.map((t) => {
       const chk = h("button", { class: "check", type: "button", "aria-label": t.done ? "완료 취소" : "완료로 표시", "aria-pressed": String(!!t.done), onclick: () => { t.done = !t.done; save(); renderTodos(); } });
       chk.innerHTML = CHECK;
-      return h("li", {
-        class: "q-todo" + (t.done ? " done" : ""), draggable: "true",
-        ondragstart: (e) => { todoDrag = t.id; e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", t.text); } catch (_) {} },
-        ondragend: () => { todoDrag = null; },
+      const li = h("li", {
+        class: "q-todo" + (t.done ? " done" : ""), "data-id": t.id,
+        onpointerdown: (e) => todoDown(e, t.id, li),
+        oncontextmenu: (e) => { if (todoDrag) e.preventDefault(); },
       }, chk, h("span", { class: "q-tx", text: t.text, title: t.text }),
         h("button", { class: "del", type: "button", "aria-label": `${t.text} 삭제`, text: "×", onclick: () => { state.todos = state.todos.filter(x => x.id !== t.id); save(); renderTodos(); } }));
+      return li;
     }));
     const inp = h("input", { type: "text", class: "q-in", "data-q": String(Q.q), maxlength: "200", autocomplete: "off", "aria-label": `${Q.name}에 할 일 더하기` });
     const form = h("form", { class: "q-add", onsubmit: (e) => {
@@ -2576,19 +2483,8 @@ function renderTodos() {
       inp.value = ""; save(); renderTodos();
       const again = document.querySelector(`#todoQuad .q-in[data-q="${Q.q}"]`); if (again) again.focus();
     } }, inp, h("button", { class: "q-plus", type: "submit", "aria-label": `${Q.name}에 더하기`, text: "+" }));
-    // 다른 칸의 할 일을 끌어다 놓으면 이 칸으로 옮긴다.
-    const cell = h("div", {
-      class: "q-cell " + Q.c, "data-q": String(Q.q),
-      ondragover: (e) => { if (todoDrag) { e.preventDefault(); cell.classList.add("over"); } },
-      ondragleave: () => cell.classList.remove("over"),
-      ondrop: (e) => {
-        e.preventDefault(); cell.classList.remove("over");
-        const t = state.todos.find(x => x.id === todoDrag); todoDrag = null;
-        if (!t || todoQ(t) === Q.q) return;
-        t.q = Q.q; save(); renderTodos();
-      },
-    }, h("div", { class: "q-head" }, h("span", { class: "q-name", text: Q.name }), h("span", { class: "q-hint", text: Q.hint })), list, form);
-    return cell;
+    return h("div", { class: "q-cell " + Q.c, "data-q": String(Q.q) },
+      h("div", { class: "q-head" }, h("span", { class: "q-name", text: Q.name }), h("span", { class: "q-hint", text: Q.hint })), list, form);
   });
   $("todoQuad").replaceChildren(...cells);
   if (typing) {
@@ -2596,6 +2492,75 @@ function renderTodos() {
     if (again) { again.value = typing.v; again.focus(); }
   }
 }
+
+// 마우스는 조금 움직이면 집고, 손가락은 꾹 눌러야 집는다(먼저 움직이면 스크롤).
+const HOLD_MS = 280, MOVE_PX = 6;
+let todoDrag = null;
+function todoDown(e, id, li) {
+  if (e.button > 0 || e.target.closest("button")) return;
+  todoEnd();
+  const r = li.getBoundingClientRect();
+  todoDrag = { id, li, pid: e.pointerId, mouse: e.pointerType === "mouse", x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, live: false, ghost: null, over: null, timer: null };
+  if (!todoDrag.mouse) todoDrag.timer = setTimeout(todoLift, HOLD_MS);
+}
+function todoLift() {
+  const d = todoDrag;
+  if (!d || d.live || !d.li.isConnected) return;
+  d.live = true;
+  const r = d.li.getBoundingClientRect();
+  const wg = d.li.closest(".wg");
+  const z = (wg && parseFloat(getComputedStyle(wg).zoom)) || 1;
+  const copy = d.li.cloneNode(true);
+  copy.style.width = (r.width / z) + "px";
+  copy.style.zoom = String(z);
+  d.ghost = h("div", { class: "q-ghost" }, copy);
+  document.body.append(d.ghost);
+  d.li.classList.add("lifted");
+  try { if (!d.mouse && navigator.vibrate) navigator.vibrate(12); } catch (_) {}
+  todoGhost();
+}
+function todoGhost() {
+  const d = todoDrag;
+  if (!d || !d.ghost) return;
+  d.ghost.style.transform = `translate(${d.x - d.ox}px, ${d.y - d.oy}px)`;
+  const at = document.elementFromPoint(d.x, d.y);
+  const cell = at && at.closest ? at.closest("#todoQuad .q-cell") : null;
+  if (cell !== d.over) {
+    if (d.over) d.over.classList.remove("over");
+    d.over = cell;
+    if (cell) cell.classList.add("over");
+  }
+}
+function todoEnd() {
+  const d = todoDrag;
+  if (!d) return;
+  clearTimeout(d.timer);
+  if (d.ghost) d.ghost.remove();
+  if (d.over) d.over.classList.remove("over");
+  if (d.li) d.li.classList.remove("lifted");
+  todoDrag = null;
+}
+document.addEventListener("pointermove", (e) => {
+  const d = todoDrag;
+  if (!d || e.pointerId !== d.pid) return;
+  d.x = e.clientX; d.y = e.clientY;
+  if (!d.live) {
+    if (Math.hypot(d.x - d.x0, d.y - d.y0) <= MOVE_PX) return;
+    if (d.mouse) todoLift(); else { todoEnd(); return; }
+  }
+  todoGhost();
+});
+document.addEventListener("pointerup", (e) => {
+  const d = todoDrag;
+  if (!d || e.pointerId !== d.pid) return;
+  const q = d.live && d.over ? Number(d.over.dataset.q) : null;
+  const t = state.todos.find(x => x.id === d.id);
+  todoEnd();
+  if (t && q != null && todoQ(t) !== q) { t.q = q; save(); renderTodos(); }
+});
+document.addEventListener("pointercancel", () => todoEnd());
+// 집은 뒤에는 손가락을 움직여도 화면이 스크롤되지 않게 한다.
+document.addEventListener("touchmove", (e) => { if (todoDrag && todoDrag.live) e.preventDefault(); }, { passive: false });
 $("clearDone").addEventListener("click", () => { state.todos = state.todos.filter(t => !t.done); save(); renderTodos(); });
 
 /* ---------- D-day ---------- */
@@ -2604,7 +2569,7 @@ function renderDdays() {
   const list = $("ddayList");
   const t0 = parseDate(todayKey());
   const items = allDdays();
-  if (!items.length) { list.replaceChildren(h("li", { class: "empty", text: "기말고사, 방학식, 생기부 마감일을 추가해 보세요. '일정 붙여넣기'로 한 번에 넣을 수도 있습니다." })); return; }
+  if (!items.length) { list.replaceChildren(h("li", { class: "empty", text: "일정이 없습니다." })); return; }
   list.replaceChildren(...items.map((x) => {
     const dt = parseDate(x.date);
     const diff = Math.round((dt - t0) / 86400000);

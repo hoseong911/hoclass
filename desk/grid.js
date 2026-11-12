@@ -1,10 +1,3 @@
-// 화면 전체를 칸(그리드)에 놓는 틀 (2026-11-11).
-// 선생님 지시: "교무 수첩은 4단 구성으로 해줘. 그리드는 24칸 16칸으로 해봐.
-//              그거 조정하는 설정 기능도 만들어줘" (위젯은 15×10, 수첩은 전체 화면이라 24×16)
-//
-// 칸 수는 설정에서 바꾼다. 자리는 { x, y, w, h, on } 으로 적어 두고(1부터 센다),
-// 배치 모드에서 끌어 옮기거나 테두리를 잡아 크기를 바꾼다.
-// mydesk 레포의 방식을 그대로 따랐다: 새로 놓을 때 이미 있는 것을 밀지 않고 빈자리를 찾는다.
 
 export const GAP = 10, PAD = 12;                 // desk.css 의 .deck 과 같아야 한다
 export const GRID_MIN = { cols: 6, rows: 4 };
@@ -13,8 +6,7 @@ export const DEFAULT_GRID = { cols: 24, rows: 16 };
 export const DEFAULT_PAGES = 2;
 export const MAX_PAGES = 8;
 
-/* 더 작게 줄일 수 없는 칸 수 [가로, 세로]. 선생님 결정 2026-11-11: 전부 4×4.
-   더 작게 할 수 있던 때는 칸이 너무 작아져 글씨가 겹쳤다. */
+/* 더 작게 줄일 수 없는 칸 수 [가로, 세로] */
 export const MIN_SIZE = [4, 4];
 export const WIDGETS = [
   { id: "clock",   name: "시계",        min: MIN_SIZE },
@@ -31,10 +23,6 @@ export const WIDGETS = [
 ];
 export const widgetDef = (id) => WIDGETS.find(w => w.id === id) || null;
 
-/* 기본 배치는 두 장이다.
-   1장: 대시보드. 24칸을 넷으로 나눈 4단(한 단이 6칸)으로 열 여섯 줄을 꽉 채운다.
-   2장: 교무수첩. 좁은 칸에서는 다섯 화면이 답답해서 한 장을 통째로 준다.
-   페이지는 설정이나 아래 페이지 점에서 더하고 지운다. */
 export const DEFAULT_LAYOUT = {
   clock:   { pg: 1, x: 1,  y: 1,  w: 6,  h: 4,  on: true },
   links:   { pg: 1, x: 1,  y: 5,  w: 6,  h: 4,  on: true },
@@ -54,18 +42,14 @@ export const okGrid = (g) => ({
   cols: clamp(g && g.cols, GRID_MIN.cols, GRID_MAX.cols) || DEFAULT_GRID.cols,
   rows: clamp(g && g.rows, GRID_MIN.rows, GRID_MAX.rows) || DEFAULT_GRID.rows,
 });
-/* 숫자가 아니면 기본값으로. 예전에 clamp 만 쓰다가 인자를 빼먹은 자리에서
-   조용히 1장이 되어 모든 우젯이 1장으로 끌려온 적이 있다(2026-11-11). */
+/* 숫자가 아니면 기본값. clamp 만 쓰면 인자를 빼먹었을 때 모든 우젯이 1장으로 끌려온다. */
 export const okPages = (n) => {
   const v = Math.round(Number(n));
   return Number.isFinite(v) && v >= 1 ? Math.min(v, MAX_PAGES) : DEFAULT_PAGES;
 };
 
-/* 저장해 둔 자리를 지금 칸 수와 페이지 수에 맞게 다듬는다.
-   칸 수를 줄였으면 밖으로 나간 것을 들여오고, 페이지를 줄였으면 마지막 장으로 당긴다. */
 export function normalize(saved, grid, pages) {
   const { cols, rows } = okGrid(grid);
-  // 페이지 수를 안 넘기면 저장해 둔 것에 적힌 장 수를 그대로 지킨다(장이 사라지지 않게).
   const pg = okPages(pages == null ? pagesIn(saved) : pages);
   const out = {};
   for (const def of WIDGETS) {
@@ -83,10 +67,7 @@ export function normalize(saved, grid, pages) {
   return resolveOverlaps(out, { cols, rows });
 }
 
-/* 겹친 것을 풀어 준다.
-   최소 크기를 올리면(4×4) 전에 작게 두었던 것이 커지면서 옆과 겹친다.
-   큰 것부터 자리를 지키고, 겹친 것만 같은 장의 빈자리로 옮긴다.
-   빈자리가 없으면 그 자리에 둔다(겹쳐 보이더라도 잃어버리지는 않게). */
+/* 큰 것부터 자리를 지키고 겹친 것만 빈자리로 옮긴다. 빈자리가 없으면 그 자리에 둔다. */
 export function resolveOverlaps(layout, grid) {
   const order = WIDGETS.map(d => d.id)
     .filter(id => layout[id] && layout[id].on)
@@ -101,7 +82,6 @@ export function resolveOverlaps(layout, grid) {
   for (const id of order) layout[id] = kept[id];
   return layout;
 }
-/* 저장해 둔 것에서 페이지가 몇 장인지 센다(가장 큰 pg). */
 export function pagesIn(layout) {
   let n = 1;
   for (const g of Object.values(layout || {})) if (g && g.on !== false) n = Math.max(n, Number(g.pg) || 1);
@@ -111,7 +91,6 @@ export function pagesIn(layout) {
 const overlap = (a, b) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
-/* 같은 페이지에서 켜져 있는 다른 우젯과 겹치는가 */
 export function hits(layout, id, box, pg) {
   const page = pg || (layout[id] && layout[id].pg) || 1;
   for (const [k, g] of Object.entries(layout)) {
@@ -121,7 +100,6 @@ export function hits(layout, id, box, pg) {
   return false;
 }
 
-/* 빈자리를 찾는다. 위에서 아래로, 왼쪽에서 오른쪽으로 훑는다. 없으면 null. */
 export function freeSlot(layout, id, grid, w, h, pg) {
   const { cols, rows } = okGrid(grid);
   for (let y = 1; y <= rows - h + 1; y++) {
@@ -132,8 +110,6 @@ export function freeSlot(layout, id, grid, w, h, pg) {
   return null;
 }
 
-/* 우젯을 켠다. 지금 자리가 비어 있으면 그대로, 아니면 빈자리를 찾는다.
-   자리를 못 찾으면 조금 줄여서 다시 본다. 그래도 없으면 false. */
 export function turnOn(layout, id, grid, pg) {
   const def = widgetDef(id);
   if (!def) return false;
@@ -150,7 +126,6 @@ export function turnOn(layout, id, grid, pg) {
   }
   return false;
 }
-/* 우젯을 다른 페이지로 옮긴다. 그 페이지가 비어 있지 않으면 빈자리를 찾는다. */
 export function moveToPage(layout, id, grid, pg) {
   const g = layout[id];
   if (!g) return false;
@@ -165,7 +140,6 @@ export function moveToPage(layout, id, grid, pg) {
   return true;
 }
 
-/* 한 칸이 화면에서 몇 픳셀인가. 끌어 옮긴 거리를 칸 수로 바꿀 때 쓴다. */
 export function cellSize(rect, grid) {
   const { cols, rows } = okGrid(grid);
   return {
@@ -174,7 +148,6 @@ export function cellSize(rect, grid) {
   };
 }
 
-/* 끌거나 크기를 바꾼 결과를 칸에 맞춰 돌려준다. dir 가 없으면 옮기기. */
 export function moved(g0, grid, dCol, dRow, dir) {
   const { cols, rows } = okGrid(grid);
   const pg = g0.pg || 1;

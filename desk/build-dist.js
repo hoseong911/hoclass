@@ -1,16 +1,8 @@
-// 타우리 앱에 넣을 dist 폴더를 만든다 (2026-11-11).
-// 웹판은 깃허브 페이지가 레포를 그대로 서비스하므로 빌드가 필요 없다.
-// 앱판은 수첩이 쓰는 파일만 골라 담는다. 경로를 그대로 지켜서 import 가 깨지지 않게 한다.
-//
-//   dist/desk/...    수첩 화면
-//   dist/shared/...  호클래스와 같이 쓰는 파베 초기화
-//   dist/vendor/...  (있으면) 파베 라이브러리 사본 (인터넷 없이도 열리게
-//
-// 라이브러리 사본을 받는 법:  node build-dist.js --vendor
+// 타우리 앱에 넣을 dist 만들기. 사본 받기: node build-dist.js --vendor
 const fs = require("fs"), path = require("path"), https = require("https");
 
-const DESK = __dirname;                       // .../hoclass/desk
-const ROOT = path.join(DESK, "..");           // .../hoclass
+const DESK = __dirname;
+const ROOT = path.join(DESK, "..");
 const DIST = path.join(DESK, "dist");
 const VENDOR = path.join(DESK, "vendor", "firebase");
 const SDK = "10.12.2";
@@ -34,7 +26,6 @@ function get(url) {
     }).on("error", no);
   });
 }
-// CDN 주소를 글자 그대로 찾아 바꾼다(정규식을 안 써서 escape 사고가 없다).
 const swapAll = (text, to) => text.split(CDN("")).join(to);
 
 async function vendor() {
@@ -60,7 +51,6 @@ async function main() {
     "shared/fb.js", "shared/firebase-config.js",
   ]) copy(rel);
 
-  // 라이브러리 사본이 있으면 그걸 쓰도록 import 주소를 바꾼다(인터넷 없이도 열린다).
   const have = fs.existsSync(VENDOR) && SDK_FILES.every(f => fs.existsSync(path.join(VENDOR, f)));
   if (have) {
     fs.cpSync(VENDOR, path.join(DIST, "vendor", "firebase"), { recursive: true });
