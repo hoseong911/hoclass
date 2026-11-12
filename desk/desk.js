@@ -1280,7 +1280,7 @@ function tick() {
   const k = todayKey(now);
   if (k !== lastDay) {
     lastDay = k;
-    $("dateMain").textContent = `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 ${WD[now.getDay()]}요일`;
+    $("dateMain").textContent = `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 (${WD[now.getDay()]})`;
     ensureAtt(k); renderDdays(); renderClass(); loadMeal();
   }
   if (dataKey && Date.now() - lastActive > state.idleMin * 60000) lockNow();

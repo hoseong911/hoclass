@@ -17,7 +17,7 @@
   --ok: var(--sky);            /* 수업 중 진행 바 */
   --break: #F0B95A;            /* 쉬는 시간 진행 바 */
   --pass-soft: #E4F1E8;        /* 달성 옅은 바탕 (theme --pass 짝) */
-  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-body: "SUIT Variable", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-title: "Paperlogy", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-head: "Jalnan", "Paperlogy", "Malgun Gothic", sans-serif;  /* 위젯 제목: 여기어때 잘난체 */
   --fs-clock: clamp(30px, 4.2vw, 64px);
@@ -37,7 +37,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 
 /* 시계 */
-.clock { font-family: var(--font-num); font-weight: 300; font-size: clamp(52px, 8vw, 96px); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.clock { font-family: var(--font-head); font-weight: 400; font-size: clamp(52px, 8vw, 96px); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin-top: 6px; }
 .clock .sec { font-size: 0.38em; color: var(--faint); margin-left: 6px; letter-spacing: 0; }
 .date-main { font-size: clamp(18px, 2vw, 22px); font-weight: 600; text-wrap: balance; }
 
@@ -337,36 +337,38 @@ body { overflow: hidden; }
 /* ── 가운데 맞추기는 자동 여백으로 ──
    justify-content: center 는 넘칠 때 위쪽을 잘라 먹어 스크롤로도 못 본다.
    자동 여백은 남는 자리가 없으면 0 이 되어 안 잘린다. */
-.wg-clock > :first-child, .wg-links > :first-child { margin-top: auto; }
-.wg-clock > :last-child,  .wg-links > :last-child  { margin-bottom: auto; }
+.wg-links > :first-child { margin-top: auto; }
+.wg-links > :last-child  { margin-bottom: auto; }
 
 /* ── 시계, 지금 수업 ── */
 /* 둘 다 담는 글이 정해져 있어 한눈에 다 보여야 한다.
    넘치면 스크롤이 아니라 fitCards() 가 통째로 줄인다. */
 .wg > .wg-clock, .wg > .now { overflow: hidden; }
-.wg-clock { gap: 12px; }
-.cw-time { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.wg-clock .clock { font-size: clamp(16px, min(20cqw, 20cqh), 140px); margin: 0; line-height: .95; white-space: nowrap; }
-.wg-clock .date-main { font-size: clamp(10px, min(4.4cqw, 8cqh), 30px); font-weight: 600; }
-.cw-wx { display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; }
-.wx-ico { width: 1.25em; height: 1.25em; flex: none; font-size: clamp(13px, min(7cqw, 13cqh), 60px); color: var(--faint); }
+/* 시계 위젯: 여백 대신 내용을 키운다. 세로는 시계:날씨 = 6:4, 가로는 좌우로 나눈다. */
+.wg-clock { gap: 8px; text-align: center; }
+.cw-time { flex: 6; display: flex; flex-direction: column; justify-content: center; min-width: 0; min-height: 0; overflow: hidden; }
+.wg-clock .clock { font-size: clamp(24px, min(31cqw, 40cqh), 120px); margin: 0; line-height: .9; white-space: nowrap; }
+.wg-clock .date-main { font-size: clamp(10px, min(8cqw, 9cqh), 22px); font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-wx { flex: 4; display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; min-height: 0; overflow: hidden; }
+.wx-ico { flex: none; width: min(22cqw, 26cqh, 64px); height: min(22cqw, 26cqh, 64px); color: var(--faint); }
 .wx-ico svg { width: 100%; height: 100%; display: block; }
 .wx-ico.sun { color: var(--warn); }
 .wx-ico.rain { color: var(--blue); }
-.wx-ico.snow { color: #7FA7D9; }
-.wx-txt { min-width: 0; }
-.wx-temp { font-size: clamp(12px, min(7cqw, 13cqh), 56px); font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
-.wx-cond { font-size: var(--fs-sm); color: var(--muted); margin-top: 3px; white-space: nowrap; }
-.wx-note { font-size: var(--fs-sm); color: var(--faint); }
-/* 가로로 눕히는 건 가로가 넉넉할 때만. 좁은 칸에서 누이면 시각이 날씨 글 위로 올라탄다. */
+.wx-ico.snow { color: var(--sky); }
+.wx-txt { min-width: 0; text-align: left; }
+.wx-temp { font-size: clamp(13px, min(18cqw, 22cqh), 40px); font-weight: 600; color: var(--navy); line-height: 1; font-variant-numeric: tabular-nums; }
+.wx-cond { font-size: clamp(10px, min(9cqw, 11cqh), 18px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-top: .15em; }
+.wx-note { font-size: clamp(10px, min(5cqw, 6cqh), 14px); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* 가로로 넉넉할 때만 좌우로. 좁은 칸에서 누이면 시각이 날씨 글 위로 올라탄다. */
 @container (min-aspect-ratio: 13/10) and (min-width: 300px) {
-  .wg-clock { flex-direction: row; align-items: center; gap: 22px; }
-  .wg-clock > :first-child { margin-top: 0; margin-inline-start: auto; }
-  .wg-clock > :last-child { margin-bottom: 0; margin-inline-end: auto; }
-  .cw-time { min-width: min-content; }
-  .wg-clock .clock { font-size: clamp(16px, min(13cqw, 30cqh), 140px); }
-  .wg-clock .date-main { font-size: clamp(10px, min(3.2cqw, 8cqh), 30px); }
-  .cw-wx { border-top: 0; padding-top: 0; border-left: 1px solid var(--line); padding-left: 22px; }
+  .wg-clock { flex-direction: row; align-items: center; gap: 0; }
+  .cw-time { flex: 1; }
+  .wg-clock .clock { font-size: clamp(24px, min(18cqw, 60cqh), 120px); }
+  .wg-clock .date-main { font-size: clamp(10px, min(4.5cqw, 9cqh), 20px); color: var(--sub); }
+  .cw-wx { flex: none; min-width: 34%; height: 100%; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 20px; }
+  .wx-ico { width: min(14cqw, 32cqh, 56px); height: min(14cqw, 32cqh, 56px); }
+  .wx-temp { font-size: clamp(13px, min(9cqw, 24cqh), 36px); }
+  .wx-cond { font-size: clamp(10px, min(5cqw, 12cqh), 18px); }
 }
 
 /* ── 할 일 ── */
@@ -521,6 +523,10 @@ body { overflow: hidden; }
   src: url("https://cdn.jsdelivr.net/gh/fonts-archive/Jalnan/Jalnan.woff2") format("woff2");
 }
 @font-face {
+  font-family: "SUIT Variable"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/variable/woff2/SUIT-Variable.woff2") format("woff2");
+}
+@font-face {
   font-family: "Paperlogy"; font-style: normal; font-weight: 400; font-display: swap;
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2") format("woff2");
 }
@@ -533,7 +539,7 @@ body { overflow: hidden; }
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2") format("woff2");
 }
 
-.class-name, .clock, .wg-tag,
+.class-name, .wg-tag,
 .book-seg button, .lock-panel h3, .panel > h3, .who .nm,
 .set-title, .set-sec > h3 { font-family: var(--font-title); }
 .card-title { font-size: var(--fs-label); font-family: var(--font-head); }

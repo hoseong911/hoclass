@@ -284,7 +284,7 @@ function checkHiddenRule() {
   /* ---------- 시계 ---------- */
   const clockText = A.wg("clock").textContent;
   for (const gone of ["주차", "완료", "D-"]) assert(!clockText.includes(gone), "시계에서 뺀 것이 남았다: " + gone);
-  assert(A.$("dateMain").textContent.includes("요일"), "날짜가 보인다");
+  assert(A.$("dateMain").textContent.includes("년"), "날짜가 보인다");
   await until(() => A.$("wx").textContent.includes("날씨"), "날씨 칸");
 
   /* ---------- 할 일 ---------- */
