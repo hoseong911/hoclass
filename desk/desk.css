@@ -365,7 +365,7 @@ body { overflow: hidden; }
   .cw-time { flex: 1; align-items: center; justify-content: center; text-align: center; gap: clamp(4px, 2cqh, 14px); }
   .wg-clock .clock { font-size: clamp(24px, min(15cqw, 52cqh), 104px); }
   .wg-clock .date-main { font-size: clamp(11px, min(5cqw, 10cqh), 22px); color: var(--sub); }
-  .cw-wx { flex: none; min-width: 38%; height: 100%; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 20px; }
+  .cw-wx { flex: none; min-width: 38%; height: 100%; border-top: 0; border-left: 1px solid var(--line); padding: 0 20px; }
   .wx-ico { width: min(17cqw, 37cqh, 64px); height: min(17cqw, 37cqh, 64px); }
   .wx-temp { font-size: clamp(14px, min(11cqw, 28cqh), 42px); }
   .wx-cond { font-size: clamp(11px, min(6cqw, 14cqh), 20px); }
@@ -468,11 +468,14 @@ body { overflow: hidden; }
   position: absolute; left: 8px; top: 8px; z-index: 3; display: none;
   font-size: 12px; font-weight: 600; color: var(--accent-ink); background: var(--accent);
   border-radius: 8px; padding: 3px 10px; white-space: nowrap; pointer-events: none;
+  /* 칸 zoom(--k×--z)을 되돌려 배지 크기를 늘 같게 — 조작용 UI라 칸 크기 따라 커지면 안 된다. */
+  zoom: calc(1 / (var(--k, 1) * var(--z, 1)));
 }
 .deck.arranging .wg-tag { display: block; }
 .wg-off { position: absolute; right: 6px; top: 6px; z-index: 4; display: none; width: 22px; height: 22px;
   border-radius: 8px; border: 0; background: var(--danger-soft); color: var(--danger);
-  font-size: 14px; line-height: 1; cursor: pointer; }
+  font-size: 14px; line-height: 1; cursor: pointer;
+  zoom: calc(1 / (var(--k, 1) * var(--z, 1))); }
 .deck.arranging .wg-off { display: grid; place-items: center; }
 .rz { position: absolute; z-index: 3; display: none; }
 .deck.arranging .rz { display: block; }
