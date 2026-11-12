@@ -297,7 +297,7 @@ button.region:hover { border-color: var(--accent); color: var(--accent); }
   width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--r); padding: 28px 26px; display: flex; flex-direction: column; gap: 12px;
 }
-.gate-card h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.gate-card h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; font-family: var(--font-head); text-align: center; color: var(--navy); }
 .gate-card .field { gap: 5px; }
 .gate-card .field input { font-size: 16px; }
 .gate-card .btn { margin-top: 4px; }
@@ -533,7 +533,7 @@ body { overflow: hidden; }
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2") format("woff2");
 }
 
-.class-name, .clock, .gate-card h1, .wg-tag,
+.class-name, .clock, .wg-tag,
 .book-seg button, .lock-panel h3, .panel > h3, .who .nm,
 .set-title, .set-sec > h3 { font-family: var(--font-title); }
 .card-title { font-size: var(--fs-label); font-family: var(--font-head); }
