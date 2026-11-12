@@ -1,22 +1,22 @@
+@import "../shared/theme.css";   /* 색과 형태의 단일 출처: 롯데 네이비·레드 */
 /* 지우면 로그인 창이 수첩 위를 덮는다(.gate{display:grid} 같은 규칙이 hidden 을 이긴다). */
 [hidden] { display: none !important; }
 :root {
-  --bg: #ECEFEE;
-  --surface: #FFFFFF;
-  --surface-2: #F5F7F6;
-  --ink: #16201C;
-  --muted: #5E6A65;
-  --faint: #8E9994;
-  --line: #DCE2DF;
-  --accent: #0E7A5C;
+  /* 색은 theme.css 한 곳에서 온다(--bg --ink --line --accent --accent-soft --danger).
+     여기엔 수첩 전용 이름표만 두고, 쓰임이 같은 것은 theme 색을 가리킨다. */
+  --surface: var(--card);
+  --surface-2: var(--hover);
+  --muted: var(--sub);
+  --faint: #9AA3AE;             /* --sub 보다 연한 보조 회색 (브랜드 무관) */
   --accent-ink: #FFFFFF;
-  --accent-soft: #E1F0EA;
-  --warn: #C9861C;
+  --danger-soft: var(--accent-soft);
+  --warn: #C9861C;             /* 지각 (theme 밖 상태색) */
   --warn-soft: #FBEFD9;
-  --blue: #3567AE;
-  --blue-soft: #E3ECF8;
-  --danger: #C2473B;
-  --danger-soft: #F7E3E0;
+  --blue: var(--question);     /* 조퇴: 밝은 네이비 */
+  --blue-soft: var(--sky-soft);
+  --ok: var(--sky);            /* 수업 중 진행 바 */
+  --break: #F0B95A;            /* 쉬는 시간 진행 바 */
+  --pass-soft: #E4F1E8;        /* 달성 옅은 바탕 (theme --pass 짝) */
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-title: "Paperlogy", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --fs-clock: clamp(30px, 4.2vw, 64px);
@@ -49,7 +49,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
   transition: border-color .15s, transform .15s;
 }
 .link:hover { border-color: var(--accent); transform: translateY(-1px); }
-.link.official { border-color: #BFD9CF; background: var(--accent-soft); }
+.link.official { border-color: var(--sky); background: var(--sky-soft); }
 .link .sub { font-size: 11px; color: var(--muted); font-weight: 500; }
 .mono-tile { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff; flex: none; }
 .link .x { display: none; }
@@ -91,11 +91,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .now .card-title { color: #A9B6B1; }
 .now .card-aside { color: #A9B6B1; }
 .now-main { font-size: clamp(26px, 3vw, 34px); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; text-wrap: balance; }
-.now-main .cls { color: #7FD6B7; }
+.now-main .cls { color: var(--sky); }
 .now-sub { font-size: 14px; color: #C7D1CD; font-variant-numeric: tabular-nums; }
 .now-bar { height: 6px; border-radius: 6px; background: rgba(255,255,255,.14); overflow: hidden; }
-.now-bar i { display: block; height: 100%; background: #7FD6B7; transition: width .5s linear; }
-.now.break .now-bar i { background: #F0B95A; }
+.now-bar i { display: block; height: 100%; background: var(--ok); transition: width .5s linear; }
+.now.break .now-bar i { background: var(--break); }
 .now-next { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.12); font-size: 14px; color: #DCE3E0; }
 .now-next b { color: #fff; font-weight: 600; }
 
@@ -155,7 +155,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .stu.결석 { background: var(--danger-soft); border-color: #E7B6AF; } .stu.결석 .st { color: var(--danger); }
 .stu.지각 { background: var(--warn-soft); border-color: #EBCF9C; } .stu.지각 .st { color: var(--warn); }
 .stu.조퇴 { background: var(--blue-soft); border-color: #B7CBEA; } .stu.조퇴 .st { color: var(--blue); }
-.stu.got { background: var(--accent-soft); border-color: #A9D3C3; } .stu.got .st { color: var(--accent); }
+.stu.got { background: var(--pass-soft); border-color: #BFE0CC; } .stu.got .st { color: var(--pass); }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .row .grow { flex: 1 1 160px; min-width: 0; }
 .missing { font-size: 13px; color: var(--muted); background: var(--surface-2); border-radius: 10px; padding: 8px 10px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
@@ -240,7 +240,7 @@ table.tt { width: 100%; border-collapse: separate; border-spacing: 4px; min-widt
 .stu-pick button .n { font-family: var(--font-num); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .stu-pick button .nm { font-size: 10px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stu-pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
-.stu-pick button[aria-pressed="true"] .nm { color: #D7EBE3; }
+.stu-pick button[aria-pressed="true"] .nm { color: rgba(255,255,255,.78); }
 .who { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .who .nm { font-size: 19px; font-weight: 700; }
 .who .meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }

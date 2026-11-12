@@ -48,7 +48,7 @@ async function main() {
   for (const rel of [
     "desk/index.html", "desk/widget.html", "desk/desk.css",
     "desk/desk.js", "desk/widget.js", "desk/fb-desk.js", "desk/hoclass.js", "desk/grid.js", "desk/gcal.js", "desk/neis.js",
-    "shared/fb.js", "shared/firebase-config.js",
+    "shared/theme.css", "shared/fb.js", "shared/firebase-config.js",
   ]) copy(rel);
 
   const have = fs.existsSync(VENDOR) && SDK_FILES.every(f => fs.existsSync(path.join(VENDOR, f)));
