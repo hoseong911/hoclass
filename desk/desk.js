@@ -679,6 +679,7 @@ function applyGrid() {
   if (stacked) stackOrder();
   if (two) fitSpans();
   renderPagebar();
+  fitCards(true);
 }
 
 /* ---------- 세워 보는 화면: 폰 1단, 세로 태블릿 2단. 조건은 desk.css 와 같아야 한다 ---------- */
@@ -821,6 +822,7 @@ deck.addEventListener("pointerdown", (e) => {
       if (overDot) overDot.classList.add("over");
     }
   };
+  let shown = null;                          // 자리가 진짜 바뀐 때만 다시 그린다
   const move = (ev) => {
     if (!dir) markDot(ev);
     const dC = Math.round((ev.clientX - sx) / uw), dR = Math.round((ev.clientY - sy) / uh);
@@ -828,7 +830,11 @@ deck.addEventListener("pointerdown", (e) => {
     if (cand.w < minW || cand.h < minH) return;
     if (hits(state.layout, id, cand)) return;
     state.layout[id] = cand;
-    el.style.gridArea = cand.y + " / " + cand.x + " / span " + cand.h + " / span " + cand.w;
+    const area = cand.y + " / " + cand.x + " / span " + cand.h + " / span " + cand.w;
+    if (area === shown) return;
+    shown = area;
+    el.style.gridArea = area;
+    fitCard(el, true);                       // 끌면서 바로 글씨가 줄어드는 게 보이게
   };
   const up = () => {
     el.classList.remove("dragging");
@@ -976,15 +982,90 @@ if (!inFrame && !window.__TAURI__) {
   $("toPreview").addEventListener("click", () => { window.open("./preview.html", "_blank", "noopener"); });
 }
 
-// desk.css 의 .wg { zoom: var(--k) } 가 쓴다. 1920×1080 이 1배다.
+// desk.css 의 .wg { zoom: calc(var(--k) * var(--z)) } 가 쓴다. 1920×1080 이 1배다.
 const SCALE_BASE = { w: 1920, h: 1080 }, SCALE_MIN = 0.75, SCALE_MAX = 2.5;
 function fitScale() {
   const k = Math.min(window.innerWidth / SCALE_BASE.w, window.innerHeight / SCALE_BASE.h);
   const v = Math.max(SCALE_MIN, Math.min(SCALE_MAX, k || 1));
   document.documentElement.style.setProperty("--k", v.toFixed(3));
 }
-window.addEventListener("resize", fitScale);
+window.addEventListener("resize", () => { fitScale(); fitCards(true); });
 fitScale();
+
+/* ══════════ 글자가 겹치지 않게 칸마다 줄이기 (--z) ══════════
+   칸이 작아 내용이 안 들어가면 글씨만 줄이는 게 아니라 zoom 으로 칸 속을 통째로 줄인다.
+   그래야 글씨, 여백, 사이 간격이 전부 같은 비율로 준다.
+
+   어디를 보고 '안 들어간다'고 할까:
+   - 넘친 것을 "잘라 버리는"(overflow: hidden) 곳만 센다. 잘린 글자는 스크롤로도 못 보기 때문이다.
+   - 스크롤되는 곳(overflow: auto)은 세지 않는다. 학생 명단이나 메모처럼 길어질 수 있는 것까지
+     맞추려 들면 글씨가 한없이 작아진다. 그런 곳은 원래대로 굴려 보면 된다.
+   - .sr(화면낭독기용 1px 상자) 같은 작은 것은 뺀다. */
+const FIT_MIN = 0.5;      // 이보다 더 줄이지는 않는다
+const FIT_TRIES = 5;      // 줄이면 칸 규칙이 바뀌므로 몇 번 다시 잰다
+
+function clipOverflow(card) {
+  let worst = 1;
+  /* 배치 중에는 desk.css 가 카드마다 overflow: hidden 을 걸어 둔다(끌 때 안 삐져나오게).
+     그걸 "잘린다"로 보면 명단이 긴 칸까지 한없이 줄어든다. 그래서 카드 자신은 뺀다. */
+  const list = arranging ? [...card.querySelectorAll("*")] : [card, ...card.querySelectorAll("*")];
+  for (const el of list) {
+    const ch = el.clientHeight, cw = el.clientWidth;
+    if (ch < 3 || cw < 3) continue;                // .sr(1px 상자) 같은 것만 뺀다
+    const overH = el.scrollHeight - ch, overW = el.scrollWidth - cw;
+    if (overH < 1 && overW < 1) continue;          // 넘치지 않으면 모양을 볼 것도 없다
+    const cs = getComputedStyle(el);
+    const cut = (v) => v === "hidden" || v === "clip";
+    if (overH >= 1 && cut(cs.overflowY)) worst = Math.max(worst, el.scrollHeight / ch);
+    // 말줄임표(…)로 줄이는 곳은 일부러 자르는 것이므로 가로는 세지 않는다
+    if (overW >= 1 && cut(cs.overflowX) && cs.textOverflow !== "ellipsis") worst = Math.max(worst, el.scrollWidth / cw);
+  }
+  return worst;
+}
+
+/* hard = true 면 1배부터 다시 잰다(칸을 옮기거나 창 크기가 바뀐 때).
+   hard 가 아니면 모자랄 때만 줄이고, 자리가 생겼으면 조금씩 되돌린다(글 하나 지웠을 때). */
+function fitCard(wg, hard) {
+  const card = wg.firstElementChild;
+  if (!card) return;
+  if (isStacked()) { wg.style.removeProperty("--z"); return; }   // 폰, 세워 둔 태블릿은 칸이 내용만큼 늘어난다
+  if (hard) wg.style.removeProperty("--z");
+  let z = hard ? 1 : (parseFloat(wg.style.getPropertyValue("--z")) || 1);
+  for (let i = 0; i < FIT_TRIES; i++) {
+    const r = clipOverflow(card);
+    if (r > 1.01) {
+      if (z <= FIT_MIN) break;                                   // 더 줄일 수 없으면 거기까지
+      z = Math.max(FIT_MIN, z / r);
+      wg.style.setProperty("--z", z.toFixed(3));
+      continue;
+    }
+    if (z >= 1) break;
+    const back = Math.min(1, z * 1.12);                          // 자리가 생겼으면 조금씩 되돌린다
+    if (back <= z) break;
+    wg.style.setProperty("--z", back.toFixed(3));
+    if (clipOverflow(card) > 1.01) { wg.style.setProperty("--z", z.toFixed(3)); break; }
+    z = back;
+  }
+  if (z >= 1) wg.style.removeProperty("--z");
+}
+
+let fitWait = 0, fitHard = false;
+function fitCards(hard) {
+  fitHard = fitHard || !!hard;
+  if (fitWait) return;
+  fitWait = requestAnimationFrame(() => {
+    fitWait = 0;
+    const h = fitHard; fitHard = false;
+    for (const wg of deck.querySelectorAll(":scope > .wg")) if (!wg.hidden) fitCard(wg, h);
+  });
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitCards(true)).catch(() => {});
+
+/* 어느 칸이든 내용을 다시 그리면 다시 잰다. 그리는 함수마다 한 줄씩 넣으면 빠뜨리게 된다.
+   우리가 고치는 것은 style 속성(--z)뿐이라 childList 만 보면 되돌이표에 빠지지 않는다. */
+if (typeof MutationObserver === "function") {
+  new MutationObserver(() => fitCards()).observe(deck, { childList: true, subtree: true });
+}
 
 function connect() {
   step("로그인 상태 확인 시작");
@@ -2611,6 +2692,7 @@ function renderAll() {
   renderGcal();
   renderLinks(); renderTodos(); renderDdays(); renderMemo(); softClass(); renderBook(); renderCalBox(); if (!rosterOpen) renderRoster();
   renderPeriods(now); renderTT(); renderNow(now);
+  fitCards(true);
 }
 plainDocs.forEach(attach);
 attach(C);

@@ -158,8 +158,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .empty { color: var(--faint); font-size: 14px; padding: 12px 2px; list-style: none; }
 
 /* 우리 반 */
-.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
-.seg button { border: 0; background: none; padding: 5px 12px; border-radius: 8px; font-size: 13px; color: var(--muted); cursor: pointer; font-weight: 500; }
+/* overflow: hidden 은 좁아지면 fitCards() 가 알아채고 칸을 줄이라는 뜻이다.
+   이게 없으면 "전달사항"이 "전달사/항"처럼 글자가 세로로 쪼개진다. */
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; overflow: hidden; }
+.seg button { border: 0; background: none; padding: 5px 12px; border-radius: 8px; font-size: 13px; color: var(--muted); cursor: pointer; font-weight: 500; white-space: nowrap; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(22,32,28,.12); }
 .class-name { font-size: 20px; font-weight: 700; margin: 0; }
 .class-pick { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -353,28 +355,42 @@ body { overflow: hidden; }
 .wg > .card { height: 100%; overflow: auto; }
 .wg[hidden] { display: none !important; }
 
-/* ── 해상도 배율: --k 는 desk.js 의 fitScale() 이 정한다 ── */
-.wg { zoom: var(--k, 1); }
+/* ── 해상도 배율과 칸 배율 ──
+   --k 는 화면 해상도를 보고 fitScale() 이, --z 는 칸마다 fitCards() 가 정한다.
+   한 칸 안의 글씨와 여백이 같은 비율로 같이 줄어야 해서 zoom 으로 묶는다. */
+.wg { zoom: calc(var(--k, 1) * var(--z, 1)); }
+
+/* ── 가운데 맞추기는 자동 여백으로 ──
+   justify-content: center 는 넘칠 때 위쪽을 잘라 먹어 스크롤로도 못 본다.
+   자동 여백은 남는 자리가 없으면 0 이 되어 안 잘린다. */
+.wg-clock > :first-child, .wg-links > :first-child { margin-top: auto; }
+.wg-clock > :last-child,  .wg-links > :last-child  { margin-bottom: auto; }
 
 /* ── 시계 ── */
-.wg-clock { justify-content: center; gap: 12px; }
+/* 시계는 한눈에 다 보여야 한다. 넘치면 스크롤이 아니라 fitCards() 가 통째로 줄인다. */
+.wg > .wg-clock { overflow: hidden; }
+.wg-clock { gap: 12px; }
 .cw-time { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.wg-clock .clock { font-size: clamp(28px, min(20cqw, 20cqh), 140px); margin: 0; line-height: .95; white-space: nowrap; }
-.wg-clock .date-main { font-size: clamp(13px, min(4.4cqw, 8cqh), 30px); font-weight: 600; }
+.wg-clock .clock { font-size: clamp(16px, min(20cqw, 20cqh), 140px); margin: 0; line-height: .95; white-space: nowrap; }
+.wg-clock .date-main { font-size: clamp(10px, min(4.4cqw, 8cqh), 30px); font-weight: 600; }
 .cw-wx { display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; }
-.wx-ico { width: 1.25em; height: 1.25em; flex: none; font-size: clamp(22px, min(7cqw, 13cqh), 60px); color: var(--faint); }
+.wx-ico { width: 1.25em; height: 1.25em; flex: none; font-size: clamp(13px, min(7cqw, 13cqh), 60px); color: var(--faint); }
 .wx-ico svg { width: 100%; height: 100%; display: block; }
 .wx-ico.sun { color: var(--warn); }
 .wx-ico.rain { color: var(--blue); }
 .wx-ico.snow { color: #7FA7D9; }
 .wx-txt { min-width: 0; }
-.wx-temp { font-size: clamp(20px, min(7cqw, 13cqh), 56px); font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.wx-temp { font-size: clamp(12px, min(7cqw, 13cqh), 56px); font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
 .wx-cond { font-size: var(--fs-sm); color: var(--muted); margin-top: 3px; white-space: nowrap; }
 .wx-note { font-size: var(--fs-sm); color: var(--faint); }
-@container (min-aspect-ratio: 13/10) {
+/* 가로로 눕히는 건 가로가 넉넉할 때만. 좁은 칸에서 누이면 시각이 날씨 글 위로 올라탄다. */
+@container (min-aspect-ratio: 13/10) and (min-width: 300px) {
   .wg-clock { flex-direction: row; align-items: center; gap: 22px; }
-  .wg-clock .clock { font-size: clamp(28px, min(13cqw, 30cqh), 140px); }
-  .wg-clock .date-main { font-size: clamp(13px, min(3.2cqw, 8cqh), 30px); }
+  .wg-clock > :first-child { margin-top: 0; margin-inline-start: auto; }
+  .wg-clock > :last-child { margin-bottom: 0; margin-inline-end: auto; }
+  .cw-time { min-width: min-content; }
+  .wg-clock .clock { font-size: clamp(16px, min(13cqw, 30cqh), 140px); }
+  .wg-clock .date-main { font-size: clamp(10px, min(3.2cqw, 8cqh), 30px); }
   .cw-wx { border-top: 0; padding-top: 0; border-left: 1px solid var(--line); padding-left: 22px; }
 }
 
@@ -414,7 +430,6 @@ body { overflow: hidden; }
 }
 .q-plus:hover { border-color: var(--qc); }
 
-.wg-links { justify-content: center; }
 .wg-links .links { margin: 0; }
 
 /* 아래 도구줄 */
@@ -838,8 +853,7 @@ body { overflow: hidden; }
 .wg-clock { align-items: center; text-align: center; }
 .wg-clock .cw-time { align-items: center; }
 .wg-clock .cw-wx { justify-content: center; align-self: stretch; }
-@container (min-aspect-ratio: 13/10) {
-  .wg-clock { justify-content: center; }
+@container (min-aspect-ratio: 13/10) and (min-width: 300px) {
   .wg-clock .cw-time { align-items: flex-start; text-align: left; }
   .wg-clock .cw-wx { align-self: auto; text-align: left; }
 }

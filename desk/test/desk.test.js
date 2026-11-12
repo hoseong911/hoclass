@@ -184,7 +184,13 @@ function checkShrinkRules() {
     assert(css.includes("@media " + m[1] + " {"), "desk.css 에 desk.js 의 " + name + " 와 같은 조건이 있어야 한다: " + m[1]);
   }
   assert(css.includes("grid-template-rows: none;"), "2단에서는 PC용 세로 칸 줄을 지워야 한다(안 지우면 간격이 틀어진다)");
-  assert(css.includes(".wg { zoom: var(--k, 1); }"), "해상도 배율 규칙이 있어야 한다");
+  assert(css.includes(".wg { zoom: calc(var(--k, 1) * var(--z, 1)); }"),
+    "해상도 배율(--k)과 칸 배율(--z)을 곱하는 규칙이 있어야 한다");
+  assert(/justify-content:\s*center/.test(css.slice(css.indexOf(".wg-clock"), css.indexOf(".wg-clock") + 200)) === false,
+    ".wg-clock 에 justify-content: center 를 쓰면 넘칠 때 위가 잘려 스크롤로도 못 본다. 자동 여백을 쓴다");
+  assert(js.includes("function fitCard(") && js.includes("function clipOverflow("),
+    "desk.js 에 칸 크기에 맞춰 줄이는 fitCard()/clipOverflow() 가 있어야 한다");
+  assert(js.includes("fitCards(true)"), "칸을 옮기거나 창이 바뀌면 1배부터 다시 재야 한다");
   const n = (css.match(/@container/g) || []).length;
   assert(n >= 7, "칸 크기에 따라 줄이는 규칙이 모자란다(@container " + n + "개)");
 }
