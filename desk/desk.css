@@ -19,6 +19,7 @@
   --pass-soft: #E4F1E8;        /* 달성 옅은 바탕 (theme --pass 짝) */
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-title: "Paperlogy", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-head: "JalnanGothic", "Paperlogy", "Malgun Gothic", sans-serif;  /* 위젯 제목: 여기어때 잘난체 */
   --fs-clock: clamp(30px, 4.2vw, 64px);
   --fs-strong: 17px;  /* 강조 */
   --fs-body: 15px;    /* 본문 */
@@ -70,6 +71,10 @@ button, input, textarea, select { font: inherit; color: inherit; }
 @media (max-width: 720px) { .region { margin-left: 0; } }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+/* 내용 적은 위젯은 가운데로 모으고 세로를 꽉 채운다(선생님 지시 2026-11-12) */
+.wg[data-w="clock"] > .card, .wg[data-w="now"] > .card, .wg[data-w="ddays"] > .card {
+  text-align: center; justify-content: space-between;
+}
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .card-title { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0; }
 .card-aside { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -519,6 +524,10 @@ body { overflow: hidden; }
 
 /* ══════════ 글꼴과 도구줄 ══════════ */
 @font-face {
+  font-family: "JalnanGothic"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_231029@1.1/JalnanGothic.woff") format("woff");
+}
+@font-face {
   font-family: "Paperlogy"; font-style: normal; font-weight: 400; font-display: swap;
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2") format("woff2");
 }
@@ -531,10 +540,10 @@ body { overflow: hidden; }
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2") format("woff2");
 }
 
-.card-title, .class-name, .clock, .gate-card h1, .wg-tag,
+.class-name, .clock, .gate-card h1, .wg-tag,
 .book-seg button, .lock-panel h3, .panel > h3, .who .nm,
 .set-title, .set-sec > h3 { font-family: var(--font-title); }
-.card-title { font-size: var(--fs-label); }
+.card-title { font-size: var(--fs-label); font-family: var(--font-head); }
 .clock { font-size: var(--fs-clock); font-weight: 600; letter-spacing: -0.03em; }
 .class-name { font-size: var(--fs-strong); }
 .book-seg button { font-weight: 600; }
