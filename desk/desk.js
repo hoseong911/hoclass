@@ -2199,7 +2199,7 @@ async function exportBackup() {
   const data = JSON.stringify({ tag: BACKUP_TAG, v: 2, at: new Date().toISOString(), count: keys.length, docs: got.docs });
   const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
   const a = document.createElement("a");
-  a.href = url; a.download = `나의책상-백업-${todayKey()}.json`;
+  a.href = url; a.download = `교무노트-백업-${todayKey()}.json`;
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   return { count: keys.length, capped: false };
@@ -2211,7 +2211,7 @@ function readBackupFile(file) {
       let o = null;
       try { o = JSON.parse(String(r.result)); } catch (e) {}
       if (!o || o.tag !== BACKUP_TAG || !o.docs || typeof o.docs !== "object" || Array.isArray(o.docs)) {
-        no(new Error("나의 책상 백업 파일이 아닙니다."));
+        no(new Error("오늘, 교무노트 백업 파일이 아닙니다."));
         return;
       }
       if (o.v !== 2) {
