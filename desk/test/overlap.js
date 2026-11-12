@@ -20,7 +20,8 @@ const CHROMES = [
   process.env.LOCALAPPDATA ? process.env.LOCALAPPDATA.replace(/\\/g, "/") + "/Google/Chrome/Application/chrome.exe" : "",
   "/usr/bin/google-chrome", "/usr/bin/chromium",
 ];
-const SCREENS = ["1366,768", "1920,1080", "2560,1440", "3840,2160"];
+/* 작은 창도 넣는다. --k 가 0.75 에서 멈추므로 창이 작을수록 글이 상대적으로 커져 더 잘 넘친다. */
+const SCREENS = ["1024,640", "1280,800", "1366,768", "1920,1080", "2560,1440", "3840,2160"];
 const SIZES = [[2,2],[3,2],[2,3],[3,3],[4,3],[4,4],[5,4],[6,4],[6,6],[6,8],[8,6],[9,6],[12,8],[18,16],[24,16]];
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -176,6 +177,19 @@ async function dumpWidgets() {
 
   const widgets = {};
   for (const el of d.querySelectorAll(".deck .wg")) widgets[el.dataset.w] = el.innerHTML;
+
+  /* 뽑는 순간의 글만 재면 짧은 때를 우연히 집는다. 때에 따라 길어지는 칸은 가장 긴 글로 하나 더 잰다.
+     (renderNow 의 점심 안내와 다음 교시 줄, renderPeriods 의 긴 반 이름) */
+  const nowEl = d.querySelector('.wg[data-w="now"]');
+  if (nowEl) {
+    const copy = nowEl.cloneNode(true);
+    copy.querySelector("#nowMain").textContent = "3교시 2-2";
+    copy.querySelector("#nowSub").textContent = "13:30에 5교시 시작, 1시간 10분 남음";
+    copy.querySelector("#nowNext").innerHTML =
+      '<span>다음 <b>5교시 2-1</b></span><span class="num">13:30 시작, 2시간 10분 후</span>';
+    copy.querySelector("#nowAside").textContent = "오늘 수업 7시간";
+    widgets["now:긴글"] = copy.innerHTML;
+  }
   for (const p of ["today", "student", "consult", "lesson", "work"]) {
     [...d.querySelectorAll("#bookSeg button")].find(x => x.dataset.page === p).click();
     await wait(80);
@@ -305,6 +319,9 @@ const sel = (el) => {
   return p.join(">");
 };
 
+/* 담는 글이 정해져 있어 "굴리지 않고 한눈에" 보여야 하는 칸.
+   desk.css 에서 이 칸들의 카드에 overflow: hidden 을 걸어 fitCards() 가 줄이게 해 둔다. */
+const MUST_FIT = ["clock", "now", "periods", "todos"];
 const bad = [];
 function one(name, html, w, h) {
   deck.style.setProperty("--cols", 24); deck.style.setProperty("--rows", 16);
@@ -350,6 +367,13 @@ function one(name, html, w, h) {
   for (const x of bs) {
     if (x.raw.top >= cr.top - 2 || card.scrollTop !== 0) continue;
     bad.push("위로넘침 " + where + "  " + sel(x.el) + " «" + x.t + "» " + Math.round(cr.top - x.raw.top) + "px 위로");
+  }
+  /* ④ 한눈에 다 보여야 하는 칸이 굴려야 보이는 상태.
+     스크롤 막대를 숨겨 두어서 선생님 눈에는 그냥 "글자가 잘린 것"으로 보인다.
+     (실제로 2026-11-12에 "지금 수업"이 이것으로 잘려 보였다.) */
+  if (MUST_FIT.includes(name.split(":")[0])) {
+    const over = card.scrollHeight - card.clientHeight;
+    if (over > 1) bad.push("칸넘침  " + where + "  굴려야 보이는 높이 " + Math.round(over) + "px");
   }
 }
 
