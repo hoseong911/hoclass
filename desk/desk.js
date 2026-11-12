@@ -1111,6 +1111,8 @@ function clipOverflow(card) {
 function fitCard(wg, hard) {
   const card = wg.firstElementChild;
   if (!card) return;
+  // 시계 칸은 글을 CSS 비례(cqw/cqh)로만 키운다. 여기서 또 줄이면(--z) 둘이 밀당해 크기가 떨린다.
+  if (wg.dataset.w === "clock") { wg.style.removeProperty("--z"); return; }
   if (isStacked()) { wg.style.removeProperty("--z"); return; }   // 폰, 세워 둔 태블릿은 칸이 내용만큼 늘어난다
   if (hard) wg.style.removeProperty("--z");
   let z = hard ? 1 : (parseFloat(wg.style.getPropertyValue("--z")) || 1);

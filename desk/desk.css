@@ -347,8 +347,8 @@ body { overflow: hidden; }
 /* 시계 위젯: 여백 대신 내용을 키운다. 세로는 시계:날씨 = 6:4, 가로는 좌우로 나눈다. */
 .wg-clock { gap: 8px; text-align: center; }
 .cw-time { flex: 5; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 0; min-height: 0; overflow: hidden; }
-.wg-clock .clock { font-size: clamp(18px, min(27cqw, 34cqh), 104px); margin: 0; line-height: .85; white-space: nowrap; max-width: 100%; }
-.wg-clock .date-main { font-size: clamp(10px, min(11cqw, 13cqh), 30px); font-weight: 600; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wg-clock .clock { font-size: clamp(14px, min(26cqw, 26cqh), 104px); margin: 0; line-height: .85; white-space: nowrap; max-width: 100%; }
+.wg-clock .date-main { font-size: clamp(8px, min(11cqw, 10cqh), 30px); font-weight: 600; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .cw-wx { flex: 4; display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; min-height: 0; overflow: hidden; }
 .wx-ico { flex: none; width: min(27cqw, 31cqh, 76px); height: min(27cqw, 31cqh, 76px); color: var(--faint); }
 .wx-ico svg { width: 100%; height: 100%; display: block; }
