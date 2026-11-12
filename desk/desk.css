@@ -72,7 +72,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 /* 내용 적은 위젯은 가운데로 모으고 세로를 꽉 채운다(선생님 지시 2026-11-12) */
-.wg[data-w="clock"] > .card, .wg[data-w="now"] > .card, .wg[data-w="ddays"] > .card {
+.wg[data-w="now"] > .card, .wg[data-w="ddays"] > .card {
   text-align: center; justify-content: space-between;
 }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
