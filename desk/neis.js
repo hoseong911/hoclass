@@ -90,7 +90,7 @@ export async function loadSchedule(school, year, key) {
     const ymd = String(r.AA_YMD || "");
     const name = String(r.EVENT_NM || "").trim();
     if (ymd.length !== 8 || !name) continue;
-    if (/토요휴업일|공휴일|방학/.test(name) && /토요휴업일/.test(name)) continue;   // 토요휴업일은 너무 많다
+    if (/토요휴업일/.test(name)) continue;   // 토요휴업일은 너무 많다
     const d = ymd.slice(0, 4) + "-" + ymd.slice(4, 6) + "-" + ymd.slice(6, 8);
     if (!out.some(x => x.d === d && x.name === name)) out.push({ d, name });
   }
