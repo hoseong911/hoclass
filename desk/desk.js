@@ -65,9 +65,9 @@ const TEACHER_LINKS = () => [
   { id: uid(), name: "띵커벨", url: "https://www.tkbell.co.kr" },
 ];
 const TEACHER_TODOS = () => [
-  { id: uid(), text: "주간 시간표를 내 시간표로 바꾸기", done: false },
-  { id: uid(), text: "'올해 설정'에서 담임 반과 수업 반 넣기", done: false },
-  { id: uid(), text: "기말고사·방학식 날짜를 D-day에 등록하기", done: false },
+  { id: uid(), text: "주간 시간표를 내 시간표로 바꾸기", done: false, q: 0 },
+  { id: uid(), text: "'올해 설정'에서 담임 반과 수업 반 넣기", done: false, q: 0 },
+  { id: uid(), text: "기말고사·방학식 날짜를 D-day에 등록하기", done: false, q: 1 },
 ];
 
 const academicYear = (d = new Date()) => d.getMonth() >= 2 ? d.getFullYear() : d.getFullYear() - 1;
@@ -569,7 +569,6 @@ async function rewrap(secret, newPass) {
   return raw;
 }
 
-let userName = "";
 /* ---------- 구글 캘린더 ---------- */
 /* 세 가지 중 ①승인된 도메인과 ③Calendar API 는 2026-11-11에 관리 API로 켜 두었다.
    ②구글 로그인만 콘솔에서 해야 한다(OAuth 클라이언트를 만드는 공개 API가 없다). */
@@ -918,8 +917,6 @@ function openApp(user) {
   signedIn = user;
   $("gate").hidden = true;
   $("app").hidden = false;
-  const nm = (user.displayName || user.email || "").split("@")[0];
-  if (nm) { userName = nm; renderGreeting(); }
   cloud = cloudRef;
   if (GCal.savedToken()) gcalLoad().then(renderGcal);
   renderGcal();
@@ -960,6 +957,31 @@ if (window.__TAURI__ && window.__TAURI__.window) {
     try { await window.__TAURI__.window.getCurrentWindow().hide(); } catch (e) {}
   });
 }
+
+// 세 기기 동시 미리보기(preview.html). 웹판에서만 띄운다.
+// 미리보기 속 화면(아이프레임 안)에서는 또 열 까닭이 없어서 숨긴다.
+let inFrame = true;
+try { inFrame = window.self !== window.top; } catch (e) {}
+if (!inFrame && !window.__TAURI__) {
+  $("toPreview").hidden = false;
+  $("toPreview").addEventListener("click", () => { window.open("./preview.html", "_blank", "noopener"); });
+}
+
+/* ---------- 해상도에 맞춰 칸 속을 키우고 줄인다 ----------
+   선생님 지시 2026-11-12: "pc도 해상도에 따라 반응형으로 위젯 안의 내용 크기들이 다 바껴야".
+   1920×1080 화면을 기준(1배)으로 보고, 화면이 크면 키우고 작으면 줄인다.
+   desk.css 의 .wg { zoom: var(--k) } 가 이 값을 쓴다. 우젯 칸 속 전체(글씨, 여백, 단추)가
+   한꺼번에 커지고 작아진다. 칸 크기를 재는 규칙(@container)도 줄어든 크기로 재므로,
+   어느 해상도에서든 같은 칸은 같은 모양으로 보인다.
+   폰처럼 좁은 화면(820px 이하)은 칸을 세로로 세우므로 1배로 둔다(desk.css). */
+const SCALE_BASE = { w: 1920, h: 1080 }, SCALE_MIN = 0.75, SCALE_MAX = 2.5;
+function fitScale() {
+  const k = Math.min(window.innerWidth / SCALE_BASE.w, window.innerHeight / SCALE_BASE.h);
+  const v = Math.max(SCALE_MIN, Math.min(SCALE_MAX, k || 1));
+  document.documentElement.style.setProperty("--k", v.toFixed(3));
+}
+window.addEventListener("resize", fitScale);
+fitScale();
 
 function connect() {
   step("로그인 상태 확인 시작");
@@ -1006,19 +1028,55 @@ function status(now) {
   return { kind: "after" };
 }
 
-/* ---------- 시계 · 지금 ---------- */
-function isoWeek(d) {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  return Math.ceil(((t - y0) / 86400000 + 1) / 7);
+/* ---------- 날씨 ----------
+   선생님 지시 2026-11-12: 시간 우젯에는 시간, 날짜, 날씨만 둔다(바탕화면 대시보드 mydesk 를 따라).
+   mydesk 처럼 open-meteo 를 부른다. 열쇠가 필요 없고 학교 밖으로 보내는 것은 좌표뿐이다.
+   위치는 학교가 있는 인천으로 정해 둔다. 30분마다 새로 받는다. */
+const WX_PLACE = { name: "인천", lat: 37.4563, lon: 126.7052 };
+const WX_EVERY = 30 * 60 * 1000;
+const svgIcon = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+// 날씨 번호(WMO) → 말과 그림. mydesk 의 표를 그대로 쓴다.
+function wxKind(code) {
+  if (code === 0) return { t: "맑음", c: "sun", i: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' };
+  if (code <= 2) return { t: "구름 조금", c: "sun", i: '<circle cx="8" cy="9" r="3"/><path d="M18 18a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1"/>' };
+  if (code === 3) return { t: "흐림", c: "dim", i: '<path d="M18 18a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1A4 4 0 0 0 7 18z"/>' };
+  if (code <= 48) return { t: "안개", c: "dim", i: '<path d="M3 8h18M5 12h14M4 16h16M7 20h10"/>' };
+  if (code <= 57 || (code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return { t: "비", c: "rain", i: '<path d="M18 14a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1A4 4 0 0 0 7 13M8 18l-1 2M12 18l-1 2M16 18l-1 2"/>' };
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return { t: "눈", c: "snow", i: '<path d="M18 13a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1A4 4 0 0 0 7 12M8 18h.01M12 20h.01M16 18h.01"/>' };
+  if (code >= 95) return { t: "뇌우", c: "sun", i: '<path d="M18 13a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1A4 4 0 0 0 7 12M13 14l-3 5h4l-3 5"/>' };
+  return { t: "알 수 없음", c: "dim", i: '<circle cx="12" cy="12" r="4"/>' };
 }
-function renderGreeting() {
-  const hr = new Date().getHours();
-  const part = hr < 5 ? "늦은 밤입니다" : hr < 12 ? "좋은 아침입니다" : hr < 18 ? "좋은 오후입니다" : "오늘도 수고하셨습니다";
-  $("greet").textContent = userName ? `${part}, ${userName} 선생님` : `${part}, 선생님`;
+let wx = null, wxAt = 0, wxBusy = false;
+function renderWx() {
+  const box = $("wx");
+  if (!wx) { box.replaceChildren(h("div", { class: "wx-note", text: "날씨를 불러오는 중입니다" })); return; }
+  if (wx.err) { box.replaceChildren(h("div", { class: "wx-note", text: "날씨를 불러오지 못했습니다" })); return; }
+  const k = wxKind(wx.code);
+  const ico = h("div", { class: "wx-ico " + k.c }); ico.innerHTML = svgIcon(k.i);
+  box.replaceChildren(ico, h("div", { class: "wx-txt" },
+    h("div", { class: "wx-temp", text: Math.round(wx.temp) + "°" }),
+    h("div", { class: "wx-cond", text: `${WX_PLACE.name} ${k.t}` })));
 }
+async function loadWx(force) {
+  if (wxBusy || (!force && wx && Date.now() - wxAt < WX_EVERY)) return;
+  wxBusy = true;
+  try {
+    if (typeof fetch !== "function") throw new Error("fetch 없음");
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${WX_PLACE.lat}&longitude=${WX_PLACE.lon}&current=temperature_2m,weather_code&timezone=Asia%2FSeoul&forecast_days=1`;
+    const r = await fetch(u, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    if (!j.current || typeof j.current.temperature_2m !== "number") throw new Error("모양이 다름");
+    wx = { temp: j.current.temperature_2m, code: j.current.weather_code };
+  } catch (e) {
+    // 받아 둔 날씨가 있으면 그대로 둔다. 처음부터 못 받았을 때만 못 받았다고 알린다.
+    if (!wx || wx.err) wx = { err: true };
+  }
+  wxAt = Date.now(); wxBusy = false;
+  renderWx();
+}
+
+/* ---------- 지금 ---------- */
 function renderNow(now) {
   const s = status(now);
   const card = $("nowCard"), main = $("nowMain"), sub = $("nowSub"), next = $("nowNext"), bar = $("nowBar"), wrap = $("nowBarWrap");
@@ -1066,20 +1124,7 @@ function tick() {
   if (dataKey && Date.now() - lastActive > state.idleMin * 60000) lockNow();
   renderNow(now);
   const mm = now.getHours() * 60 + now.getMinutes();
-  if (mm !== lastMinute) { lastMinute = mm; renderGreeting(); renderMeta(now); renderPeriods(now); renderTT(); }
-}
-function renderMeta(now) {
-  const row = todayRow(now);
-  const chips = [h("span", { class: "chip", text: `${isoWeek(now)}주차` })];
-  if (row) {
-    const total = classCount(row);
-    const m = now.getHours() * 60 + now.getMinutes();
-    const done = row.filter((c, i) => c.trim() && toMin(state.bells[i].e) <= m).length;
-    chips.push(h("span", { class: "chip", text: `수업 ${done} / ${total} 완료` }));
-  }
-  const upcoming = state.ddays.map(x => ({ ...x, diff: Math.round((parseDate(x.date) - parseDate(todayKey(now))) / 86400000) })).filter(x => x.diff >= 0).sort((a, b) => a.diff - b.diff)[0];
-  if (upcoming) chips.push(h("span", { class: "chip", text: `${upcoming.title} ${upcoming.diff === 0 ? "D-DAY" : "D-" + upcoming.diff}` }));
-  $("dateMeta").replaceChildren(...chips);
+  if (mm !== lastMinute) { lastMinute = mm; renderPeriods(now); renderTT(); loadWx(); }
 }
 
 /* ---------- 오늘 시간표 ---------- */
@@ -1144,7 +1189,7 @@ function renderTT() {
 }
 $("ttEdit").addEventListener("click", () => {
   ttEditing = !ttEditing;
-  if (!ttEditing) { document.activeElement && document.activeElement.blur(); renderPeriods(); renderNow(new Date()); renderMeta(new Date()); }
+  if (!ttEditing) { document.activeElement && document.activeElement.blur(); renderPeriods(); renderNow(new Date()); }
   renderTT();
 });
 
@@ -1779,7 +1824,7 @@ function renderCalBox() {
           state.ddays.push({ id: uid(), title: f.title, date: f.date });
           added++;
         }
-        save(true); calOpen = false; renderCalBox(); renderDdays(); renderMeta(new Date()); renderBook();
+        save(true); calOpen = false; renderCalBox(); renderDdays(); renderBook();
         toast(added ? `일정 ${added}개를 넣었습니다` : "이미 들어 있는 일정입니다");
       } }),
       h("button", { class: "btn small secondary", type: "button", text: "취소", onclick: () => { calOpen = false; renderCalBox(); } }))));
@@ -2100,7 +2145,7 @@ function todayPage() {
   })());
 
   const jobs = panel("오늘 할 일 · 마감", (() => {
-    const todos = state.todos.filter(t => !t.done).slice(0, 6);
+    const todos = state.todos.filter(t => !t.done).sort((a, b) => todoQ(a) - todoQ(b)).slice(0, 6);
     const works = docs.works.value.items.filter(w => !w.done && w.due && dnum(w.due) <= 7)
       .sort((a, b) => a.due.localeCompare(b.due));
     if (!todos.length && !works.length) return noneLine("급한 일이 없습니다.");
@@ -2111,7 +2156,7 @@ function todayPage() {
           h("span", { class: "ttl", text: w.title }),
           h("span", { class: "due " + dueCls(n), text: dLabel(n) })));
       }),
-      ...todos.map(t => h("li", { class: "line" }, h("div", { class: "top" }, h("span", { class: "ttl", text: t.text }), h("span", { class: "when", text: "할 일" })))));
+      ...todos.map(t => h("li", { class: "line" }, h("div", { class: "top" }, h("span", { class: "ttl", text: t.text }), h("span", { class: "when", text: QUADS[todoQ(t)].name })))));
   })());
 
   const cons = panel("오늘 상담·민원", (() => {
@@ -2447,27 +2492,63 @@ function workPage() {
 
 /* ---------- 할 일 ---------- */
 const CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+/* 중요도와 긴급도로 가른 네 칸 (선생님 지시 2026-11-12, 바탕화면 대시보드 mydesk 를 따라).
+   할 일마다 q(0~3)를 적는다. q 가 없는 옛 할 일은 '중요 긴급' 칸에 둔다.
+   먼저 눈에 띄어야 선생님이 제자리로 끌어 옮길 수 있기 때문이다. */
+const QUADS = [
+  { q: 0, name: "중요 긴급", hint: "지금 하기",   c: "q0" },
+  { q: 1, name: "중요 여유", hint: "계획하기",    c: "q1" },
+  { q: 2, name: "일반 긴급", hint: "빨리 끝내기", c: "q2" },
+  { q: 3, name: "일반 여유", hint: "천천히",      c: "q3" },
+];
+const todoQ = (t) => [0, 1, 2, 3].includes(t.q) ? t.q : 0;
+let todoDrag = null;
 function renderTodos() {
-  const list = $("todoList");
-  const total = state.todos.length, done = state.todos.filter(t => t.done).length;
-  $("todoCount").textContent = `${done} / ${total} 완료`;
-  $("todoBar").style.width = total ? (done / total * 100) + "%" : "0%";
-  $("clearDone").hidden = done === 0;
-  if (!total) { list.replaceChildren(h("li", { class: "empty", text: "처리할 업무를 위에 적어보세요." })); return; }
-  const ordered = [...state.todos.filter(t => !t.done), ...state.todos.filter(t => t.done)];
-  list.replaceChildren(...ordered.map((t) => {
-    const chk = h("button", { class: "check", type: "button", "aria-label": t.done ? "완료 취소" : "완료로 표시", "aria-pressed": String(!!t.done), onclick: () => { t.done = !t.done; save(); renderTodos(); } });
-    chk.innerHTML = CHECK;
-    return h("li", { class: "todo" + (t.done ? " done" : "") }, chk, h("span", { class: "todo-text", text: t.text }),
-      h("button", { class: "del", type: "button", "aria-label": "삭제", text: "×", onclick: () => { state.todos = state.todos.filter(x => x.id !== t.id); save(); renderTodos(); } }));
-  }));
+  // 다른 기기에서 고친 것이 들어와 다시 그릴 때, 쓰고 있던 칸의 글을 잃지 않게 한다.
+  const act = document.activeElement;
+  const typing = act && act.classList && act.classList.contains("q-in") ? { q: act.dataset.q, v: act.value } : null;
+  $("clearDone").hidden = !state.todos.some(t => t.done);
+  const cells = QUADS.map((Q) => {
+    const mine = state.todos.filter(t => todoQ(t) === Q.q);
+    const ordered = [...mine.filter(t => !t.done), ...mine.filter(t => t.done)];
+    const list = h("ul", { class: "q-list" }, ...ordered.map((t) => {
+      const chk = h("button", { class: "check", type: "button", "aria-label": t.done ? "완료 취소" : "완료로 표시", "aria-pressed": String(!!t.done), onclick: () => { t.done = !t.done; save(); renderTodos(); } });
+      chk.innerHTML = CHECK;
+      return h("li", {
+        class: "q-todo" + (t.done ? " done" : ""), draggable: "true",
+        ondragstart: (e) => { todoDrag = t.id; e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", t.text); } catch (_) {} },
+        ondragend: () => { todoDrag = null; },
+      }, chk, h("span", { class: "q-tx", text: t.text, title: t.text }),
+        h("button", { class: "del", type: "button", "aria-label": `${t.text} 삭제`, text: "×", onclick: () => { state.todos = state.todos.filter(x => x.id !== t.id); save(); renderTodos(); } }));
+    }));
+    const inp = h("input", { type: "text", class: "q-in", "data-q": String(Q.q), maxlength: "200", autocomplete: "off", "aria-label": `${Q.name}에 할 일 더하기` });
+    const form = h("form", { class: "q-add", onsubmit: (e) => {
+      e.preventDefault();
+      const v = inp.value.trim(); if (!v) return;
+      state.todos.push({ id: uid(), text: v.slice(0, 200), done: false, q: Q.q });
+      inp.value = ""; save(); renderTodos();
+      const again = document.querySelector(`#todoQuad .q-in[data-q="${Q.q}"]`); if (again) again.focus();
+    } }, inp, h("button", { class: "q-plus", type: "submit", "aria-label": `${Q.name}에 더하기`, text: "+" }));
+    // 다른 칸의 할 일을 끌어다 놓으면 이 칸으로 옮긴다.
+    const cell = h("div", {
+      class: "q-cell " + Q.c, "data-q": String(Q.q),
+      ondragover: (e) => { if (todoDrag) { e.preventDefault(); cell.classList.add("over"); } },
+      ondragleave: () => cell.classList.remove("over"),
+      ondrop: (e) => {
+        e.preventDefault(); cell.classList.remove("over");
+        const t = state.todos.find(x => x.id === todoDrag); todoDrag = null;
+        if (!t || todoQ(t) === Q.q) return;
+        t.q = Q.q; save(); renderTodos();
+      },
+    }, h("div", { class: "q-head" }, h("span", { class: "q-name", text: Q.name }), h("span", { class: "q-hint", text: Q.hint })), list, form);
+    return cell;
+  });
+  $("todoQuad").replaceChildren(...cells);
+  if (typing) {
+    const again = document.querySelector(`#todoQuad .q-in[data-q="${typing.q}"]`);
+    if (again) { again.value = typing.v; again.focus(); }
+  }
 }
-$("todoForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const v = $("todoInput").value.trim(); if (!v) return;
-  state.todos.push({ id: uid(), text: v.slice(0, 200), done: false });
-  $("todoInput").value = ""; save(); renderTodos();
-});
 $("clearDone").addEventListener("click", () => { state.todos = state.todos.filter(t => !t.done); save(); renderTodos(); });
 
 /* ---------- D-day ---------- */
@@ -2487,7 +2568,7 @@ function renderDdays() {
       h("div", null,
         h("div", { class: "t" }, x.title, x.src ? h("span", { class: "src", text: x.src }) : null),
         h("div", { class: "dt", text: `${dt.getFullYear()}.${pad(dt.getMonth() + 1)}.${pad(dt.getDate())} (${WD[dt.getDay()]})` })),
-      x.src ? null : h("button", { class: "del", type: "button", "aria-label": `${x.title} 삭제`, text: "×", onclick: () => { state.ddays = state.ddays.filter(y => y.id !== x.id); save(); renderDdays(); renderMeta(new Date()); } }));
+      x.src ? null : h("button", { class: "del", type: "button", "aria-label": `${x.title} 삭제`, text: "×", onclick: () => { state.ddays = state.ddays.filter(y => y.id !== x.id); save(); renderDdays(); } }));
   }));
   if (state.calAt) list.append(h("li", { class: "cal-src", text: `나이스 학사일정 ${state.calSchool ? state.calSchool + " " : ""}· ${state.calAt.slice(0, 10)} 받음` }));
 }
@@ -2497,7 +2578,7 @@ $("ddayForm").addEventListener("submit", (e) => {
   if (!title) { $("ddayName").focus(); return; }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { $("ddayDate").focus(); return; }
   state.ddays.push({ id: uid(), title: title.slice(0, 60), date });
-  $("ddayName").value = ""; $("ddayDate").value = ""; save(); renderDdays(); renderMeta(new Date());
+  $("ddayName").value = ""; $("ddayDate").value = ""; save(); renderDdays();
 });
 
 /* ---------- 메모 ---------- */
@@ -2517,7 +2598,7 @@ function renderAll() {
   applyGrid();
   renderGcal();
   renderLinks(); renderTodos(); renderDdays(); renderMemo(); softClass(); renderBook(); renderCalBox(); if (!rosterOpen) renderRoster();
-  renderPeriods(now); renderTT(); renderMeta(now); renderNow(now);
+  renderPeriods(now); renderTT(); renderNow(now);
 }
 plainDocs.forEach(attach);
 attach(C);

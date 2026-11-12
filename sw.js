@@ -45,7 +45,8 @@ self.addEventListener('activate', (e) => e.waitUntil((async () => {
 })()));
 
 // Firebase 실시간/인증 계열 호스트: SW가 관여하지 않고 네트워크로 그대로 보낸다.
-const BYPASS = /firestore\.googleapis|firebasedatabase\.app|firebaseio\.com|identitytoolkit\.googleapis|securetoken\.googleapis/;
+// 날씨(open-meteo)도 같다. 캐시를 먼저 꺼내면 지난 날씨가 보인다(나의 책상 시계, 2026-11-12).
+const BYPASS = /firestore\.googleapis|firebasedatabase\.app|firebaseio\.com|identitytoolkit\.googleapis|securetoken\.googleapis|api\.open-meteo\.com/;
 
 /* 수첩(desk/)은 파일 이름에 ?v= 를 붙이지 않는다. 캐시 우선으로 두면 고친 것이
    다음 접속에야 보여서, 한 번 잘못 받으면 계속 그것을 쓴다. 늘 네트워크를 먼저 본다. */

@@ -66,10 +66,13 @@ function li(k, v, cls) {
   return el;
 }
 
+// 할 일은 중요도와 긴급도로 가른 네 칸에 들어 있다(desk.js 의 QUADS). 급한 칸부터 보여 준다.
+const Q_HINT = ["지금", "계획", "빨리", "천천히"];
+const todoQ = (t) => [0, 1, 2, 3].includes(t.q) ? t.q : 0;
 function renderTodos() {
-  const left = state.todos.filter(t => t && !t.done).slice(0, 7);
+  const left = state.todos.filter(t => t && !t.done).sort((a, b) => todoQ(a) - todoQ(b)).slice(0, 7);
   $("wTodos").replaceChildren(...(left.length
-    ? left.map(t => li("", String(t.text || "")))
+    ? left.map(t => li(Q_HINT[todoQ(t)], String(t.text || "")))
     : [li("", "남은 할 일이 없습니다", "free")]));
 }
 function renderDdays() {

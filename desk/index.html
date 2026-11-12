@@ -53,15 +53,13 @@ window.__deskLog = [];
 <div class="deck" id="deck">
 
   <section class="wg" data-w="clock">
+    <!-- 시간, 날짜, 날씨만 둔다(선생님 지시 2026-11-12). 주차·수업 완료·D-day는 뺐다. -->
     <section class="card wg-clock">
-      <div>
-        <div class="greet" id="greet">좋은 하루입니다</div>
+      <div class="cw-time">
         <div class="clock" id="clock" aria-live="off">--:--<span class="sec">--</span></div>
-      </div>
-      <div class="date-block">
         <div class="date-main" id="dateMain">—</div>
-        <div class="date-meta" id="dateMeta"></div>
       </div>
+      <div class="cw-wx" id="wx"></div>
     </section>
   </section>
 
@@ -145,18 +143,13 @@ window.__deskLog = [];
   </section>
 
   <section class="wg" data-w="todos">
-    <section class="card" aria-labelledby="todoTitle">
+    <!-- 중요도와 긴급도로 가른 네 칸(선생님 지시 2026-11-12). 칸끼리 끌어 옮긴다. -->
+    <section class="card wg-todo" aria-labelledby="todoTitle">
       <div class="card-head">
         <h2 class="card-title" id="todoTitle">업무 할 일</h2>
         <button class="text-btn" id="clearDone" type="button">완료 항목 지우기</button>
       </div>
-      <form class="todo-add" id="todoForm">
-        <label class="sr" for="todoInput">새 할 일</label>
-        <input type="text" id="todoInput" placeholder="예: 공문 회신, 생기부 입력" autocomplete="off" maxlength="200">
-        <button class="btn" type="submit">추가</button>
-      </form>
-      <div class="todo-progress"><span id="todoCount">0 / 0</span><div class="bar"><i id="todoBar" style="width:0%"></i></div></div>
-      <ul class="todo-list" id="todoList"></ul>
+      <div class="quad" id="todoQuad"></div>
     </section>
   </section>
 
@@ -216,6 +209,7 @@ window.__deskLog = [];
   <span class="sync" id="sync">불러오는 중</span>
   <span class="bar-right">
     <button class="text-btn" type="button" id="editLinks">바로가기 편집</button>
+    <button class="text-btn" type="button" id="toPreview" hidden>미리보기</button>
     <button class="text-btn" type="button" id="toWidget" hidden>위젯으로</button>
     <button class="text-btn" type="button" id="signOut">나가기</button>
   </span>

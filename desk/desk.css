@@ -52,13 +52,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
 
 /* 상단 */
 .top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; padding: 4px 4px 0; }
-.greet { font-size: 15px; color: var(--muted); font-weight: 500; }
 .clock { font-family: var(--font-num); font-weight: 300; font-size: clamp(52px, 8vw, 96px); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin-top: 6px; }
 .clock .sec { font-size: 0.38em; color: var(--faint); margin-left: 6px; letter-spacing: 0; }
 .date-block { text-align: right; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 .date-main { font-size: clamp(18px, 2vw, 22px); font-weight: 600; text-wrap: balance; }
 .date-meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.chip { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* 바로가기 */
 .links { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
@@ -149,9 +147,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 /* 할 일 */
 .todo-add { display: flex; gap: 8px; }
 .todo-add input { flex: 1; min-width: 0; }
-.todo-progress { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.todo-progress .bar { flex: 1; height: 6px; background: var(--surface-2); border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
-.todo-progress .bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
 .todo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .todo { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 9px 2px; border-top: 1px solid var(--line); }
 .todo:first-child { border-top: 0; }
@@ -365,9 +360,70 @@ body { overflow: hidden; }
 .wg > .card { height: 100%; overflow: auto; }
 .wg[hidden] { display: none !important; }
 
-/* 시계와 바로가기는 카드 속을 가로로 쓴다 */
-.wg-clock { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px; }
-.wg-clock .clock { font-size: clamp(30px, 4.2vw, 64px); }
+/* ── 해상도에 맞춰 칸 속을 통째로 키우고 줄인다 (2026-11-12) ──
+   --k 는 desk.js 의 fitScale() 이 1920×1080 을 1배로 보고 정한다.
+   칸 자리(그리드)는 그대로 두고 칸 속만 zoom 하므로 끌어 옮기는 계산은 바뀌지 않는다.
+   zoom 한 칸 속에서는 @container 도 줄어든 크기로 잰다(Chrome 에서 확인했다).
+   그래서 해상도가 달라도 같은 칸은 같은 모양으로 보이고 크기만 다르다. */
+.wg { zoom: var(--k, 1); }
+
+/* ── 시계: 시간, 날짜, 날씨만 (2026-11-12) ──
+   mydesk 처럼 칸이 가로로 길면 시계와 날씨를 나란히, 아니면 위아래로 둔다.
+   글씨 크기는 칸 크기(cqw, cqh)를 따른다. */
+.wg-clock { justify-content: center; gap: 12px; }
+.cw-time { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wg-clock .clock { font-size: clamp(28px, min(20cqw, 20cqh), 140px); margin: 0; line-height: .95; white-space: nowrap; }
+.wg-clock .date-main { font-size: clamp(13px, min(4.4cqw, 8cqh), 30px); font-weight: 600; }
+.cw-wx { display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; }
+.wx-ico { width: 1.25em; height: 1.25em; flex: none; font-size: clamp(22px, min(7cqw, 13cqh), 60px); color: var(--faint); }
+.wx-ico svg { width: 100%; height: 100%; display: block; }
+.wx-ico.sun { color: var(--warn); }
+.wx-ico.rain { color: var(--blue); }
+.wx-ico.snow { color: #7FA7D9; }
+.wx-txt { min-width: 0; }
+.wx-temp { font-size: clamp(20px, min(7cqw, 13cqh), 56px); font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.wx-cond { font-size: var(--fs-sm); color: var(--muted); margin-top: 3px; white-space: nowrap; }
+.wx-note { font-size: var(--fs-sm); color: var(--faint); }
+@container (min-aspect-ratio: 13/10) {
+  .wg-clock { flex-direction: row; align-items: center; gap: 22px; }
+  .wg-clock .clock { font-size: clamp(28px, min(13cqw, 30cqh), 140px); }
+  .wg-clock .date-main { font-size: clamp(13px, min(3.2cqw, 8cqh), 30px); }
+  .cw-wx { border-top: 0; padding-top: 0; border-left: 1px solid var(--line); padding-left: 22px; }
+}
+
+/* ── 할 일: 중요도와 긴급도로 가른 네 칸 (2026-11-12, mydesk 를 따라) ── */
+.wg-todo .quad { flex: 1; min-height: 0; }
+.quad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.q-cell {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; overflow: hidden;
+  background: var(--surface-2); border-radius: 12px; padding: 9px 10px; border-top: 3px solid var(--qc, var(--line));
+}
+.q-cell.q0 { --qc: var(--danger); }
+.q-cell.q1 { --qc: var(--accent); }
+.q-cell.q2 { --qc: var(--warn); }
+.q-cell.q3 { --qc: var(--faint); }
+.q-cell.over { outline: 2px dashed var(--qc); outline-offset: -2px; background: var(--surface); }
+.q-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.q-name { font-size: var(--fs-sm); font-weight: 700; color: var(--qc); white-space: nowrap; }
+.q-hint { font-size: var(--fs-label); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-list { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 3px; }
+.q-todo { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: grab; }
+.q-todo .check { width: 18px; height: 18px; border-radius: 6px; flex: none; }
+.q-todo .check svg { width: 12px; height: 12px; }
+.q-todo.done .check { background: var(--accent); border-color: var(--accent); }
+.q-todo.done .check svg { opacity: 1; }
+.q-tx { font-size: var(--fs-body); min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-todo.done .q-tx { color: var(--faint); text-decoration: line-through; }
+.q-todo .del { font-size: 15px; padding: 0 4px; flex: none; }
+.q-todo:hover .del { opacity: 1; }
+.q-add { display: flex; gap: 5px; flex: none; }
+.q-add input { flex: 1; min-width: 0; padding: 4px 8px; font-size: var(--fs-sm); background: var(--surface); border-radius: 8px; }
+.q-plus {
+  flex: none; width: 28px; border: 1px solid var(--line); background: var(--surface); color: var(--qc);
+  border-radius: 8px; font-size: 16px; font-weight: 700; line-height: 1; cursor: pointer;
+}
+.q-plus:hover { border-color: var(--qc); }
+
 .wg-links { justify-content: center; }
 .wg-links .links { margin: 0; }
 
@@ -472,7 +528,7 @@ body { overflow: hidden; }
   .deck { display: flex; flex-direction: column; }
   /* 세로로 세울 때는 높이가 내용에 따라 늘어나야 한다.
      container-type: size 를 그대로 두면 칸 높이가 0으로 접힌다. */
-  .wg { grid-area: auto !important; container-type: inline-size; }
+  .wg { grid-area: auto !important; container-type: inline-size; zoom: 1; }   /* 폰은 1배 */
   .wg > .card { height: auto; max-height: 72vh; }
   .deck.arranging .wg { outline: none; cursor: auto; }
   .deck.arranging .wg > .card { pointer-events: auto; }
@@ -582,9 +638,7 @@ body { overflow: hidden; }
   .text-btn { font-size: 11.5px; }
   .tip { font-size: 11.5px; }
   .empty { font-size: 13px; }
-  .greet { font-size: 13.5px; }
   .date-main { font-size: 18px; }
-  .chip { font-size: 11.5px; }
   .now-sub { font-size: 13px; }
   .now-next { font-size: 13px; }
   .period .p { font-size: 13px; }
@@ -601,7 +655,6 @@ body { overflow: hidden; }
   .missing { font-size: 12px; }
   .ctab { font-size: 12px; }
   .todo { font-size: 13px; }
-  .todo-progress { font-size: 12px; }
   .dday .d { font-size: 15px; }
   .dday .t { font-size: 13.5px; }
   .dday .dt { font-size: 11px; }
@@ -623,15 +676,19 @@ body { overflow: hidden; }
 
 /* 작을 때 — 칸 높이 max-height: 230px */
 @container (max-height: 230px) {
+  .quad { gap: 6px; }
+  .q-cell { padding: 7px 8px; gap: 4px; }
+  .q-tx { font-size: 13px; }
+  .q-name { font-size: 12px; }
+  .q-hint { font-size: 10.5px; }
+  .q-todo .check { width: 16px; height: 16px; }
   .card { padding: 11px; gap: 7px; }
   .card-title { font-size: 11.5px; }
   .card-aside { font-size: 11px; }
   .text-btn { font-size: 11px; }
   .tip { font-size: 11px; }
   .empty { font-size: 12px; }
-  .greet { font-size: 12.5px; }
   .date-main { font-size: 16px; }
-  .chip { font-size: 11px; }
   .now-sub { font-size: 12px; }
   .now-next { font-size: 12px; }
   .period .p { font-size: 12px; }
@@ -648,7 +705,6 @@ body { overflow: hidden; }
   .missing { font-size: 11.5px; }
   .ctab { font-size: 11.5px; }
   .todo { font-size: 12px; }
-  .todo-progress { font-size: 11.5px; }
   .dday .d { font-size: 13.5px; }
   .dday .t { font-size: 12.5px; }
   .dday .dt { font-size: 10.5px; }
@@ -670,15 +726,19 @@ body { overflow: hidden; }
 
 /* 아주 작을 때 — 칸 높이 max-height: 160px */
 @container (max-height: 160px) {
+  .quad { gap: 4px; }
+  .q-cell { padding: 5px 6px; gap: 3px; border-top-width: 2px; }
+  .q-hint { display: none; }
+  .q-tx { font-size: 12px; }
+  .q-add input { padding: 2px 6px; font-size: 11.5px; }
+  .q-plus { width: 22px; font-size: 14px; }
   .card { padding: 9px; gap: 5px; }
   .card-title { font-size: 11px; }
   .card-aside { font-size: 10.5px; }
   .text-btn { font-size: 10.5px; }
   .tip { font-size: 10.5px; }
   .empty { font-size: 11.5px; }
-  .greet { font-size: 12px; }
   .date-main { font-size: 14px; }
-  .chip { font-size: 10.5px; }
   .now-sub { font-size: 11.5px; }
   .now-next { font-size: 11.5px; }
   .period .p { font-size: 11.5px; }
@@ -695,7 +755,6 @@ body { overflow: hidden; }
   .missing { font-size: 11px; }
   .ctab { font-size: 11px; }
   .todo { font-size: 11.5px; }
-  .todo-progress { font-size: 11px; }
   .dday .d { font-size: 13px; }
   .dday .t { font-size: 12px; }
   .dday .dt { font-size: 10px; }
@@ -786,3 +845,11 @@ body { overflow: hidden; }
   .period .tm { display: none; }
 }
 
+
+/* ── 폰에서는 칸 높이를 가로로만 잰다 (2026-11-12 고침) ──
+   위쪽 '좁은 화면' 묶음에도 같은 규칙이 있지만, 그 뒤에 오는 .wg { container-type: size } 가
+   덮어써서 폰에서 칸 높이가 0으로 접히고 카드끼리 겹쳤다. 맨 끝에 한 번 더 둔다. */
+@media (max-width: 820px) {
+  .wg { container-type: inline-size; zoom: 1; }
+  .wg-clock .clock { font-size: clamp(40px, 15cqw, 72px); }
+}

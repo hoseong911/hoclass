@@ -186,6 +186,12 @@ function checkShrinkRules() {
   for (const [text, why] of need) {
     assert(css.includes(text), "desk.css 에 `" + text + "` 가 있어야 한다 — " + why);
   }
+  // 폰 규칙은 .wg { container-type: size } 보다 뒤에 와야 이긴다. 앞에 있으면 폰에서 카드끼리 겹친다.
+  const sizeAt = css.indexOf(".wg { container-type: size; }");
+  const phoneAt = css.lastIndexOf("container-type: inline-size");
+  assert(phoneAt > sizeAt, "폰에서 가로만 재는 규칙이 .wg { container-type: size } 보다 뒤에 있어야 한다");
+  // 해상도에 맞춰 칸 속을 키우고 줄이는 규칙
+  assert(css.includes(".wg { zoom: var(--k, 1); }"), "해상도 배율 규칙이 있어야 한다");
   const n = (css.match(/@container/g) || []).length;
   assert(n >= 7, "칸 크기에 따라 줄이는 규칙이 모자란다(@container " + n + "개)");
 }
@@ -246,6 +252,30 @@ function checkHiddenRule() {
   A.fill("setYear", "2027"); A.fill("setHome", "3-9"); A.fill("setClasses", "");
   A.submit("setForm");
   await until(() => A.$("setPanel").hidden, "저장하면 닫힌다");
+
+  /* ---------- 시계: 시간, 날짜, 날씨만 (2026-11-12) ---------- */
+  const clockText = A.wg("clock").textContent;
+  for (const gone of ["주차", "완료", "D-"]) assert(!clockText.includes(gone), "시계에서 뺀 것이 남았다: " + gone);
+  assert(A.$("dateMain").textContent.includes("요일"), "날짜가 보인다");
+  // 시험에는 인터넷이 없어서 못 받았다고 알려야 한다(오류로 멈추면 안 된다)
+  await until(() => A.$("wx").textContent.includes("날씨"), "날씨 칸");
+
+  /* ---------- 할 일: 중요도·긴급도 네 칸 (2026-11-12) ---------- */
+  const qCells = () => [...A.d.querySelectorAll("#todoQuad .q-cell")];
+  assert.strictEqual(qCells().length, 4, "할 일 칸 넷");
+  const q2 = qCells()[2];
+  q2.querySelector(".q-in").value = "급한 공문 회신";
+  q2.querySelector(".q-add").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
+  await until(() => qCells()[2].textContent.includes("급한 공문 회신"), "일반 긴급 칸에 들어간다");
+  await until(() => (JSON.parse(store.get("desk_todos/all") || "{}").state || { items: [] }).items
+    .some(t => t.text === "급한 공문 회신" && t.q === 2), "칸 번호(q)와 함께 저장");
+  // 다른 칸으로 끌어 옮긴다
+  const fakeDT = { setData() {}, effectAllowed: "" };
+  const item = [...qCells()[2].querySelectorAll(".q-todo")].find(li => li.textContent.includes("급한 공문 회신"));
+  const ds = new A.w.Event("dragstart", { bubbles: true }); Object.defineProperty(ds, "dataTransfer", { value: fakeDT });
+  item.dispatchEvent(ds);
+  qCells()[0].dispatchEvent(new A.w.Event("drop", { bubbles: true, cancelable: true }));
+  await until(() => qCells()[0].textContent.includes("급한 공문 회신") && !qCells()[2].textContent.includes("급한 공문 회신"), "끌어 옮기면 칸이 바뀐다");
 
   /* ---------- 구글 캘린더 우젯 ---------- */
   await until(() => A.$("gcalBody").textContent.includes("이어 붙이면"), "연결 전에는 안내가 보인다");
@@ -470,7 +500,12 @@ function checkHiddenRule() {
   await until(() => A.$("bkSave"), "백업 탭");
   A.$("bkSave").click();
   await until(() => saved.length === 1, "백업 파일");
-  const file = JSON.parse(await saved[0].text());
+  // jsdom 26 의 Blob 에는 .text() 가 없어서 FileReader 로 읽는다.
+  const file = JSON.parse(await new Promise((ok, no) => {
+    const fr = new A.w.FileReader();
+    fr.onload = () => ok(fr.result); fr.onerror = () => no(fr.error);
+    fr.readAsText(saved[0]);
+  }));
   assert.strictEqual(file.v, 2, "백업 판 번호");
   for (const k of ["desk_crypto/keys", "desk_years/all", "desk_roster/2027", "desk_att/2027_3-1_" + day]) {
     assert(file.docs[k], "백업에 " + k);
