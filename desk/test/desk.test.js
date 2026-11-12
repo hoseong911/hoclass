@@ -260,10 +260,8 @@ function checkHiddenRule() {
   await until(() => A.d.querySelector('#setPanel .cpick[data-year="2027"][aria-pressed="true"]'), "2027학년도를 더하고 고른다");
   A.$("setHome").value = "home";
   A.$("setHome").dispatchEvent(new A.w.Event("change", { bubbles: true }));
-  const [hg, hr] = A.$("setHomeCls").querySelectorAll("select");
+  const [hg, hr] = A.$("setHomeCls").querySelectorAll("input");
   hg.value = "3"; hr.value = "9";
-  A.$("setClassCount").value = "0";
-  A.$("setClassCount").dispatchEvent(new A.w.Event("change", { bubbles: true }));
   A.submit("setForm");
   await until(() => A.$("setPanel").hidden, "저장하면 닫힌다");
   await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state; return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9"; }, "담임 반이 3-9 로 저장된다");
@@ -370,22 +368,36 @@ function checkHiddenRule() {
     assert(x + w - 1 <= 12 && y + h - 1 <= 8, id + " 가 칸 밖으로 나갔다: " + A.area(id));
   }
 
-  /* 장마다 "이 장에 넣을 위젯"을 체크로 고른다 */
-  const ttBoxes = () => [...A.d.querySelectorAll('#setPanel .wg-check input[data-wg="tt"]')];
-  assert.strictEqual(ttBoxes().length, 2, "장 수만큼 체크 칸이 생긴다");
-  assert(ttBoxes()[1].checked && !ttBoxes()[0].checked, "주간 시간표는 2장에 있다");
-  ttBoxes()[1].click();
-  await until(() => ttBoxes().every(b => !b.checked), "체크를 풀면 어느 장에도 없다");
+  /* 장을 드롭다운으로 고르고, 그 장에 넣을 위젯을 체크로 고른다 */
+  const ttBox = () => A.d.querySelector('#setPanel .wg-check input[data-wg="tt"]');
+  const pageSel = () => A.$("setPageSel");
+  const goPage = async (n) => {
+    pageSel().value = String(n);
+    pageSel().dispatchEvent(new A.w.Event("change", { bubbles: true }));
+    await until(() => pageSel().value === String(n), n + "장 고르기");
+  };
+  assert.strictEqual(pageSel().options.length, 2, "장 수만큼 고를 수 있다");
+  await goPage(2);
+  assert(ttBox().checked, "주간 시간표는 2장에 있다");
+  await goPage(1);
+  assert(!ttBox().checked, "1장에는 없다");
+
+  await goPage(2);
+  ttBox().click();
+  await until(() => !ttBox().checked, "체크를 풀면 꺼진다");
   assert(A.wg("tt").hidden, "꺼진 위젯은 화면에서 사라진다");
-  ttBoxes()[1].click();
-  await until(() => ttBoxes()[1].checked, "다시 체크하면 2장으로 돌아온다");
+  ttBox().click();
+  await until(() => ttBox().checked, "다시 체크하면 2장으로 돌아온다");
 
   A.btn("#setPanel", "장 더하기").click();
-  await until(() => ttBoxes().length === 3, "장을 더하면 체크 칸도 늘어난다");
-  ttBoxes()[2].click();
-  await until(() => ttBoxes()[2].checked && !ttBoxes()[1].checked, "다른 장에서 체크하면 그 장으로 옮겨진다");
-  ttBoxes()[1].click();
-  await until(() => ttBoxes()[1].checked, "2장으로 되돌린다");
+  await until(() => pageSel().options.length === 3, "장을 더하면 고를 수 있는 장도 늘어난다");
+  await goPage(3);
+  ttBox().click();
+  await until(() => ttBox().checked, "3장에서 체크하면 그 장으로 옮겨진다");
+  await goPage(2);
+  assert(!ttBox().checked, "2장에서는 빠졌다");
+  ttBox().click();
+  await until(() => ttBox().checked, "2장으로 되돌린다");
   dots()[2].click();
   await until(() => A.wg("class").hidden, "3장으로 넘어간다");
   A.btn("#setPanel", "이 장 지우기").click();

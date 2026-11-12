@@ -441,11 +441,11 @@ body { overflow: hidden; }
 
 /* ══════════ 설정 패널 ══════════ */
 .scrim { position: fixed; inset: 0; z-index: 24; background: rgba(22, 32, 28, .28); }
-/* 탭을 옮겨도 창 크기가 흔들리지 않게 가로세로를 못박는다. 속만 굴러간다. */
+/* 가로는 못박고 세로는 내용만큼. 길어지면 화면 높이까지만 늘고 속이 굴러간다. */
 .card.float {
   position: fixed; z-index: 25; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: min(620px, calc(100vw - 32px));
-  height: min(600px, calc(100vh - 48px));
+  max-height: calc(100vh - 48px);
   display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 18px 50px rgba(22, 32, 28, .22);
   padding: 0; gap: 0;
@@ -472,7 +472,10 @@ body { overflow: hidden; }
   font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent;
 }
 .set-tab[aria-pressed="true"] { color: var(--accent); font-weight: 700; border-bottom-color: var(--accent); }
-.set-sec { display: flex; flex-direction: column; gap: 12px; padding: 16px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.set-sec { display: flex; flex-direction: column; gap: 18px; padding: 16px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* 묶음마다 테두리와 여백. 한 화면에 다 쏟아 놓으면 빽빽해서 못 읽는다. */
+.set-block { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.set-block > .set-sub { margin: 0 0 2px; }
 .set-head, .set-tabs { flex: none; }
 .set-sec > h3 { font-size: 15px; font-weight: 700; margin: 0; }
 .set-sub { font-size: 12px; font-weight: 600; color: var(--muted); margin: 2px 0 -4px; }

@@ -157,13 +157,11 @@ async function dumpWidgets() {
   await until(() => d.querySelector('#setPanel .cpick[data-year="2027"][aria-pressed="true"]'), "2027학년도");
   A.$("setHome").value = "home";
   A.$("setHome").dispatchEvent(new w.Event("change", { bubbles: true }));
-  const [hg, hr] = A.$("setHomeCls").querySelectorAll("select");
+  const [hg, hr] = A.$("setHomeCls").querySelectorAll("input");
   hg.value = "3"; hr.value = "1";
-  A.$("setClassCount").value = "2";
-  A.$("setClassCount").dispatchEvent(new w.Event("change", { bubbles: true }));
-  const rows = [...A.$("setClasses").children];
-  rows.forEach((row, i) => {
-    const [g, r] = row.querySelectorAll("select");
+  for (let i = 0; i < 2; i++) A.$("setClassAdd").click();
+  [...A.$("setClasses").children].forEach((row, i) => {
+    const [g, r] = row.querySelectorAll("input");
     g.value = "3"; r.value = String(i + 1);
   });
   submit("setForm");

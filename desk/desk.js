@@ -933,9 +933,16 @@ function gridSection() {
     err.textContent = "";
     save(true); applyGrid(); renderSet();
   };
+  /* 장은 드롭다운으로 고르고, 고른 장만 체크 칸을 보여 준다(선생님 지시 2026-11-12) */
+  const pages = okPages(state.pages);
+  if (setPage > pages) setPage = pages;
+  const pgSel = h("select", { id: "setPageSel" },
+    ...Array.from({ length: pages }, (_, i) => h("option", { value: String(i + 1), text: (i + 1) + "장" })));
+  pgSel.value = String(setPage);
+  pgSel.addEventListener("change", () => { setPage = Number(pgSel.value); renderSet(); });
   const pageList = [];
-  for (let pg = 1; pg <= okPages(state.pages); pg++) {
-    pageList.push(h("h4", { class: "set-sub", text: pg + "장" }));
+  {
+    const pg = setPage;
     pageList.push(h("div", { class: "wg-list" }, ...WIDGETS.map(def => {
       const b = state.layout[def.id];
       const here = b.on && b.pg === pg;
@@ -951,15 +958,19 @@ function gridSection() {
     pageList.push(h("p", { class: "set-state", text: off.map(d => d.name).join(", ") }));
   }
   return setSec("화면 배치", [
-    h("div", { class: "set-grid" },
-      setField("가로 칸", colIn),
-      setField("세로 칸", rowIn),
-      h("div", { class: "field" }, "칸 수",
-        h("button", { class: "btn small", type: "button", text: "바꾸기", onclick: apply }))),
-    h("div", { class: "set-row" },
-      h("button", { class: "btn small secondary", type: "button", text: "장 더하기", onclick: () => addPage() }),
-      h("button", { class: "btn small secondary", type: "button", text: "이 장 지우기", onclick: () => delPage() })),
-    ...pageList,
+    setBlock("칸 수", [
+      h("div", { class: "set-grid" },
+        setField("가로 칸", colIn),
+        setField("세로 칸", rowIn),
+        h("div", { class: "field" }, " ",
+          h("button", { class: "btn small", type: "button", text: "바꾸기", onclick: apply }))),
+    ]),
+    setBlock("장마다 넣을 위젯", [
+      h("div", { class: "set-row" }, pgSel,
+        h("button", { class: "btn small secondary", type: "button", text: "장 더하기", onclick: () => addPage() }),
+        h("button", { class: "btn small secondary", type: "button", text: "이 장 지우기", onclick: () => delPage() })),
+      ...pageList,
+    ]),
   ], err, [
     h("button", { class: "btn small secondary", type: "button", text: arranging ? "배치 끝내기" : "배치 시작", onclick: () => { setArrange(!arranging); renderSet(); } }),
     armed("되돌리기", "기본 배치로 되돌리기", () => {
@@ -1408,9 +1419,12 @@ const SET_TABS = [
   { key: "back", name: "백업" },
   { key: "pass", name: "비밀번호" },
 ];
-let setTab = "year";
+let setTab = "year", setPage = 1;
 function closeSet() { setOpen = false; renderSet(); }
 const setField = (name, el) => h("label", { class: "field" }, name, el);
+/* 묶음마다 소제목과 테두리를 둬서 빽빽하지 않게 (선생님 지시 2026-11-12) */
+const setBlock = (title, kids) => h("div", { class: "set-block" },
+  h("h4", { class: "set-sub", text: title }), ...kids.filter(Boolean));
 function setSec(title, body, err, foot) {
   return h("section", { class: "set-sec" },
     h("h3", { text: title }),
@@ -1443,18 +1457,20 @@ function renderSet() {
 
 /* 학년도 설정: 학년도를 고르거나 더하고, 그 해의 담임 반과 수업 반을 정한다.
    반은 글로 적지 않고 고르게 한다(선생님 지시 2026-11-12). */
-const GRADES = [1, 2, 3], ROOMS = 15;
-function classSel(id, value, onChange) {
-  const g = h("select", { "data-k": "g", "aria-label": "학년" },
-    ...GRADES.map(n => h("option", { value: String(n), text: n + "학년" })));
-  const r = h("select", { "data-k": "r", "aria-label": "반" },
-    ...Array.from({ length: ROOMS }, (_, i) => h("option", { value: String(i + 1), text: (i + 1) + "반" })));
+/* 숫자를 직접 쓴다(선생님 지시 2026-11-12 "드롭다운 말고 n학년 n반 의 n을 쓸 수 있게"). */
+function numIn(value, aria) {
+  return h("input", { type: "text", inputmode: "numeric", maxlength: "2", "aria-label": aria, value: String(value || "") });
+}
+function classSel(id, value, onRemove) {
   const m = /^(\d+)-(\d+)$/.exec(value || "");
-  g.value = m ? m[1] : "1";
-  r.value = m ? m[2] : "1";
-  if (onChange) { g.addEventListener("change", onChange); r.addEventListener("change", onChange); }
-  const box = h("div", { class: "cls-pick", id: id || false }, g, r);
-  box.read = () => g.value + "-" + r.value;
+  const g = numIn(m ? m[1] : "", "학년"), r = numIn(m ? m[2] : "", "반");
+  const box = h("div", { class: "cls-pick", id: id || false },
+    g, h("span", { text: "학년" }), r, h("span", { text: "반" }),
+    onRemove ? h("button", { class: "x", type: "button", title: "이 반 빼기", "aria-label": "이 반 빼기", text: "×", onclick: onRemove }) : null);
+  box.read = () => {
+    const a = parseInt(g.value, 10), b = parseInt(r.value, 10);
+    return a > 0 && b > 0 ? a + "-" + b : "";
+  };
   return box;
 }
 
@@ -1500,18 +1516,16 @@ function yearSection() {
   homeField.hidden = !y.homeroom;
   homeSel.addEventListener("change", () => { homeField.hidden = homeSel.value !== "home"; });
 
-  /* 수업 반: 몇 개 반인지 고르면 그만큼 고르개가 생긴다 */
-  const list = (y.classes || []).slice();
+  /* 수업 반: 줄을 더하고 빼며 숫자를 직접 쓴다 */
   const rows = h("div", { class: "cls-rows", id: "setClasses" });
-  const cntSel = h("select", { id: "setClassCount" },
-    ...Array.from({ length: 21 }, (_, i) => h("option", { value: String(i), text: i === 0 ? "없음" : i + "개 반" })));
-  const drawRows = (n) => {
-    const keep = [...rows.children].map(b => b.read());
-    rows.replaceChildren(...Array.from({ length: n }, (_, i) => classSel(null, keep[i] || list[i] || "")));
+  const addRow = (v) => {
+    const row = classSel(null, v, () => { row.remove(); });
+    rows.append(row);
+    return row;
   };
-  cntSel.value = String(Math.min(20, list.length));
-  drawRows(list.length);
-  cntSel.addEventListener("change", () => drawRows(Number(cntSel.value)));
+  (y.classes || []).forEach(addRow);
+  const addClsBtn = h("button", { class: "btn small secondary", type: "button", id: "setClassAdd", text: "반 더하기",
+    onclick: () => { addRow(""); } });
 
   const schoolIn = h("input", { type: "text", id: "setSchool", value: state.school || "", maxlength: "40", autocomplete: "off" });
   const idleSel = h("select", { id: "setIdle" }, ...[5, 15, 30, 60].map(m => h("option", { value: String(m), text: m + "분" })));
@@ -1520,8 +1534,7 @@ function yearSection() {
   const form = h("form", { class: "set-form", id: "setForm", onsubmit: (e) => {
     e.preventDefault();
     const Y = state.year.current;
-    const picked = [...rows.children].map(b => b.read());
-    const classes = [...new Set(picked)];
+    const classes = [...new Set([...rows.children].map(b => b.read()).filter(Boolean))];
     state.year.years[Y] = { homeroom: homeSel.value === "home" ? homePick.read() : "", classes };
     state.year.configured = true;
     state.idleMin = Number(idleSel.value);
@@ -1533,28 +1546,31 @@ function yearSection() {
     hc = null; loadHc();
     toast(Y + "학년도 설정을 저장했습니다");
   } },
-    h("div", { class: "set-row" }, ...chips),
-    h("div", { class: "set-row" }, addIn, addBtn),
-    h("h4", { class: "set-sub", text: state.year.current + "학년도" }),
-    h("div", { class: "set-grid" },
-      setField("담임", homeSel),
-      homeField,
-      setField("자동 잠금", idleSel)),
-    h("div", { class: "set-grid" },
-      setField("수업 반 수", cntSel),
-      setField("학교", schoolIn)),
-    rows,
+    setBlock("학년도 고르기", [
+      h("div", { class: "set-row" }, ...chips),
+      h("div", { class: "set-row" }, addIn, addBtn),
+    ]),
+    setBlock("담임", [
+      h("div", { class: "set-grid" }, homeSel, homeField),
+    ]),
+    setBlock("수업 반", [
+      rows,
+      h("div", { class: "set-row" }, addClsBtn,
+        h("button", { class: "btn small secondary", type: "button", id: "setFromTT", text: "시간표에서 가져오기", onclick: () => {
+          const found = parseClasses(state.tt.flat().filter(c => /^\s*\d+\s*-\s*\d+\s*$/.test(c)).join(", "))
+            .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
+          if (!found.length) { err.textContent = "주간 시간표에 반이 적혀 있지 않습니다."; return; }
+          err.textContent = "";
+          rows.replaceChildren();
+          found.forEach(addRow);
+        } })),
+    ]),
+    setBlock("그 밖에", [
+      h("div", { class: "set-grid" }, setField("학교", schoolIn), setField("자동 잠금", idleSel)),
+    ]),
     err,
     h("div", { class: "set-foot" },
-      h("button", { class: "btn small", type: "submit", id: "setSave", text: "저장" }),
-      h("button", { class: "btn small secondary", type: "button", id: "setFromTT", text: "시간표에서 가져오기", onclick: () => {
-        const found = parseClasses(state.tt.flat().filter(c => /^\s*\d+\s*-\s*\d+\s*$/.test(c)).join(", "))
-          .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
-        if (!found.length) { err.textContent = "주간 시간표에 반이 적혀 있지 않습니다."; return; }
-        err.textContent = "";
-        cntSel.value = String(Math.min(20, found.length));
-        rows.replaceChildren(...found.slice(0, 20).map(c => classSel(null, c)));
-      } })));
+      h("button", { class: "btn small", type: "submit", id: "setSave", text: "저장" })));
   return h("section", { class: "set-sec" }, h("h3", { text: "학년도 설정" }), form);
 }
 
