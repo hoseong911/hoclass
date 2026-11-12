@@ -1218,7 +1218,7 @@ function renderWx() {
   const ico = h("div", { class: "wx-ico " + k.c }); ico.innerHTML = svgIcon(k.i);
   box.replaceChildren(ico, h("div", { class: "wx-txt" },
     h("div", { class: "wx-temp", text: Math.round(wx.temp) + "°" }),
-    h("div", { class: "wx-cond", text: `${WX_PLACE.name} ${k.t}` })));
+    h("div", { class: "wx-cond", text: k.t })));
 }
 async function loadWx(force) {
   if (wxBusy || (!force && wx && Date.now() - wxAt < WX_EVERY)) return;

@@ -346,29 +346,29 @@ body { overflow: hidden; }
 .wg > .wg-clock, .wg > .now { overflow: hidden; }
 /* 시계 위젯: 여백 대신 내용을 키운다. 세로는 시계:날씨 = 6:4, 가로는 좌우로 나눈다. */
 .wg-clock { gap: 8px; text-align: center; }
-.cw-time { flex: 6; display: flex; flex-direction: column; justify-content: center; min-width: 0; min-height: 0; overflow: hidden; }
-.wg-clock .clock { font-size: clamp(24px, min(31cqw, 40cqh), 120px); margin: 0; line-height: .9; white-space: nowrap; }
-.wg-clock .date-main { font-size: clamp(10px, min(8cqw, 9cqh), 22px); font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-time { flex: 5; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 0; min-height: 0; overflow: hidden; }
+.wg-clock .clock { font-size: clamp(18px, min(27cqw, 34cqh), 104px); margin: 0; line-height: .85; white-space: nowrap; max-width: 100%; }
+.wg-clock .date-main { font-size: clamp(10px, min(11cqw, 13cqh), 30px); font-weight: 600; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .cw-wx { flex: 4; display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; min-height: 0; overflow: hidden; }
-.wx-ico { flex: none; width: min(22cqw, 26cqh, 64px); height: min(22cqw, 26cqh, 64px); color: var(--faint); }
+.wx-ico { flex: none; width: min(27cqw, 31cqh, 76px); height: min(27cqw, 31cqh, 76px); color: var(--faint); }
 .wx-ico svg { width: 100%; height: 100%; display: block; }
 .wx-ico.sun { color: var(--warn); }
 .wx-ico.rain { color: var(--blue); }
 .wx-ico.snow { color: var(--sky); }
 .wx-txt { min-width: 0; text-align: left; }
-.wx-temp { font-size: clamp(13px, min(18cqw, 22cqh), 40px); font-weight: 600; color: var(--navy); line-height: 1; font-variant-numeric: tabular-nums; }
-.wx-cond { font-size: clamp(10px, min(9cqw, 11cqh), 18px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-top: .15em; }
+.wx-temp { font-size: clamp(14px, min(23cqw, 27cqh), 50px); font-weight: 600; color: var(--navy); line-height: 1; font-variant-numeric: tabular-nums; }
+.wx-cond { font-size: clamp(11px, min(11cqw, 13cqh), 20px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-top: .15em; }
 .wx-note { font-size: clamp(10px, min(5cqw, 6cqh), 14px); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 /* 가로로 넉넉할 때만 좌우로. 좁은 칸에서 누이면 시각이 날씨 글 위로 올라탄다. */
 @container (min-aspect-ratio: 13/10) and (min-width: 300px) {
   .wg-clock { flex-direction: row; align-items: center; gap: 0; }
   .cw-time { flex: 1; }
-  .wg-clock .clock { font-size: clamp(24px, min(18cqw, 60cqh), 120px); }
-  .wg-clock .date-main { font-size: clamp(10px, min(4.5cqw, 9cqh), 20px); color: var(--sub); }
-  .cw-wx { flex: none; min-width: 34%; height: 100%; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 20px; }
-  .wx-ico { width: min(14cqw, 32cqh, 56px); height: min(14cqw, 32cqh, 56px); }
-  .wx-temp { font-size: clamp(13px, min(9cqw, 24cqh), 36px); }
-  .wx-cond { font-size: clamp(10px, min(5cqw, 12cqh), 18px); }
+  .wg-clock .clock { font-size: clamp(24px, min(15cqw, 52cqh), 104px); }
+  .wg-clock .date-main { font-size: clamp(11px, min(5cqw, 10cqh), 22px); color: var(--sub); }
+  .cw-wx { flex: none; min-width: 38%; height: 100%; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 20px; }
+  .wx-ico { width: min(17cqw, 37cqh, 64px); height: min(17cqw, 37cqh, 64px); }
+  .wx-temp { font-size: clamp(14px, min(11cqw, 28cqh), 42px); }
+  .wx-cond { font-size: clamp(11px, min(6cqw, 14cqh), 20px); }
 }
 
 /* ── 할 일 ── */
