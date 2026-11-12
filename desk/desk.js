@@ -261,6 +261,7 @@ function lsSet(k, v) { try { localStorage.setItem(LS_PREFIX + k, JSON.stringify(
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 let cloud = null, cloudFailed = false, syncNote = "";
+let retryTimer = null, retryWait = 6000;   // 끊겼을 때 다시 붙기
 let signedIn = null;
 
 /* ---------- 저장 창구 ---------- */
@@ -314,7 +315,12 @@ function cloudRef(key) {
   };
 }
 const sync = $("sync");
-function setSync(cls, text) { sync.className = "sync " + cls; sync.textContent = text; }
+function setSync(cls, text) {
+  sync.className = "sync " + cls;
+  sync.textContent = text;
+  // 저장이 어긋난 때는 우상단 도구가 마우스 없이도 보이게 한다.
+  $("tools").classList.toggle("alert", cls === "warn");
+}
 
 function makeDoc(key, o) {
   const local = lsGet(key);
@@ -337,16 +343,29 @@ const allDocs = () => [C, ...plainDocs, ...encDocs()];
 const sameBody = (a, b) => !!a && !!b && (a.c ? a.c === b.c : a.at === b.at);
 
 function refreshSync() {
-  if (!cloud) { setSync("warn", "이 브라우저에만 저장됨"); return; }
+  if (!cloud) { setSync("warn", retryTimer ? "다시 연결하는 중" : "이 브라우저에만 저장됨"); return; }
   if (syncNote) { setSync("warn", syncNote); return; }
   if (allDocs().some(d => d.dirty || d.writing || d.pendingBody)) setSync("", "저장 중");
   else setSync("ok", "모든 기기에 저장됨");
 }
+/* 끊기면 스스로 다시 붙는다. 전에는 한 번 끊기면 새로고침 전까지 영영 끊긴 채였고,
+   그동안 "우리 반" 은 눌러도 안 되는 비밀번호 만들기 칸을 계속 보여 주었다. */
 function goOffline() {
   cloud = null; cloudFailed = true;
   for (const d of allDocs()) { if (d.unsub) d.unsub(); d.unsub = null; d.ref = null; }
+  if (!retryTimer && signedIn) {
+    retryTimer = setTimeout(() => { retryTimer = null; reconnect(); }, retryWait);
+    retryWait = Math.min(retryWait * 2, 60000);
+  }
   refreshSync(); softClass();
 }
+function reconnect() {
+  if (!signedIn || cloud) return;
+  cloud = cloudRef; cloudFailed = false;
+  for (const d of allDocs()) subscribe(d);
+  refreshSync(); softClass();
+}
+window.addEventListener("online", () => { retryWait = 6000; reconnect(); });
 function encodeBody(d) {
   const tags = docTags(d.key);
   return d.enc
@@ -497,8 +516,9 @@ function keyStateNow() {
   if (!hasCrypto) return "unsupported";
   if (dataKey) return recoveryToShow ? "recovery" : "open";
   if (C.body && C.body.pass) return "locked";
+  // 끊긴 것을 먼저 본다. 뒤에 두면 눌러도 안 되는 '만들기' 칸을 보여 주게 된다.
+  if (!cloud) return "offline";
   if (C.confirmed) return "none";
-  if (cloudFailed) return "offline";
   return "loading";
 }
 async function openAllEnc() { await Promise.all(encDocs().map(openEnc)); }
@@ -526,7 +546,8 @@ async function lockNow() {
   if (setOpen) renderSet();
 }
 async function setupKey(pass) {
-  if (!cloud || !C.confirmed || !C.ref) throw new Error("저장소에 연결된 뒤에 만들 수 있습니다. 잠시 뒤 다시 시도해 주세요.");
+  if (!cloud || !C.ref) throw new Error("저장소에 연결되지 않았습니다. 인터넷 연결을 확인해 주세요.");
+  if (!C.confirmed) throw new Error("저장소를 확인하는 중입니다. 잠시 뒤 다시 시도해 주세요.");
   const raw = rnd(32), rec = makeRecovery();
   const meta = { v: 1, at: Date.now(), pass: await wrapRaw(raw, normPass(pass), "pass"), rec: await wrapRaw(raw, rec, "rec") };
   const got = await C.ref.createOnce(meta, (d) => !!d.pass);
@@ -1001,7 +1022,7 @@ fitScale();
    - 스크롤되는 곳(overflow: auto)은 세지 않는다. 학생 명단이나 메모처럼 길어질 수 있는 것까지
      맞추려 들면 글씨가 한없이 작아진다. 그런 곳은 원래대로 굴려 보면 된다.
    - .sr(화면낭독기용 1px 상자) 같은 작은 것은 뺀다. */
-const FIT_MIN = 0.5;      // 이보다 더 줄이지는 않는다
+const FIT_MIN = 0.45;     // 이보다 더 줄이지는 않는다
 const FIT_TRIES = 5;      // 줄이면 칸 규칙이 바뀌므로 몇 번 다시 잰다
 
 function clipOverflow(card) {
@@ -1011,7 +1032,10 @@ function clipOverflow(card) {
   const list = arranging ? [...card.querySelectorAll("*")] : [card, ...card.querySelectorAll("*")];
   for (const el of list) {
     const ch = el.clientHeight, cw = el.clientWidth;
-    if (ch < 3 || cw < 3) continue;                // .sr(1px 상자) 같은 것만 뺀다
+    if (ch <= 0 || cw <= 0) continue;
+    // .sr(화면낭독기용 1×1 상자)만 뺀다. 한쪽만 작은 것은 눌린 줄이라 꼭 세야 한다
+    // (시간표 한 줄이 2px 까지 눌렸는데 이 기준에 걸려 줄이기가 안 돌던 적이 있다).
+    if (ch < 3 && cw < 3) continue;
     const overH = el.scrollHeight - ch, overW = el.scrollWidth - cw;
     if (overH < 1 && overW < 1) continue;          // 넘치지 않으면 모양을 볼 것도 없다
     const cs = getComputedStyle(el);
@@ -1321,7 +1345,8 @@ function renderLinks() {
       h("button", { class: "btn secondary", type: "button", text: "취소", onclick: () => { showLinkForm = false; renderLinks(); } })));
   }
   linksEl.replaceChildren(...kids);
-  $("editLinks").textContent = editingLinks ? "편집 완료" : "바로가기 편집";
+  $("editLinks").lastChild.nodeValue = editingLinks ? "편집 완료" : "바로가기 편집";
+  $("editLinks").classList.toggle("on", editingLinks);
 }
 $("editLinks").addEventListener("click", () => { editingLinks = !editingLinks; renderLinks(); });
 

@@ -53,6 +53,9 @@ function renameHoclassStudent(room, idx, newName) {
 }
 
 const writes = [], hcWrites = [];
+/* 저장소 연결이 끊긴 것을 흉내 낼 때 부를 콜백들 */
+const errCbs = new Set();
+function breakCloud() { const all = [...errCbs]; errCbs.clear(); for (const f of all) f(new Error("끊김")); }
 function makeFB() {
   const user = { uid: "t1", email: "ho0911seong@gmail.com", displayName: "" };
   let current = null; const authCbs = [];
@@ -71,10 +74,11 @@ function makeFB() {
       const docs = [...store.keys()].filter(k => k.startsWith(want)).sort().map(mkSnap);
       return { docs, forEach: (fn) => docs.forEach(fn) };
     },
-    onSnapshot: (ref, next) => {
+    onSnapshot: (ref, next, err) => {
       const p = ref._p;
       if (!listeners.has(p)) listeners.set(p, new Set());
       listeners.get(p).add(next);
+      if (err) errCbs.add(err);
       setTimeout(() => next(mkSnap(p)), 4);
       return () => listeners.get(p).delete(next);
     },
@@ -510,6 +514,16 @@ function checkHiddenRule() {
   }
   assert(!Object.keys(file.docs).some(k => k.startsWith("hoclass_")), "백업에 호클래스 자료는 담지 않는다");
   for (const nm of ["김지우", "담임하나"]) assert(!JSON.stringify(file).includes(nm), "백업 파일에 이름 평문 금지: " + nm);
+
+  /* ---------- 끊겨도 스스로 다시 붙는다 ---------- */
+  // 전에는 한 번 끊기면 새로고침 전까지 영영 끊긴 채였고, 그동안 "우리 반" 은
+  // 눌러도 "저장소에 연결된 뒤에 할 수 있습니다" 만 나오는 칸을 보여 주었다.
+  assert(A.$("sync").textContent.includes("저장"), "끊기기 전: " + A.$("sync").textContent);
+  breakCloud();
+  await until(() => A.$("sync").textContent.includes("다시 연결"), "끊기면 다시 붙는 중이라고 알린다");
+  assert(A.$("tools").classList.contains("alert"), "저장이 어긋나면 우상단 도구가 저절로 보인다");
+  await until(() => A.$("sync").textContent.includes("모든 기기에 저장됨"), "스스로 다시 붙는다", 30000);
+  assert(!A.$("tools").classList.contains("alert"), "다시 붙으면 도구가 다시 숨는다");
 
   /* ---------- 나가기 ---------- */
   A.$("signOut").click();
