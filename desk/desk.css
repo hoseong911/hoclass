@@ -362,7 +362,7 @@ body { overflow: hidden; }
 /* 가로로 넉넉할 때만 좌우로. 좁은 칸에서 누이면 시각이 날씨 글 위로 올라탄다. */
 @container (min-aspect-ratio: 13/10) and (min-width: 300px) {
   .wg-clock { flex-direction: row; align-items: center; gap: 0; }
-  .cw-time { flex: 1; align-items: center; justify-content: center; text-align: center; }
+  .cw-time { flex: 1; align-items: center; justify-content: center; text-align: center; gap: clamp(4px, 2cqh, 14px); }
   .wg-clock .clock { font-size: clamp(24px, min(15cqw, 52cqh), 104px); }
   .wg-clock .date-main { font-size: clamp(11px, min(5cqw, 10cqh), 22px); color: var(--sub); }
   .cw-wx { flex: none; min-width: 38%; height: 100%; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 20px; }
@@ -845,14 +845,6 @@ body { overflow: hidden; }
     align-items: start;
   }
   .deck.two > .wg { grid-column: var(--col, auto) !important; grid-row: span var(--span, 60) !important; }
-}
-
-.wg-clock { align-items: center; text-align: center; }
-.wg-clock .cw-time { align-items: center; }
-.wg-clock .cw-wx { justify-content: center; align-self: stretch; }
-@container (min-aspect-ratio: 13/10) and (min-width: 300px) {
-  .wg-clock .cw-time { align-items: flex-start; text-align: left; }
-  .wg-clock .cw-wx { align-self: auto; text-align: left; }
 }
 
 .now-main, .now-sub { text-align: center; }
