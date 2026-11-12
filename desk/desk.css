@@ -19,7 +19,7 @@
   --pass-soft: #E4F1E8;        /* 달성 옅은 바탕 (theme --pass 짝) */
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-title: "Paperlogy", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  --font-head: "JalnanGothic", "Paperlogy", "Malgun Gothic", sans-serif;  /* 위젯 제목: 여기어때 잘난체 */
+  --font-head: "Jalnan", "Paperlogy", "Malgun Gothic", sans-serif;  /* 위젯 제목: 여기어때 잘난체 */
   --fs-clock: clamp(30px, 4.2vw, 64px);
   --fs-strong: 17px;  /* 강조 */
   --fs-body: 15px;    /* 본문 */
@@ -517,8 +517,8 @@ body { overflow: hidden; }
 
 /* ══════════ 글꼴과 도구줄 ══════════ */
 @font-face {
-  font-family: "JalnanGothic"; font-style: normal; font-weight: 400; font-display: swap;
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_231029@1.1/JalnanGothic.woff") format("woff");
+  font-family: "Jalnan"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/fonts-archive/Jalnan/Jalnan.woff2") format("woff2");
 }
 @font-face {
   font-family: "Paperlogy"; font-style: normal; font-weight: 400; font-display: swap;
