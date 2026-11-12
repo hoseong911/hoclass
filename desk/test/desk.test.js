@@ -201,6 +201,10 @@ function checkShrinkRules() {
     assert(m, "desk.js 에 " + name + " 가 있어야 한다");
     assert(css.includes("@media " + m[1] + " {"), "desk.css 에 desk.js 의 " + name + " 와 같은 조건이 있어야 한다: " + m[1]);
   }
+  const wg = fs.readFileSync(path.join(DIR, "widget.js"), "utf8");
+  const bells = (t) => String((/const DEFAULT_BELLS = \[([\s\S]*?)\];/.exec(t) || [])[1]).replace(/\s+/g, "");
+  assert(bells(js).length > 40 && bells(js) === bells(wg),
+    "desk.js 와 widget.js 의 종 시간 기본값이 같아야 한다(바탕화면 위젯이 다른 시각을 보인다)");
   assert(css.includes("grid-template-rows: none;"), "2단에서는 PC용 세로 칸 줄을 지워야 한다(안 지우면 간격이 틀어진다)");
   assert(css.includes(".wg { zoom: calc(var(--k, 1) * var(--z, 1)); }"),
     "해상도 배율(--k)과 칸 배율(--z)을 곱하는 규칙이 있어야 한다");
@@ -569,6 +573,23 @@ function checkHiddenRule() {
   await until(() => A.$("setPanel").hidden, "설정 닫기");
   A.tab("today");
   await until(() => A.book().includes("흑미밥"), "오늘 급식이 수첩 오늘 화면에 보인다");
+
+  /* ---------- 시정 채우기 ---------- */
+  A.$("ttEdit").click();
+  await until(() => A.d.querySelector("#ttBells input"), "편집하면 시정 칸이 나온다");
+  const bIn = A.d.querySelectorAll("#ttBells input");
+  bIn[0].value = "09:00"; bIn[1].value = "40"; bIn[2].value = "10"; bIn[3].value = "50";
+  A.btn("#ttBells", "채우기").click();
+  const times = () => [...A.d.querySelectorAll("#tt input[type=\"time\"]")].map(i => i.value);
+  await until(() => times()[0] === "09:00", "1교시 시작이 공식대로 채워진다");
+  assert(times().slice(0, 4).join(",") === "09:00,09:40,09:50,10:30", "수업 40분, 쉬는 시간 10분");
+  assert(times()[6] === "11:30" && times()[8] === "13:00", "4교시 뒤 점심 50분");
+  bIn[1].value = "999";
+  A.btn("#ttBells", "채우기").click();
+  await wait(40);
+  assert(times()[0] === "09:00" && times()[1] === "09:40", "말이 안 되는 값으로는 채우지 않는다");
+  A.$("ttEdit").click();
+  await until(() => A.$("ttBells").hidden, "편집을 끝내면 시정 칸이 숨는다");
 
   /* ---------- 백업 ---------- */
   A.setTab("back");

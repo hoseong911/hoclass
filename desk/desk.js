@@ -48,9 +48,10 @@ async function copyText(text) {
 }
 
 /* ---------- 일반 정보 ---------- */
+/* 08:50 시작, 45분 수업, 5분 쉬는 시간, 4교시 뒤 1시간 점심. widget.js 의 것과 같아야 한다(시험이 지킨다) */
 const DEFAULT_BELLS = [
-  { s: "09:00", e: "09:45" }, { s: "09:55", e: "10:40" }, { s: "10:50", e: "11:35" }, { s: "11:45", e: "12:30" },
-  { s: "13:30", e: "14:15" }, { s: "14:25", e: "15:10" }, { s: "15:20", e: "16:05" },
+  { s: "08:50", e: "09:35" }, { s: "09:40", e: "10:25" }, { s: "10:30", e: "11:15" }, { s: "11:20", e: "12:05" },
+  { s: "13:05", e: "13:50" }, { s: "13:55", e: "14:40" }, { s: "14:45", e: "15:30" },
 ];
 const EXAMPLE_TT = [
   ["2-1", "", "2-3", "2-5", "", "2-2", ""],
@@ -168,7 +169,7 @@ const SPECS = [
     put: (s) => {
       if (arr(s.links)) state.links = s.links.filter(l => l && typeof l.url === "string");
       if (arr(s.bells) && s.bells.length === 7) state.bells = s.bells.map(b => ({ s: String(b.s || ""), e: String(b.e || "") }));
-      if (Number.isInteger(s.lunchAfter)) state.lunchAfter = s.lunchAfter;
+      if (Number.isInteger(s.lunchAfter) && s.lunchAfter >= 1 && s.lunchAfter <= 6) state.lunchAfter = s.lunchAfter;
       // 펴서 담은 35칸, 옛 5×7 모양 둘 다 읽는다(브라우저에 남은 옛 사본이 있다)
       if (arr(s.tt)) {
         const flat = arr(s.tt[0]) ? s.tt.flat() : s.tt;
@@ -1347,8 +1348,47 @@ function renderTT() {
   }
   $("tt").replaceChildren(...rows);
 }
+const fmtHM = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+function makeBells(start, cls, brk, lunch, lunchAfter) {
+  let t = toMin(start);
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    out.push({ s: fmtHM(t), e: fmtHM(t + cls) });
+    t += cls + (i + 1 === lunchAfter ? lunch : brk);
+  }
+  return out;
+}
+/* 지금 종 시간에서 공식을 거꾸로 읽어 칸을 채운다. 말이 안 되는 값이면 기본값을 보인다. */
+function bellForm() {
+  const B = state.bells, la = state.lunchAfter;
+  const ok = (n, lo, hi) => Number.isFinite(n) && n >= lo && n <= hi;
+  const pick = (n, lo, hi, dflt) => ok(n, lo, hi) ? n : dflt;
+  const num = (v, label) => h("input", { type: "text", inputmode: "numeric", maxlength: "3", value: String(v), "aria-label": label });
+  const startIn = h("input", { type: "time", value: /^d{1,2}:d{2}$/.test(B[0].s) ? B[0].s : "08:50", "aria-label": "1교시 시작" });
+  const clsIn = num(pick(toMin(B[0].e) - toMin(B[0].s), 1, 120, 45), "수업 시간");
+  const brkIn = num(pick(toMin(B[1].s) - toMin(B[0].e), 0, 60, 5), "쉬는 시간");
+  const lunchIn = num(pick(toMin(B[la].s) - toMin(B[la - 1].e), 0, 180, 60), "점심시간");
+  const fill = h("button", { class: "btn small", type: "button", text: "채우기", onclick: () => {
+    const cls = Number(clsIn.value), brk = Number(brkIn.value), lunch = Number(lunchIn.value);
+    if (!ok(toMin(startIn.value), 0, 1439) || !ok(cls, 1, 120) || !ok(brk, 0, 60) || !ok(lunch, 0, 180)) {
+      toast("시정을 확인해 주세요"); return;
+    }
+    state.bells = makeBells(startIn.value, cls, brk, lunch, la);
+    state.ttExample = false; save();
+    renderTT(); renderPeriods(); renderNow(new Date());
+    toast("시정을 채웠습니다");
+  } });
+  return h("div", { class: "tt-bells" },
+    startIn, h("span", { text: "시작" }),
+    clsIn, h("span", { text: "분 수업" }),
+    brkIn, h("span", { text: "분 쉬는 시간" }),
+    lunchIn, h("span", { text: "분 점심시간" }), fill);
+}
 $("ttEdit").addEventListener("click", () => {
   ttEditing = !ttEditing;
+  const box = $("ttBells");
+  box.hidden = !ttEditing;
+  box.replaceChildren(...(ttEditing ? [bellForm()] : []));   // 1분마다 도는 renderTT 가 적던 값을 지우지 않게 여기서만 만든다
   if (!ttEditing) { document.activeElement && document.activeElement.blur(); renderPeriods(); renderNow(new Date()); }
   renderTT();
 });

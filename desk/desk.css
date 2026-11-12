@@ -194,6 +194,10 @@ table.tt { width: 100%; border-collapse: separate; border-spacing: 4px; min-widt
 .tt td.nowcell { background: var(--accent); color: var(--accent-ink); }
 .tt tr.lunch td { height: auto; padding: 3px; font-size: 11px; color: var(--faint); background: transparent; font-weight: 400; letter-spacing: .1em; }
 .tt input[type="text"] { width: 100%; text-align: center; padding: 6px 4px; font-size: 14px; }
+.tt-bells { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.tt-bells input { padding: 4px 6px; font-size: 12px; font-family: var(--font-num); text-align: center; }
+.tt-bells input[type="text"] { width: 44px; }
+.tt-bells button { margin-left: auto; }
 .tt .bell { display: flex; gap: 2px; align-items: center; }
 .tt .bell input { width: 50%; padding: 4px 2px; font-size: 11px; font-family: var(--font-num); }
 
@@ -638,7 +642,7 @@ body { overflow: hidden; }
   .dday .t { font-size: 13.5px; }
   .dday .dt { font-size: 11px; }
   .tt td { font-size: 12.5px; }
-  .tt th { font-size: 11px; }
+  .tt th, .tt-bells, .tt-bells input { font-size: 11px; }
   .memo { font-size: 13.5px; }
   .line .ttl { font-size: 13.5px; }
   .line .when { font-size: 11px; }
@@ -688,7 +692,7 @@ body { overflow: hidden; }
   .dday .t { font-size: 12.5px; }
   .dday .dt { font-size: 10.5px; }
   .tt td { font-size: 11.5px; }
-  .tt th { font-size: 10.5px; }
+  .tt th, .tt-bells, .tt-bells input { font-size: 10.5px; }
   .memo { font-size: 12.5px; }
   .line .ttl { font-size: 12.5px; }
   .line .when { font-size: 10.5px; }
@@ -740,7 +744,7 @@ body { overflow: hidden; }
   .dday .t { font-size: 12px; }
   .dday .dt { font-size: 10px; }
   .tt td { font-size: 11px; }
-  .tt th { font-size: 10px; }
+  .tt th, .tt-bells, .tt-bells input { font-size: 10px; }
   .memo { font-size: 12px; }
   .line .ttl { font-size: 12px; }
   .line .when { font-size: 10px; }
