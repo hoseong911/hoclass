@@ -4,7 +4,7 @@
 //
 //   dist/desk/...    수첩 화면
 //   dist/shared/...  호클래스와 같이 쓰는 파베 초기화
-//   dist/vendor/...  (있으면) 파베 라이브러리 사본 — 인터넷 없이도 열리게
+//   dist/vendor/...  (있으면) 파베 라이브러리 사본 (인터넷 없이도 열리게
 //
 // 라이브러리 사본을 받는 법:  node build-dist.js --vendor
 const fs = require("fs"), path = require("path"), https = require("https");
@@ -26,7 +26,7 @@ const copy = (rel) => {
 function get(url) {
   return new Promise((ok, no) => {
     https.get(url, (res) => {
-      if (res.statusCode !== 200) { no(new Error(url + " → " + res.statusCode)); return; }
+      if (res.statusCode !== 200) { no(new Error(url + " 응답 " + res.statusCode)); return; }
       let b = "";
       res.setEncoding("utf8");
       res.on("data", (d) => b += d);

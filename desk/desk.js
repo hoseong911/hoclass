@@ -21,12 +21,16 @@ function h(tag, props, ...kids) {
     if (k === "class") el.className = v;
     else if (k === "text") el.textContent = v;
     else if (k === "value") el.value = v;
+    else if (k === "html") el.innerHTML = v;   // 코드 안에 박아 둔 그림(svg)만 넣는다. 사용자 글은 넣지 않는다.
     else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
     else if (v !== false && v != null) el.setAttribute(k, v === true ? "" : v);
   }
   for (const c of kids) if (c != null && c !== false) el.append(c);
   return el;
 }
+// 페이지 넘김 단추 그림. 화살표 글자는 화면 규칙상 쓰지 않아서 그림으로 그린다.
+const CHEV = (d) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+const CHEV_L = CHEV("M15 6l-6 6 6 6"), CHEV_R = CHEV("M9 6l6 6-6 6");
 let toastT = null;
 function toast(msg) {
   let t = document.querySelector(".toast");
@@ -44,7 +48,7 @@ async function copyText(text) {
   }
 }
 
-/* ---------- 일반 정보 (시간표·할 일·일정·메모): 잠금 없이 보이는 자료 ---------- */
+/* ---------- 일반 정보 (시간표, 할 일, 일정, 메모): 잠금 없이 보이는 자료 ---------- */
 const DEFAULT_BELLS = [
   { s: "09:00", e: "09:45" }, { s: "09:55", e: "10:40" }, { s: "10:50", e: "11:35" }, { s: "11:45", e: "12:30" },
   { s: "13:30", e: "14:15" }, { s: "14:25", e: "15:10" }, { s: "15:20", e: "16:05" },
@@ -57,7 +61,7 @@ const EXAMPLE_TT = [
   ["2-5", "", "2-4", "2-2", "", "동아리", ""],
 ];
 const TEACHER_LINKS = () => [
-  { id: uid(), name: "에듀넷·티-클리어", url: "https://www.edunet.net" },
+  { id: uid(), name: "에듀넷 티-클리어", url: "https://www.edunet.net" },
   { id: uid(), name: "학교알리미", url: "https://www.schoolinfo.go.kr" },
   { id: uid(), name: "구글 클래스룸", url: "https://classroom.google.com" },
   { id: uid(), name: "클래스팅", url: "https://www.classting.com" },
@@ -67,7 +71,7 @@ const TEACHER_LINKS = () => [
 const TEACHER_TODOS = () => [
   { id: uid(), text: "주간 시간표를 내 시간표로 바꾸기", done: false, q: 0 },
   { id: uid(), text: "'올해 설정'에서 담임 반과 수업 반 넣기", done: false, q: 0 },
-  { id: uid(), text: "기말고사·방학식 날짜를 D-day에 등록하기", done: false, q: 1 },
+  { id: uid(), text: "기말고사, 방학식 날짜를 D-day에 등록하기", done: false, q: 1 },
 ];
 
 const academicYear = (d = new Date()) => d.getMonth() >= 2 ? d.getFullYear() : d.getFullYear() - 1;
@@ -114,8 +118,8 @@ async function loadHc() {
     renderClass(); renderBook();
   }
 }
-let hcLessons = {};                 // 반 → 차시 목록
-const subCache = new Map();         // 차시id → { 학번: { 칸: true } }
+let hcLessons = {};                 // 반마다 차시 목록
+const subCache = new Map();         // 차시id 마다 { 학번: { 칸: true } }
 let sendBusy = false, sendPlan = null;
 
 async function loadHcLessons() {
@@ -574,7 +578,7 @@ async function rewrap(secret, newPass) {
    ②구글 로그인만 콘솔에서 해야 한다(OAuth 클라이언트를 만드는 공개 API가 없다). */
 const GCAL_STEPS = [
   { done: true,  text: "승인된 도메인에 hoseong911.github.io 넣기" },
-  { done: false, text: "파베 Authentication → Sign-in method → Google 켜기" },
+  { done: false, text: "파베 콘솔의 Authentication 메뉴, Sign-in method 탭에서 Google 켜기" },
   { done: true,  text: "구글 클라우드에서 Calendar API 켜기" },
 ];
 let gcalBusy = false, gcalErr = "", gcalStep = 0, gcalDays = [], gcalAt = 0;
@@ -667,7 +671,7 @@ function pageName(p) {
     const A = state.layout[a.id], B = state.layout[b.id];
     return (B.w * B.h) - (A.w * A.h);
   })[0];
-  return p + "장 · " + big.name + (on.length > 1 ? " 외 " + (on.length - 1) : "");
+  return p + "장 " + big.name + (on.length > 1 ? " 외 " + (on.length - 1) : "");
 }
 function gotoPage(p) {
   const next = Math.max(1, Math.min(okPages(state.pages), p));
@@ -682,14 +686,57 @@ function applyGrid() {
   deck.style.setProperty("--cols", String(g.cols));
   deck.style.setProperty("--rows", String(g.rows));
   state.layout = normalize(state.layout, g, state.pages);
+  const stacked = isStacked(), two = stacked && isTwoCol();
   for (const def of WIDGETS) {
     const el = deck.querySelector('.wg[data-w="' + def.id + '"]');
     if (!el) continue;
     const b = state.layout[def.id];
-    el.hidden = !b.on || b.pg !== curPage;
+    // 세워 보는 화면(폰, 세로 태블릿)에는 페이지 바가 없다. 그래서 모든 장의 위젯을 이어서 보여 준다.
+    el.hidden = !b.on || (!stacked && b.pg !== curPage);
     el.style.gridArea = b.y + " / " + b.x + " / span " + b.h + " / span " + b.w;
+    // 2단일 때 어느 단에 둘지: 넓은 것은 두 단을 다 쓰고, 나머지는 칸 가운데가 왼쪽 반이면 왼쪽 단.
+    const wide = b.w > g.cols * 0.6, left = (b.x - 1 + b.w / 2) <= g.cols / 2;
+    el.style.setProperty("--col", wide ? "1 / -1" : left ? "1" : "2");
   }
+  deck.classList.toggle("two", two);
+  if (stacked) stackOrder();
+  if (two) fitSpans();
   renderPagebar();
+}
+
+/* ---------- 세워 보는 화면: 폰은 1단, 세로 태블릿은 2단 (2026-11-12) ----------
+   선생님 지시: "갤럭시탭 세로 버전도 만들어줘. 세로 버전은 보통 2단 구성으로 가면 될듯".
+   desk.css 의 같은 조건과 맞춰야 한다(STACK_MQ, TWO_MQ). */
+const STACK_MQ = "(max-width: 820px), (orientation: portrait) and (max-width: 1100px)";
+const TWO_MQ = "(min-width: 600px) and (orientation: portrait) and (max-width: 1100px)";
+const mq = (q) => (typeof window.matchMedia === "function" ? window.matchMedia(q) : null);
+const stackMq = mq(STACK_MQ), twoMq = mq(TWO_MQ);
+const isStacked = () => !!(stackMq && stackMq.matches);
+const isTwoCol = () => !!(twoMq && twoMq.matches);
+for (const m of [stackMq, twoMq]) if (m && m.addEventListener) m.addEventListener("change", () => applyGrid());
+
+// 세워 볼 때 위젯 순서: 장, 왼쪽 단부터, 단 안에서는 위에서 아래(1단, 2단, 3단, 4단 차례). 순서가 그대로면 건드리지 않는다
+// (옮기면 메모를 쓰던 중에 커서가 빠진다).
+function stackOrder() {
+  const els = [...deck.querySelectorAll(":scope > .wg")];
+  const key = (el) => { const b = state.layout[el.dataset.w] || { pg: 9, y: 99, x: 99 }; return b.pg * 1e6 + b.x * 1e3 + b.y; };
+  const want = [...els].sort((a, b) => key(a) - key(b));
+  if (want.every((el, i) => el === els[i])) return;
+  for (const el of want) deck.append(el);
+}
+// 2단은 두 단이 따로 쌓이게(벽돌 쌓기) 위젯마다 4px 줄을 몇 개 쓸지 카드 높이로 정한다.
+const SPAN_UNIT = 4;
+let spanObs = null;
+function fitSpans() {
+  if (typeof ResizeObserver !== "function") return;
+  if (!spanObs) spanObs = new ResizeObserver((ents) => { if (deck.classList.contains("two")) for (const e of ents) spanOf(e.target.parentElement); });
+  for (const el of deck.querySelectorAll(":scope > .wg")) { spanObs.observe(el.firstElementChild); spanOf(el); }
+}
+function spanOf(el) {
+  if (!el || el.hidden) return;
+  const gap = parseFloat(getComputedStyle(deck).getPropertyValue("--gap")) || 10;
+  const hgt = el.firstElementChild.getBoundingClientRect().height;
+  el.style.setProperty("--span", String(Math.max(1, Math.ceil((hgt + gap) / SPAN_UNIT))));
 }
 
 /* 아래 가운데 페이지 바. 배치 중에는 장을 더하고 지우는 단추도 나온다. */
@@ -699,13 +746,13 @@ function renderPagebar() {
   const n = okPages(state.pages);
   bar.classList.toggle("show", arranging);
   const kids = [
-    h("button", { class: "pg-arrow", type: "button", "aria-label": "앞 장", text: "‹", onclick: () => gotoPage(curPage - 1) }),
+    h("button", { class: "pg-arrow", type: "button", "aria-label": "앞 장", html: CHEV_L, onclick: () => gotoPage(curPage - 1) }),
     h("div", { class: "pg-dots" }, ...Array.from({ length: n }, (_, i) => h("button", {
       class: "pg-dot" + (i + 1 === curPage ? " cur" : ""), type: "button",
       "data-page": String(i + 1), "aria-label": pageName(i + 1),
       title: pageName(i + 1), onclick: () => gotoPage(i + 1),
     }))),
-    h("button", { class: "pg-arrow", type: "button", "aria-label": "다음 장", text: "›", onclick: () => gotoPage(curPage + 1) }),
+    h("button", { class: "pg-arrow", type: "button", "aria-label": "다음 장", html: CHEV_R, onclick: () => gotoPage(curPage + 1) }),
   ];
   if (arranging) {
     kids.push(h("span", { class: "pg-name", text: pageName(curPage) }));
@@ -767,11 +814,11 @@ function setArrange(on) {
   deck.classList.toggle("arranging", arranging);
   $("tools").classList.toggle("show", arranging);
   $("arrange").classList.toggle("on", arranging);
-  $("arrange").title = arranging ? "배치 끝내기" : "위젯 이동·크기조절";
+  $("arrange").title = arranging ? "배치 끝내기" : "위젯 이동과 크기 조절";
   if (arranging) addHandles(); else dropHandles();
   let tip = document.querySelector(".drag-tip");
   if (arranging && !tip) {
-    document.body.append(h("div", { class: "drag-tip", text: "가운데를 끌면 옮기기 · 테두리를 끌면 크기 · 아래 페이지 점에 놓으면 그 장으로" }));
+    document.body.append(h("div", { class: "drag-tip", text: "가운데를 끌면 옮기기, 테두리를 끌면 크기 바꾸기, 아래 페이지 점에 놓으면 그 장으로 옮기기" }));
   } else if (!arranging && tip) { tip.remove(); }
   renderPagebar();
 }
@@ -1035,7 +1082,7 @@ function status(now) {
 const WX_PLACE = { name: "인천", lat: 37.4563, lon: 126.7052 };
 const WX_EVERY = 30 * 60 * 1000;
 const svgIcon = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-// 날씨 번호(WMO) → 말과 그림. mydesk 의 표를 그대로 쓴다.
+// 날씨 번호(WMO)를 말과 그림으로 바꾼다. mydesk 의 표를 그대로 쓴다.
 function wxKind(code) {
   if (code === 0) return { t: "맑음", c: "sun", i: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' };
   if (code <= 2) return { t: "구름 조금", c: "sun", i: '<circle cx="8" cy="9" r="3"/><path d="M18 18a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1"/>' };
@@ -1085,19 +1132,19 @@ function renderNow(now) {
   const B = state.bells;
   const label = (i) => `${i + 1}교시`;
   const nextLine = (j, until) => j >= 0
-    ? [h("span", null, "다음 ", h("b", { text: `${label(j)} · ${row[j]}` })), h("span", { class: "num", text: `${B[j].s} 시작 · ${fmtLeft(until)} 후` })]
+    ? [h("span", null, "다음 ", h("b", { text: `${label(j)} ${row[j]}` })), h("span", { class: "num", text: `${B[j].s} 시작, ${fmtLeft(until)} 후` })]
     : [h("span", { text: "오늘 남은 수업이 없습니다" }), h("span", { text: "종례 준비" })];
   $("nowAside").textContent = row ? `오늘 수업 ${classCount(row)}시간` : "";
   let mainKids, subText = "", prog = null, nextKids = null;
   switch (s.kind) {
     case "weekend": mainKids = ["주말입니다"]; subText = "월요일 시간표는 아래 주간 시간표에서 볼 수 있습니다."; break;
     case "noclass": mainKids = ["오늘은 수업이 없습니다"]; subText = "주간 시간표에서 오늘 칸을 채우면 여기에 표시됩니다."; break;
-    case "invalid": mainKids = ["종 시간을 확인해 주세요"]; subText = "주간 시간표 편집에서 교시별 시작·끝 시간을 넣어 주세요."; break;
+    case "invalid": mainKids = ["종 시간을 확인해 주세요"]; subText = "주간 시간표 편집에서 교시별 시작과 끝 시간을 넣어 주세요."; break;
     case "before": mainKids = ["수업 전"]; subText = `첫 수업까지 ${fmtLeft(s.until)}`; nextKids = nextLine(s.next, s.until); break;
-    case "class": mainKids = [`${label(s.i)} · `, h("span", { class: "cls", text: row[s.i] })]; subText = `${B[s.i].e} 종료 · ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
-    case "free": mainKids = [`${label(s.i)} · 공강`]; subText = `${B[s.i].e}까지 · ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
+    case "class": mainKids = [`${label(s.i)} `, h("span", { class: "cls", text: row[s.i] })]; subText = `${B[s.i].e} 종료, ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
+    case "free": mainKids = [`${label(s.i)} 공강`]; subText = `${B[s.i].e}까지, ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
     case "break": mainKids = ["쉬는 시간"]; subText = `${fmtLeft(s.left)} 뒤 ${label(s.i + 1)} 종`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
-    case "lunch": mainKids = ["점심시간"]; subText = `${B[s.i + 1].s}에 ${label(s.i + 1)} 시작 · ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
+    case "lunch": mainKids = ["점심시간"]; subText = `${B[s.i + 1].s}에 ${label(s.i + 1)} 시작, ${fmtLeft(s.left)} 남음`; prog = s.prog; nextKids = nextLine(s.next, s.until); break;
     case "after": mainKids = ["오늘 수업 끝"]; subText = "종례하고 업무 할 일을 정리해 보세요."; break;
   }
   main.replaceChildren(...mainKids);
@@ -1143,13 +1190,13 @@ function renderPeriods(now = new Date()) {
     if (e <= m) cls.push("past"); else if (s <= m && m < e) cls.push("current");
     items.push(h("li", { class: cls.join(" ") },
       h("span", { class: "p", text: `${i + 1}교시` }),
-      h("span", { class: "tm", text: `${b.s}–${b.e}` }),
+      h("span", { class: "tm", text: `${b.s}~${b.e}` }),
       h("span", { class: "c", text: row[i].trim() || "공강" })
     ));
     if (i + 1 === state.lunchAfter) {
       const ls = toMin(b.e), le = toMin(state.bells[i + 1].s);
       items.push(h("li", { class: "period lunch" + (ls <= m && m < le ? " current" : le <= m ? " past" : "") },
-        h("span", { class: "p", text: "" }), h("span", { class: "tm", text: `${b.e}–${state.bells[i + 1].s}` }), h("span", { class: "c", text: "점심시간" })));
+        h("span", { class: "p", text: "" }), h("span", { class: "tm", text: `${b.e}~${state.bells[i + 1].s}` }), h("span", { class: "c", text: "점심시간" })));
     }
   }
   list.replaceChildren(...items);
@@ -1162,7 +1209,7 @@ function renderTT() {
   const now = new Date(), di = dayIdx(now), m = now.getHours() * 60 + now.getMinutes();
   $("ttHint").hidden = !state.ttExample;
   $("ttEdit").textContent = ttEditing ? "편집 완료" : "편집";
-  const head = h("tr", null, h("th", { class: "ph", text: "교시" }), ...["월", "화", "수", "목", "금"].map((d, i) => h("th", { class: i === di ? "today" : "", text: d + (i === di ? " · 오늘" : "") })));
+  const head = h("tr", null, h("th", { class: "ph", text: "교시" }), ...["월", "화", "수", "목", "금"].map((d, i) => h("th", { class: i === di ? "today" : "", text: d + (i === di ? " (오늘)" : "") })));
   const rows = [head];
   for (let p = 0; p < 7; p++) {
     const b = state.bells[p];
@@ -1170,17 +1217,17 @@ function renderTT() {
       ? h("th", { class: "ph" }, h("div", null, `${p + 1}교시`), h("div", { class: "bell" },
           h("input", { type: "time", value: b.s, "aria-label": `${p + 1}교시 시작`, onchange: (e) => { b.s = e.target.value; state.ttExample = false; save(); renderPeriods(); } }),
           h("input", { type: "time", value: b.e, "aria-label": `${p + 1}교시 끝`, onchange: (e) => { b.e = e.target.value; state.ttExample = false; save(); renderPeriods(); } })))
-      : h("th", { class: "ph" }, `${p + 1}교시`, h("span", { class: "tm", text: `${b.s}–${b.e}` }));
+      : h("th", { class: "ph" }, `${p + 1}교시`, h("span", { class: "tm", text: `${b.s}~${b.e}` }));
     const cells = [0, 1, 2, 3, 4].map((d) => {
       const v = state.tt[d][p];
       if (ttEditing) {
-        return h("td", null, h("input", { type: "text", value: v, maxlength: "12", "aria-label": `${["월", "화", "수", "목", "금"][d]} ${p + 1}교시`, placeholder: "—",
+        return h("td", null, h("input", { type: "text", value: v, maxlength: "12", "aria-label": `${["월", "화", "수", "목", "금"][d]} ${p + 1}교시`,
           oninput: (e) => { state.tt[d][p] = e.target.value; state.ttExample = false; save(); } }));
       }
       const cls = [];
       if (!v.trim()) cls.push("empty-cell");
       if (d === di) { cls.push("todaycol"); if (v.trim() && toMin(b.s) <= m && m < toMin(b.e)) cls.push("nowcell"); }
-      return h("td", { class: cls.join(" "), text: v.trim() || "·" });
+      return h("td", { class: cls.join(" "), text: v.trim() });
     });
     rows.push(h("tr", null, ph, ...cells));
     if (p + 1 === state.lunchAfter) rows.push(h("tr", { class: "lunch" }, h("td", { colspan: "6", text: "점심" })));
@@ -1228,7 +1275,7 @@ function renderLinks() {
   }
   kids.push(h("button", { class: "ghost-btn", type: "button", text: "+ 사이트 추가", onclick: () => { showLinkForm = !showLinkForm; renderLinks(); if (showLinkForm) $("linkName").focus(); } }));
   const home = cfg().homeroom;
-  kids.push(h("button", { class: "region", type: "button", id: "setBtn", text: `${state.year.current}학년도 · ${!state.year.configured ? "올해 설정" : home ? "담임 " + home : "비담임"}`, onclick: () => { setOpen = !setOpen; renderSet(); } }));
+  kids.push(h("button", { class: "region", type: "button", id: "setBtn", text: `${state.year.current}학년도 ${!state.year.configured ? "올해 설정" : home ? "담임 " + home : "비담임"}`, onclick: () => { setOpen = !setOpen; renderSet(); } }));
   if (showLinkForm) {
     kids.push(h("form", { class: "link-form", onsubmit: (e) => {
       e.preventDefault();
@@ -1421,15 +1468,15 @@ function acceptNames() {
 }
 function warnBanner() {
   if (!hcWarns.length) return null;
-  const lines = hcWarns.slice(0, 8).map(w => `${w.cls} ${w.no}번: ${w.was} → ${w.now}`);
+  const lines = hcWarns.slice(0, 8).map(w => `${w.cls} ${w.no}번: ${w.was}에서 ${w.now}(으)로`);
   return h("div", { class: "lock-panel" },
     h("h3", { text: "학번에 붙은 이름이 달라졌습니다" }),
-    h("p", { text: "전입·전출로 번호가 밀린 것 같습니다. 기록은 학번에 붙어 있으니, 아래 학번의 지난 출결과 상담이 다른 학생 것일 수 있습니다." }),
-    h("div", { class: "missing", text: lines.join(" · ") + (hcWarns.length > 8 ? ` 외 ${hcWarns.length - 8}건` : "") }),
+    h("p", { text: "전입이나 전출로 번호가 밀린 것 같습니다. 기록은 학번에 붙어 있으니, 아래 학번의 지난 출결과 상담이 다른 학생 것일 수 있습니다." }),
+    h("div", { class: "missing", text: lines.join(", ") + (hcWarns.length > 8 ? ` 외 ${hcWarns.length - 8}건` : "") }),
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "확인", onclick: () => acceptNames() })));
 }
 
-// 수합·전달사항은 문서 하나에 모아 두고 반 이름으로 갈라 본다.
+// 수합과 전달사항은 문서 하나에 모아 두고 반 이름으로 갈라 본다.
 // 반 이름이 없는 항목은 1단계에서 담임 반에 적은 것이다.
 const itemCls = (x) => x.cls || cfg().homeroom;
 const mine = (list) => list.filter(x => itemCls(x) === picked());
@@ -1665,8 +1712,8 @@ function attView() {
     return `${now.getMonth() + 1}월 ${now.getDate()}일 ${label} 출결: 재적 ${list.length}명, 출석 ${present}명` + (parts.length ? ", " + parts.join(", ") : ", 전원 출석");
   };
   return [
-    h("div", { class: "summary" }, sum("", "재적 · 출석", `${present}/${list.length}`), sum("absent", "결석", absent.length), sum("late", "지각", late.length), sum("early", "조퇴", early.length)),
-    h("p", { class: "tip", text: "학생 칸을 누를 때마다 결석 → 지각 → 조퇴 → 출석 순으로 바뀝니다." }),
+    h("div", { class: "summary" }, sum("", "출석/재적", `${present}/${list.length}`), sum("absent", "결석", absent.length), sum("late", "지각", late.length), sum("early", "조퇴", early.length)),
+    h("p", { class: "tip", text: "학생 칸을 누를 때마다 결석, 지각, 조퇴, 출석 순으로 바뀝니다." }),
     h("div", { class: "students" }, ...tiles),
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", text: "출결 요약 복사", onclick: () => copyText(report()) }),
@@ -1741,7 +1788,7 @@ function noticeView() {
     e.preventDefault();
     const t = $("noticeIn").value.trim(); if (!t) return;
     items.push({ id: uid(), text: t.slice(0, 200), done: false, cls: picked() }); saveEnc(D); renderClass(); $("noticeIn") && $("noticeIn").focus();
-  } }, h("input", { type: "text", id: "noticeIn", class: "grow", placeholder: "조·종례 때 전할 내용", maxlength: "200", autocomplete: "off" }), h("button", { class: "btn small", type: "submit", text: "추가" }));
+  } }, h("input", { type: "text", id: "noticeIn", class: "grow", placeholder: "조회와 종례 때 전할 내용", maxlength: "200", autocomplete: "off" }), h("button", { class: "btn small", type: "submit", text: "추가" }));
   const ours = mine(items);
   const list = ours.length ? ours.map(n => {
     const chk = h("button", { class: "check", type: "button", "aria-label": n.done ? "전달 취소" : "전달함으로 표시", "aria-pressed": String(!!n.done), onclick: () => { n.done = !n.done; saveEnc(D); renderClass(); } });
@@ -2129,7 +2176,7 @@ function todayPage() {
         h("div", { class: "top" },
           h("span", { class: "ttl" }, h("span", { class: "tag cls", text: c }), " " + classLabel(c)),
           h("span", { class: "when", text: (list.length - a.length) + "/" + list.length })),
-        parts.length ? h("div", { class: "body", text: parts.join(" · ") }) : h("div", { class: "body", text: "전원 출석" }),
+        parts.length ? h("div", { class: "body", text: parts.join(", ") }) : h("div", { class: "body", text: "전원 출석" }),
         h("div", { class: "marks" }, h("button", { class: "btn small secondary", type: "button", text: "이 반 보기", onclick: () => goCls(c) })));
     }).filter(Boolean);
     return rows.length ? h("ul", { class: "lines" }, ...rows) : noneLine("명단을 넣은 반이 아직 없습니다.");
@@ -2144,7 +2191,7 @@ function todayPage() {
         h("span", { class: "tag cls", text: itemCls(n) || "반 없음" })))));
   })());
 
-  const jobs = panel("오늘 할 일 · 마감", (() => {
+  const jobs = panel("오늘 할 일과 마감", (() => {
     const todos = state.todos.filter(t => !t.done).sort((a, b) => todoQ(a) - todoQ(b)).slice(0, 6);
     const works = docs.works.value.items.filter(w => !w.done && w.due && dnum(w.due) <= 7)
       .sort((a, b) => a.due.localeCompare(b.due));
@@ -2159,9 +2206,9 @@ function todayPage() {
       ...todos.map(t => h("li", { class: "line" }, h("div", { class: "top" }, h("span", { class: "ttl", text: t.text }), h("span", { class: "when", text: QUADS[todoQ(t)].name })))));
   })());
 
-  const cons = panel("오늘 상담·민원", (() => {
+  const cons = panel("오늘 상담 민원", (() => {
     const items = docs.consults.value.items.filter(x => x.at === today);
-    const addBtn = h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "상담·민원 적기", onclick: () => { bookPage = "consult"; renderBook(); } }));
+    const addBtn = h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "상담 민원 적기", onclick: () => { bookPage = "consult"; renderBook(); } }));
     if (!items.length) return h("div", { class: "panel-body" }, noneLine("오늘 적은 기록이 없습니다."), addBtn);
     return h("div", null, h("ul", { class: "lines" }, ...items.map(consultLine)), addBtn);
   })());
@@ -2208,11 +2255,11 @@ function studentPage() {
   })());
 
   const mine = docs.consults.value.items.filter(x => x.sid === bookSid);
-  const cons = panel("이 학생 상담·민원",
+  const cons = panel("이 학생 상담 민원",
     mine.length ? h("ul", { class: "lines" }, ...mine.slice().sort((a, b) => b.at.localeCompare(a.at)).map(consultLine)) : noneLine("기록이 없습니다."),
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "이 학생 상담 적기", onclick: () => { bookPage = "consult"; renderBook(); } })));
 
-  const noteEl = h("textarea", { id: "stuNote", placeholder: "학급 운영에 필요한 것만 짧게. 건강·가정 형편처럼 민감한 내용은 꼭 필요할 때만 적어 주세요.", value: rec.note || "" });
+  const noteEl = h("textarea", { id: "stuNote", placeholder: "학급 운영에 필요한 것만 짧게. 건강이나 가정 형편처럼 민감한 내용은 꼭 필요할 때만 적어 주세요.", value: rec.note || "" });
   const note = panel("학생 메모", noteEl,
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "저장", onclick: () => {
       S.value.byId[bookSid] = { ...rec, note: noteEl.value.trim() };
@@ -2230,7 +2277,7 @@ function studentPage() {
   return [left, head, att, miss, cons, note];
 }
 
-/* ---------- 상담·민원 ---------- */
+/* ---------- 상담 민원 ---------- */
 function consultLine(x) {
   const D = docs.consults;
   const st = x.sid ? stuOf(x.cls, x.sid) : null;
@@ -2292,7 +2339,7 @@ function consultPage() {
 
   const items = D.value.items.slice().sort((a, b) => (a.done === b.done ? b.at.localeCompare(a.at) : a.done ? 1 : -1));
   const open = items.filter(x => !x.done).length;
-  const list = panel("기록 " + items.length + "건" + (open ? " · 진행 중 " + open : ""),
+  const list = panel("기록 " + items.length + "건" + (open ? ", 진행 중 " + open : ""),
     items.length ? h("ul", { class: "lines" }, ...items.map(consultLine)) : noneLine("상담이나 민원을 적어 두면 여기 쌓입니다."));
   return [panel("새 기록", form), list];
 }
@@ -2310,7 +2357,7 @@ function lessonPage() {
   const unitIn = h("input", { type: "text", id: "leUnit", placeholder: "단원 (예: 3단원 조선의 성립)", maxlength: "60", autocomplete: "off" });
   // 호클래스 차시를 고르면 날짜와 단원을 채워 준다.
   const clIn = h("select", { id: "leCl" }, h("option", { value: "", text: "고르지 않음" }),
-    ...lessons.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || "제목 없음"}${x.date ? " · " + x.date : ""}` })));
+    ...lessons.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || "제목 없음"}${x.date ? " (" + x.date + ")" : ""}` })));
   clIn.addEventListener("change", () => {
     const x = lessons.find(y => y.clId === clIn.value);
     if (!x) return;
@@ -2372,7 +2419,7 @@ function hcPanel(cls, lessons) {
       h("button", { class: "btn small secondary", type: "button", text: "결석 보내기", onclick: () => planSend(cls, x) }),
       x.date ? null : h("button", { class: "btn small secondary", type: "button", text: "오늘 날짜 넣기", onclick: () => putDate(x) }))));
   return panel("호클래스 차시", h("ul", { class: "lines" }, ...rows),
-    h("p", { class: "tip", text: "결석을 보내면 호클래스에서 그 차시 성적 영역이 미달성으로 고정됩니다. 지각·조퇴는 성적과 상관없으니 보내지 않습니다." }));
+    h("p", { class: "tip", text: "결석을 보내면 호클래스에서 그 차시 성적 영역이 미달성으로 고정됩니다. 지각과 조퇴는 성적과 상관없으니 보내지 않습니다." }));
 }
 async function putDate(x) {
   if (sendBusy) return;
@@ -2400,7 +2447,7 @@ function sendConfirm() {
   const kids = [
     h("div", { class: "who" },
       h("span", { class: "nm", text: `${p.x.order}차시` }),
-      h("span", { class: "meta", text: `${classLabel(p.cls)} · ${p.day}` })),
+      h("span", { class: "meta", text: `${classLabel(p.cls)} ${p.day}` })),
   ];
   if (!p.absent.length) {
     kids.push(noneLine("그날 그 반에 결석으로 적은 학생이 없습니다."));
@@ -2412,7 +2459,7 @@ function sendConfirm() {
     }, h("span", { class: "n", text: String(st.n) }), shownName(st) ? h("span", { class: "nm", text: st.name }) : null))));
   }
   if (p.other.length) {
-    kids.push(h("div", { class: "missing", text: "지각·조퇴 " + p.other.map(who).join(", ") + " 는 성적과 상관없어서 보내지 않습니다." }));
+    kids.push(h("div", { class: "missing", text: "지각, 조퇴 " + p.other.map(who).join(", ") + " 는 성적과 상관없어서 보내지 않습니다." }));
   }
   kids.push(h("div", { class: "row" },
     h("button", {
@@ -2485,7 +2532,7 @@ function workPage() {
   const over = items.filter(x => !x.done && x.due && dnum(x.due) < 0).length;
   return [
     panel("새 업무", form),
-    panel("업무 " + left + "건 남음" + (over ? " · 기한 지남 " + over : ""),
+    panel("업무 " + left + "건 남음" + (over ? ", 기한 지남 " + over : ""),
       lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("공문이나 맡은 일을 적어 두면 기한 가까운 것부터 보여 줍니다.")),
   ];
 }
@@ -2570,7 +2617,7 @@ function renderDdays() {
         h("div", { class: "dt", text: `${dt.getFullYear()}.${pad(dt.getMonth() + 1)}.${pad(dt.getDate())} (${WD[dt.getDay()]})` })),
       x.src ? null : h("button", { class: "del", type: "button", "aria-label": `${x.title} 삭제`, text: "×", onclick: () => { state.ddays = state.ddays.filter(y => y.id !== x.id); save(); renderDdays(); } }));
   }));
-  if (state.calAt) list.append(h("li", { class: "cal-src", text: `나이스 학사일정 ${state.calSchool ? state.calSchool + " " : ""}· ${state.calAt.slice(0, 10)} 받음` }));
+  if (state.calAt) list.append(h("li", { class: "cal-src", text: `나이스 학사일정 ${state.calSchool ? state.calSchool + " " : ""}${state.calAt.slice(0, 10)} 받음` }));
 }
 $("ddayForm").addEventListener("submit", (e) => {
   e.preventDefault();

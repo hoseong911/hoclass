@@ -2,8 +2,8 @@
 // 여기서는 호클래스에 쓰지 않는다. 쓰는 곳은 출결 보내기 하나뿐이고 그건 따로 만든다.
 //
 // 반 이름 짝
-//   호클래스 강의실: grade "3" + classNo "1"  →  방 번호 "301"
-//   학번: 방 번호 + 두 자리 번호              →  "30101" (3학년 1반 1번)
+//   호클래스 강의실: grade "3" + classNo "1"  에서  방 번호 "301"
+//   학번: 방 번호 + 두 자리 번호              에서  "30101" (3학년 1반 1번)
 //   수첩: "3-1"
 
 export const roomOf = (c) => String(c.grade) + String(c.classNo).padStart(2, "0");
@@ -12,9 +12,9 @@ export function clsToRoom(cls) {
   const m = /^(\d+)-(\d+)$/.exec(String(cls || ""));
   return m ? m[1] + String(m[2]).padStart(2, "0") : "";
 }
-// 학번에서 번호만 꺼낸다. "30101" → 1
+// 학번에서 번호만 꺼낸다. "30101" 에서 1
 export const noOf = (studentNo) => Number(String(studentNo).slice(-2));
-// 반과 번호로 학번을 만든다. ("3-1", 7) → "30107"
+// 반과 번호로 학번을 만든다. ("3-1", 7) 에서 "30107"
 export const studentNoOf = (cls, no) => clsToRoom(cls) + String(no).padStart(2, "0");
 
 /* 한 학년도의 강의실과 명단을 읽는다.

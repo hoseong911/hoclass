@@ -41,7 +41,7 @@ window.__deskLog = [];
     <label class="field">비밀번호<input type="password" id="gatePass" autocomplete="current-password" required></label>
     <p class="form-err" id="gateErr" role="alert"></p>
     <button class="btn" type="submit" id="gateBtn">들어가기</button>
-    <p class="tip">여기 넣는 비밀번호는 계정 비밀번호입니다. 상담·학생 메모를 여는 수첩 비밀번호는 들어간 뒤에 따로 넣습니다.</p>
+    <p class="tip">여기 넣는 비밀번호는 계정 비밀번호입니다. 상담과 학생 메모를 여는 수첩 비밀번호는 들어간 뒤에 따로 넣습니다.</p>
     <p class="gate-diag" id="gateDiag">화면을 불러오는 중…</p>
     <button class="text-btn" type="button" id="gateReload">새로 받기 (저장해 둔 것 버리고)</button>
   </form>
@@ -53,11 +53,11 @@ window.__deskLog = [];
 <div class="deck" id="deck">
 
   <section class="wg" data-w="clock">
-    <!-- 시간, 날짜, 날씨만 둔다(선생님 지시 2026-11-12). 주차·수업 완료·D-day는 뺐다. -->
+    <!-- 시간, 날짜, 날씨만 둔다(선생님 지시 2026-11-12). 주차, 수업 완료, D-day는 뺐다. -->
     <section class="card wg-clock">
       <div class="cw-time">
         <div class="clock" id="clock" aria-live="off">--:--<span class="sec">--</span></div>
-        <div class="date-main" id="dateMain">—</div>
+        <div class="date-main" id="dateMain"></div>
       </div>
       <div class="cw-wx" id="wx"></div>
     </section>
@@ -75,7 +75,7 @@ window.__deskLog = [];
         <h2 class="card-title" id="nowTitle">지금</h2>
         <span class="card-aside" id="nowAside"></span>
       </div>
-      <div class="now-main" id="nowMain">—</div>
+      <div class="now-main" id="nowMain"></div>
       <div class="now-sub" id="nowSub"></div>
       <div class="now-bar" id="nowBarWrap"><i id="nowBar" style="width:0%"></i></div>
       <div class="now-next" id="nowNext"></div>
@@ -123,7 +123,7 @@ window.__deskLog = [];
         <div class="book-seg" id="bookSeg" role="group" aria-label="수첩 보기">
           <button type="button" data-page="today" aria-pressed="true">오늘</button>
           <button type="button" data-page="student" aria-pressed="false">학생</button>
-          <button type="button" data-page="consult" aria-pressed="false">상담·민원</button>
+          <button type="button" data-page="consult" aria-pressed="false">상담 민원</button>
           <button type="button" data-page="lesson" aria-pressed="false">수업</button>
           <button type="button" data-page="work" aria-pressed="false">업무</button>
         </div>
@@ -156,7 +156,7 @@ window.__deskLog = [];
   <section class="wg" data-w="ddays">
     <section class="card" aria-labelledby="ddayTitle">
       <div class="card-head">
-        <h2 class="card-title" id="ddayTitle">학사 일정 · D-day</h2>
+        <h2 class="card-title" id="ddayTitle">학사 일정 D-day</h2>
         <button class="text-btn" type="button" id="calPaste">일정 붙여넣기</button>
       </div>
       <div id="calBox" hidden></div>
@@ -197,7 +197,7 @@ window.__deskLog = [];
 
 <!-- 우상단 도구. 마우스를 올리면 나타난다. -->
 <div class="tools" id="tools">
-  <button class="tool" type="button" id="arrange" title="위젯 이동·크기조절"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>배치</button>
+  <button class="tool" type="button" id="arrange" title="위젯 이동과 크기 조절"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>배치</button>
   <button class="tool" type="button" id="toolSet" title="설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>설정</button>
 </div>
 
@@ -234,7 +234,7 @@ document.getElementById("gateReload").addEventListener("click", async function (
   } catch (e) {}
   location.reload();
 });
-// 화면 코드를 못 불러오면(인터넷·오류) 선생님이 영문도 모르고 기다리지 않게 알린다.
+// 화면 코드를 못 불러오면(인터넷이나 오류) 선생님이 영문도 모르고 기다리지 않게 알린다.
 setTimeout(function () {
   if (window.__deskReady) return;
   var e = document.getElementById("gateErr");

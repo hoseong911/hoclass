@@ -1,4 +1,4 @@
-// 파베판 수첩을 가짜 파이어스토어·Auth로 끝까지 시험한다. 실제 계정과 실제 파베는 건드리지 않는다.
+// 파베판 수첩을 가짜 파이어스토어와 Auth로 끝까지 시험한다. 실제 계정과 실제 파베는 건드리지 않는다.
 // 쓰는 법: cd desk && npm test
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const { JSDOM } = require("jsdom");
@@ -13,7 +13,7 @@ async function until(fn, label, ms = 20000) {
 }
 
 /* ---------- 가짜 파이어스토어 ---------- */
-const store = new Map();                 // "컬렉션/문서" → 본문(JSON 글자)
+const store = new Map();                 // "컬렉션/문서" 마다 본문(JSON 글자)
 const listeners = new Map();
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const put = (p, body) => store.set(p, JSON.stringify(body));
@@ -184,12 +184,20 @@ function checkShrinkRules() {
     ["container-type: inline-size", "좁은 화면에서는 가로만 재기(안 하면 칸 높이가 0으로 접힌다)"],
   ];
   for (const [text, why] of need) {
-    assert(css.includes(text), "desk.css 에 `" + text + "` 가 있어야 한다 — " + why);
+    assert(css.includes(text), "desk.css 에 `" + text + "` 가 있어야 한다: " + why);
   }
   // 폰 규칙은 .wg { container-type: size } 보다 뒤에 와야 이긴다. 앞에 있으면 폰에서 카드끼리 겹친다.
   const sizeAt = css.indexOf(".wg { container-type: size; }");
   const phoneAt = css.lastIndexOf("container-type: inline-size");
   assert(phoneAt > sizeAt, "폰에서 가로만 재는 규칙이 .wg { container-type: size } 보다 뒤에 있어야 한다");
+  // 세워 보는 조건(폰 1단, 세로 태블릿 2단)은 desk.js 와 desk.css 가 같아야 한다.
+  const js = fs.readFileSync(path.join(DIR, "desk.js"), "utf8");
+  for (const name of ["STACK_MQ", "TWO_MQ"]) {
+    const m = new RegExp("const " + name + ' = "([^"]+)"').exec(js);
+    assert(m, "desk.js 에 " + name + " 가 있어야 한다");
+    assert(css.includes("@media " + m[1] + " {"), "desk.css 에 desk.js 의 " + name + " 와 같은 조건이 있어야 한다: " + m[1]);
+  }
+  assert(css.includes("grid-template-rows: none;"), "2단에서는 PC용 세로 칸 줄을 지워야 한다(안 지우면 간격이 틀어진다)");
   // 해상도에 맞춰 칸 속을 키우고 줄이는 규칙
   assert(css.includes(".wg { zoom: var(--k, 1); }"), "해상도 배율 규칙이 있어야 한다");
   const n = (css.match(/@container/g) || []).length;
@@ -260,7 +268,7 @@ function checkHiddenRule() {
   // 시험에는 인터넷이 없어서 못 받았다고 알려야 한다(오류로 멈추면 안 된다)
   await until(() => A.$("wx").textContent.includes("날씨"), "날씨 칸");
 
-  /* ---------- 할 일: 중요도·긴급도 네 칸 (2026-11-12) ---------- */
+  /* ---------- 할 일: 중요도와 긴급도 네 칸 (2026-11-12) ---------- */
   const qCells = () => [...A.d.querySelectorAll("#todoQuad .q-cell")];
   assert.strictEqual(qCells().length, 4, "할 일 칸 넷");
   const q2 = qCells()[2];
@@ -315,7 +323,7 @@ function checkHiddenRule() {
   assert(!A.wg("tt").hidden, "2장에 주간 시간표도 있다");
   assert(A.wg("class").hidden, "2장에서는 우리 반이 숨는다");
   // 화살표로도 넘긴다
-  A.btn("#pagebar", "‹").click();
+  A.d.querySelector('#pagebar [aria-label="앞 장"]').click();
   await until(() => !A.wg("class").hidden, "앞 장으로 돌아온다");
 
   // 장을 더하고 지운다
@@ -424,7 +432,7 @@ function checkHiddenRule() {
   A.fill("setYear", "2027"); A.fill("setHome", "3-9");
   A.submit("setForm");                                  // 저장하면 호클래스를 다시 읽는다
   await until(() => A.text().includes("학번에 붙은 이름이 달라졌습니다"), "파수꾼이 알린다", 30000);
-  assert(A.text().includes("30102번: 이주서 → 전학온애"), "바뀐 학번과 이름: " + A.text().slice(0, 160));
+  assert(A.text().includes("30102번: 이주서에서 전학온애(으)로"), "바뀐 학번과 이름: " + A.text().slice(0, 160));
   A.btn("#classBody", "확인").click();
   await until(() => !A.text().includes("학번에 붙은 이름이 달라졌습니다"), "확인하면 경고가 사라진다");
 
@@ -461,7 +469,7 @@ function checkHiddenRule() {
   A.$("colCl").value = "cl1"; A.$("colPart").value = "mission";
   A.submit("colForm");
   await until(() => A.text().includes("호클래스 제출을 그대로 보는"), "호클래스에 걸린 수합", 30000);
-  await until(() => A.d.querySelectorAll("#classBody .stu.got").length === 2, "1번·3번만 제출로 보인다");
+  await until(() => A.d.querySelectorAll("#classBody .stu.got").length === 2, "1번과 3번만 제출로 보인다");
   assert(A.text().includes("미제출 1명"), "미제출 1명: " + A.text().slice(0, 120));
 
   /* ---------- 6단계: 결석 보내기 ---------- */
@@ -469,14 +477,14 @@ function checkHiddenRule() {
   await until(() => A.d.querySelectorAll("#classBody .stu").length === 3, "출결 탭");
   // 2번을 지각으로 (지각은 보내지 않아야 한다)
   const t2 = A.stu()[1];
-  t2.click(); t2.click();                       // 결석 → 지각
+  t2.click(); t2.click();                       // 결석에서 지각으로
   await until(() => A.d.querySelectorAll("#classBody .stu.지각").length === 1, "2번 지각");
 
   A.tab("lesson");
   await until(() => A.book().includes("호클래스 차시"), "차시 칸");
   A.btn("#bookBody", "결석 보내기").click();
   await until(() => A.book().includes("결석 보내기 확인"), "확인 화면", 30000);
-  assert(A.book().includes("지각·조퇴"), "지각은 안 보낸다고 알려 준다");
+  assert(A.book().includes("지각, 조퇴"), "지각은 안 보낸다고 알려 준다");
   assert(A.book().includes("결석 1명 보내기"), "결석 1명: " + A.book().slice(0, 200));
   A.btn("#bookBody", "결석 1명 보내기").click();
   await until(() => !A.book().includes("결석 보내기 확인"), "보내고 나면 확인 화면이 닫힌다", 30000);
