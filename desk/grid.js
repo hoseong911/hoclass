@@ -7,7 +7,7 @@ export const DEFAULT_PAGES = 2;
 export const MAX_PAGES = 8;
 
 /* 더 작게 줄일 수 없는 칸 수 [가로, 세로] */
-export const MIN_SIZE = [4, 4];
+export const MIN_SIZE = [2, 2];
 export const WIDGETS = [
   { id: "clock",   name: "시계",        min: MIN_SIZE },
   { id: "links",   name: "바로가기",    min: MIN_SIZE },
