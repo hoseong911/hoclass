@@ -715,6 +715,12 @@ function checkHiddenRule() {
   const t2 = A.stu()[1];
   t2.click(); t2.click();
   await until(() => A.d.querySelectorAll("#classBody .stu.지각").length === 1, "2번 지각");
+  if (process.env.DUMP_CLASS) {                   // 우리 반 세 보기를 떠 둔다(눈으로 볼 때)
+    const seg = (t) => [...A.d.querySelectorAll("#classSeg button")].find(b => b.dataset.tab === t).click();
+    for (const t of ["att", "col", "ann"]) { seg(t); await wait(60);
+      fs.writeFileSync(process.env.DUMP_CLASS + "_" + t + ".html", A.wg("class").outerHTML); }
+    seg("att"); await wait(60);
+  }
 
   A.tab("lesson");
   await until(() => A.book().includes("호클래스 차시"), "차시 칸");

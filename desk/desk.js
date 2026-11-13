@@ -2171,7 +2171,7 @@ function renderClass() {
   const hcNote = hcErr ? h("p", { class: "hint", text: hcErr })
     : (hcBusy && !hc) ? h("p", { class: "tip", text: "호클래스 명단을 읽는 중입니다." }) : null;
   const head = [rollover, banner, hcNote].filter(Boolean);
-  const wrap = (kids) => body.replaceChildren(...[...head, ...kids]);
+  const wrap = (kids) => body.replaceChildren(...[...head, ...kids].filter(Boolean));   // 빈 자리(null)가 "null" 글자로 찍히지 않게
   if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "담임 반과 수업 반을 넣어 주세요" }), h("div", { class: "row" }, openSetBtn()))]); return; }
   ensureAtt(todayKey(), pick);
   if (!pick) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "이 학년도에 들어가는 반이 없습니다" }), h("p", { text: "'기본 설정'에서 담임 반이나 수업 반을 넣으면 출결과 수합을 쓸 수 있습니다." }), h("div", { class: "row" }, openSetBtn()))]); return; }
@@ -2193,6 +2193,14 @@ function stuTile(st, cls, label, statusText, onclick, pressed) {
   return h("button", { class: "stu " + cls, type: "button", "aria-pressed": pressed, "aria-label": label, onclick },
     h("span", { class: "n", text: String(st.n) }), nm ? h("span", { class: "nm", text: nm }) : null, h("span", { class: "st", text: statusText }));
 }
+/* 우리 반 세 보기(선생님 지적 2026-11-13 "보기 안 좋다"): 빨간 단추를 줄이고(복사, 지우기는 글자 단추),
+   위에 한 줄 요약, 가운데 학생 칸(남는 높이를 나눠 가짐), 맨 아래 드물게 쓰는 단추. */
+const foot = (...kids) => h("div", { class: "cls-foot" }, ...kids.filter(Boolean));
+/* 한 번 더 눌러야 실행되는 글자 단추(지우기류) */
+const armBtn = (label, again, fn) => h("button", { class: "text-btn danger", type: "button", text: label, onclick: (e) => {
+  if (e.currentTarget.dataset.armed) { fn(); return; }
+  e.currentTarget.dataset.armed = "1"; e.currentTarget.textContent = again;
+} });
 function attView() {
   const now = new Date(), A = docs.att, list = roster();
   const day = attMarks();
@@ -2200,7 +2208,6 @@ function attView() {
   const absent = by("결석"), late = by("지각"), early = by("조퇴");
   const present = list.length - absent.length;
   const label = classLabel(picked());
-  const sum = (cls, k2, v) => h("div", { class: "sum " + cls }, h("div", { class: "k", text: k2 }), h("div", { class: "v", text: String(v) }));
   const tiles = list.map(st => {
     const s = day[st.id] || "";
     return stuTile(st, s, `${who(st)} ${s || "출석"}. 눌러서 상태 바꾸기`, s, () => {
@@ -2216,38 +2223,43 @@ function attView() {
     if (early.length) parts.push(`조퇴 ${early.length}명(${early.map(who).join(", ")})`);
     return `${now.getMonth() + 1}월 ${now.getDate()}일 ${label} 출결: 재적 ${list.length}명, 출석 ${present}명` + (parts.length ? ", " + parts.join(", ") : ", 전원 출석");
   };
+  // 0 인 것은 칠하지 않는다. 아무 일 없는 날 화면이 시끄럽지 않게.
+  const sum = (k, arr, cls) => h("span", { class: "k" + (arr.length ? " " + cls : "") }, k + " ", h("b", { text: String(arr.length) }));
   return [
-    h("div", { class: "summary" }, sum("", "출석/재적", `${present}/${list.length}`), sum("absent", "결석", absent.length), sum("late", "지각", late.length), sum("early", "조퇴", early.length)),
+    h("div", { class: "cls-line" },
+      h("div", { class: "att-sum", id: "attSum" },
+        h("span", { class: "k" }, "출석 ", h("b", { text: `${present}/${list.length}` })),
+        sum("결석", absent, "absent"), sum("지각", late, "late"), sum("조퇴", early, "early")),
+      h("button", { class: "text-btn", type: "button", id: "attCopy", text: "요약 복사", onclick: () => copyText(report()) })),
     h("div", { class: "students" }, ...tiles),
-    h("div", { class: "row" },
-      h("button", { class: "btn small", type: "button", text: "출결 요약 복사", onclick: () => copyText(report()) }),
-      Object.keys(day).length ? h("button", { class: "btn small secondary", type: "button", text: "오늘 기록 비우기", onclick: (e) => {
-        if (e.currentTarget.dataset.armed) { A.value.marks = {}; saveEnc(A); renderClass(); return; }
-        e.currentTarget.dataset.armed = "1"; e.currentTarget.textContent = "한 번 더 누르면 초기화";
-      } }) : null),
+    Object.keys(day).length ? foot(armBtn("오늘 기록 비우기", "한 번 더 누르면 초기화", () => { A.value.marks = {}; saveEnc(A); renderClass(); })) : null,
   ];
 }
 
+let colAdding = false;         // 수합 탭에서 「+ 새 수합」을 눌러 이름 칸을 연 때
 function collectView() {
   const D = docs.collects;
   stampCls(D);
   const list = roster(), items = D.value.items, ours = mine(items);
   if (!ours.find(c => c.id === activeCollect)) activeCollect = ours[0] ? ours[0].id : null;
   const myLessons = lessonsOf(picked());
-  const colCl = h("select", { id: "colCl" }, h("option", { value: "", text: "손으로 걷기" }),
+  const colCl = h("select", { id: "colCl", "aria-label": "호클래스 차시" }, h("option", { value: "", text: "손으로 걷기" }),
     ...myLessons.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || ""}`.trim() })));
-  const colPart = h("select", { id: "colPart" },
+  const colPart = h("select", { id: "colPart", "aria-label": "걷을 것" },
     h("option", { value: "mission", text: "미션 활동" }),
     h("option", { value: "question", text: "오늘의 질문" }),
     h("option", { value: "formative", text: "형성평가" }));
-  const addForm = h("form", { class: "row", id: "colForm", onsubmit: (e) => {
+  const adding = colAdding || !ours.length;
+  const addForm = adding ? h("form", { class: "col-add", id: "colForm", onsubmit: (e) => {
     e.preventDefault();
     const t = $("colName").value.trim(); if (!t) return;
     const c = { id: uid(), title: t.slice(0, 40), got: [], cls: picked(), clId: colCl.value || "", part: colPart.value || "" };
-    items.unshift(c); activeCollect = c.id; saveEnc(D); renderClass();
-  } }, h("input", { type: "text", id: "colName", class: "grow", "aria-label": "새 수합 항목", maxlength: "40", autocomplete: "off" }),
+    items.unshift(c); activeCollect = c.id; colAdding = false; saveEnc(D); renderClass();
+  } },
+    h("label", { class: "field grow" }, "새 수합 이름", h("input", { type: "text", id: "colName", maxlength: "40", autocomplete: "off" })),
     myLessons.length ? colCl : null, myLessons.length ? colPart : null,
-    h("button", { class: "btn small", type: "submit", text: "추가" }));
+    h("button", { class: "btn small", type: "submit", text: "추가" }),
+    ours.length ? h("button", { class: "text-btn", type: "button", text: "취소", onclick: () => { colAdding = false; renderClass(); } }) : null) : null;
   if (!activeCollect) return [addForm, h("p", { class: "empty", text: "수합 항목이 없습니다." })];
   const c = ours.find(x => x.id === activeCollect);
   const ids = new Set(list.map(st => st.id));
@@ -2257,7 +2269,8 @@ function collectView() {
     return list.filter(st => m[st.id] && m[st.id][x.part || "mission"]).length;
   };
   const tabs = h("div", { class: "collect-tabs" }, ...ours.map(x => h("button", { class: "ctab", type: "button", "aria-pressed": String(x.id === activeCollect), onclick: () => { activeCollect = x.id; renderClass(); } },
-    x.title, x.clId ? h("span", { class: "tag cls", text: "호클래스" }) : null, h("span", { class: "cnt", text: `${cntOf(x)}/${list.length}` }))));
+    x.title, x.clId ? h("span", { class: "tag cls", text: "호클래스" }) : null, h("span", { class: "cnt", text: `${cntOf(x)}/${list.length}` }))),
+    adding ? null : h("button", { class: "text-btn", type: "button", id: "colNew", text: "+ 새 수합", onclick: () => { colAdding = true; renderClass(); } }));
   const linked = !!c.clId;
   if (linked) wantSubs(c.clId);
   const subs = linked ? (subCache.get(c.clId) || {}) : null;
@@ -2271,27 +2284,28 @@ function collectView() {
     saveEnc(D); renderClass();
   }, String(gotSet.has(st.id))));
   const missText = missing.length ? `${c.title} 미제출 ${missing.length}명: ${missing.map(who).join(", ")}` : `${c.title} 전원 제출`;
+  // 누가 안 냈는지는 학생 칸 색으로 보인다. 번호를 또 늘어놓지 않는다.
   return [
     addForm, tabs,
-    h("div", { class: "missing" }, missing.length ? h("b", { text: `미제출 ${missing.length}명 ` }) : h("b", { style: "color:var(--accent)", text: "전원 제출 " }), missing.length ? missing.map(st => st.n).join(", ") : ""),
+    h("div", { class: "cls-line" },
+      h("div", { class: "att-sum" }, missing.length
+        ? h("span", { class: "k absent" }, "미제출 ", h("b", { text: missing.length + "명" }))
+        : h("span", { class: "k done" }, h("b", { text: "전원 제출" }))),
+      missing.length ? h("button", { class: "text-btn", type: "button", id: "colCopy", text: "미제출 명단 복사", onclick: () => copyText(missText) }) : null),
     h("div", { class: "students" }, ...tiles),
-    h("div", { class: "row" },
-      h("button", { class: "btn small", type: "button", text: "미제출 명단 복사", onclick: () => copyText(missText) }),
-      h("button", { class: "btn small secondary", type: "button", text: "삭제", onclick: (e) => {
-        if (e.currentTarget.dataset.armed) { D.value.items = items.filter(x => x.id !== c.id); activeCollect = null; saveEnc(D); renderClass(); return; }
-        e.currentTarget.dataset.armed = "1"; e.currentTarget.textContent = "한 번 더 누르면 삭제";
-      } })),
+    foot(armBtn("이 수합 삭제", "한 번 더 누르면 삭제", () => { D.value.items = items.filter(x => x.id !== c.id); activeCollect = null; saveEnc(D); renderClass(); })),
   ];
 }
 
 function noticeView() {
   const D = docs.notices, items = D.value.items;
   stampCls(D);
-  const form = h("form", { class: "row", onsubmit: (e) => {
+  const form = h("form", { class: "col-add", onsubmit: (e) => {
     e.preventDefault();
     const t = $("noticeIn").value.trim(); if (!t) return;
     items.push({ id: uid(), text: t.slice(0, 200), done: false, cls: picked() }); saveEnc(D); renderClass(); $("noticeIn") && $("noticeIn").focus();
-  } }, h("input", { type: "text", id: "noticeIn", class: "grow", "aria-label": "전달사항", maxlength: "200", autocomplete: "off" }), h("button", { class: "btn small", type: "submit", text: "추가" }));
+  } }, h("label", { class: "field grow" }, "새 전달사항", h("input", { type: "text", id: "noticeIn", maxlength: "200", autocomplete: "off" })),
+    h("button", { class: "btn small", type: "submit", text: "추가" }));
   const ours = mine(items);
   const list = ours.length ? ours.map(n => {
     const chk = h("button", { class: "check", type: "button", "aria-label": n.done ? "전달 취소" : "전달함으로 표시", "aria-pressed": String(!!n.done), onclick: () => { n.done = !n.done; saveEnc(D); renderClass(); } });
@@ -2299,13 +2313,14 @@ function noticeView() {
     return h("li", { class: "todo" + (n.done ? " done" : "") }, chk, h("span", { class: "todo-text", text: n.text }),
       h("button", { class: "del", type: "button", "aria-label": "삭제", text: "×", onclick: () => { D.value.items = items.filter(x => x.id !== n.id); saveEnc(D); renderClass(); } }));
   }) : [h("li", { class: "empty", text: "전달사항이 없습니다." })];
-  const doneCount = ours.filter(n => n.done).length;
+  const left = ours.filter(n => !n.done), doneCount = ours.length - left.length;
   return [
     form,
-    h("ul", { class: "todo-list" }, ...list),
-    h("div", { class: "row" },
-      ours.length ? h("button", { class: "btn small", type: "button", text: "전달사항 복사", onclick: () => copyText(ours.filter(n => !n.done).map((n, i) => `${i + 1}. ${n.text}`).join("\n") || "전달할 내용이 없습니다") }) : null,
-      doneCount ? h("button", { class: "btn small secondary", type: "button", text: `전달한 ${doneCount}개 지우기`, onclick: () => { D.value.items = items.filter(n => !(n.done && itemCls(n) === picked())); saveEnc(D); renderClass(); } }) : null),
+    ours.length ? h("div", { class: "cls-line" },
+      h("div", { class: "att-sum" }, h("span", { class: "k" }, "남은 것 ", h("b", { text: left.length + "개" }))),
+      left.length ? h("button", { class: "text-btn", type: "button", text: "전달사항 복사", onclick: () => copyText(left.map((n, i) => `${i + 1}. ${n.text}`).join("\n")) }) : null) : null,
+    h("ul", { class: "todo-list notice-list" }, ...list),
+    doneCount ? foot(h("button", { class: "text-btn", type: "button", text: `전달한 ${doneCount}개 지우기`, onclick: () => { D.value.items = items.filter(n => !(n.done && itemCls(n) === picked())); saveEnc(D); renderClass(); } })) : null,
   ];
 }
 

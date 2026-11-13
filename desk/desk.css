@@ -166,13 +166,27 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .nsub-nm { flex: 0 0 96px; }
 .nsub-cls { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }
 .nsub-cls .cpick { padding: 3px 9px; }
-.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-.sum { border-radius: 10px; padding: 6px 8px; background: var(--surface-2); }
-.sum .k { font-size: 11px; color: var(--muted); }
-.sum .v { font-family: var(--font-num); font-size: 20px; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.sum.absent .v { color: var(--danger); }
-.sum.late .v { color: var(--warn); }
-.sum.early .v { color: var(--blue); }
+/* 우리 반 보기: 위 한 줄 요약(왼쪽 숫자, 오른쪽 글자 단추), 가운데 학생 칸, 맨 아래 드문 단추 */
+.cls-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.att-sum { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+.att-sum b { font-family: var(--font-num); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.att-sum .absent, .att-sum .absent b { color: var(--danger); }
+.att-sum .late, .att-sum .late b { color: var(--warn); }
+.att-sum .early, .att-sum .early b { color: var(--blue); }
+.att-sum .done b { color: var(--pass); }
+.cls-foot { display: flex; justify-content: flex-end; gap: 8px; }
+.text-btn.danger { color: var(--danger); }
+.col-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.col-add .grow { flex: 1 1 160px; min-width: 0; }
+.col-add > .btn { padding-block: 10px; }   /* 이름 칸 높이에 맞춘다 */
+/* 우리 반 몸통은 남는 높이를 채운다: 학생 칸 줄이 나눠 늘어나고, 모자라면 굴러간다 */
+#classBody { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+#classBody > .students { flex: 1 0 auto; grid-auto-rows: minmax(52px, 1fr); }
+#classBody > .students .stu { justify-content: center; }
+/* 고른 반은 옅게 칠한다. 꽉 찬 빨강이 위젯에 서너 개씩 겹쳐 시끄러웠다 */
+.class-pick .cpick[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+/* 보기 토글: 누른 뒤 남는 초점 테두리를 안쪽 가는 줄로(빨간 고리가 남아 보였다) */
+.seg button:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 .students { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; }
 .stu { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 4px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; position: relative; }
 .stu:hover { border-color: var(--faint); }
@@ -760,8 +774,6 @@ body { overflow: hidden; }
   .class-name { font-size: 17px; }
   .seg button { font-size: 12px; }
   .cpick { font-size: 12px; }
-  .sum .k { font-size: 10.5px; }
-  .sum .v { font-size: 17px; }
   .stu .n { font-size: 13px; }
   .stu .nm { font-size: 10.5px; }
   .stu .st { font-size: 10px; }
@@ -809,8 +821,6 @@ body { overflow: hidden; }
   .class-name { font-size: 15px; }
   .seg button { font-size: 11.5px; }
   .cpick { font-size: 11.5px; }
-  .sum .k { font-size: 10px; }
-  .sum .v { font-size: 15px; }
   .stu .n { font-size: 12px; }
   .stu .nm { font-size: 10px; }
   .stu .st { font-size: 9.5px; }
@@ -860,8 +870,6 @@ body { overflow: hidden; }
   .class-name { font-size: 14px; }
   .seg button { font-size: 11px; }
   .cpick { font-size: 11px; }
-  .sum .k { font-size: 10px; }
-  .sum .v { font-size: 14px; }
   .stu .n { font-size: 11.5px; }
   .stu .nm { font-size: 9.5px; }
   .stu .st { font-size: 9px; }
@@ -924,7 +932,6 @@ body { overflow: hidden; }
   .counts { grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); }
   .wg-list { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
   .book-cols { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-  .summary { gap: 4px; }
 }
 @container (max-width: 340px) {
   .tt th.ph { width: 58px; }
