@@ -42,11 +42,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .date-main { font-size: clamp(18px, 2vw, 22px); font-weight: 600; text-wrap: balance; }
 
 /* 바로가기 */
-/* 타일을 같은 폭으로 늘려 줄 끝이 오른쪽 가장자리에 맞는다(양쪽 정렬).
-   flex 로 흘리면 줄 끝이 들쭉날쭉해서 왼쪽만 맞은 것처럼 보인다. */
-.links { display: flex; flex-direction: column; gap: 10px; }
-.link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); gap: 10px; }
-.link-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+/* 작업 표시줄처럼 가운데로 모은다(선생님 지시 2026-11-13). 몇 개 없어도 왼쪽에 쏠리지 않는다. */
+.links { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 10px; }
 .link {
   display: inline-flex; align-items: center; gap: 10px; padding: 7px 14px 7px 7px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
@@ -55,15 +52,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
 }
 .link:hover { border-color: var(--accent); transform: translateY(-1px); }
 .link .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.link.official { border-color: var(--sky); background: var(--sky-soft); }
 .link .sub { font-size: 11px; color: var(--muted); font-weight: 500; }
 .mono-tile { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-weight: 600; font-size: 13px; color: #fff; flex: none; }
 .link-ico { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; line-height: 1; object-fit: contain; }
 .link-ico.svg { color: var(--accent); }
 .link-ico svg { width: 22px; height: 22px; display: block; }
-.link .x { display: none; }
-.links.editing .link.custom { padding-right: 34px; }
-.links.editing .link.custom .x { display: grid; }
 .x {
   position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
   width: 22px; height: 22px; border-radius: 8px; border: 0; background: var(--surface-2); color: var(--muted);
@@ -72,8 +65,12 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .x:hover { background: var(--danger-soft); color: var(--danger); }
 .ghost-btn { border: 1px dashed var(--faint); background: transparent; color: var(--muted); border-radius: 12px; padding: 9px 14px; cursor: pointer; font-size: 14px; font-weight: 500; }
 .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
-.card.float.narrow { width: min(440px, calc(100vw - 32px)); }
-#linkAdd { padding: 7px 0; width: 38px; font-size: 18px; line-height: 1; text-align: center; }
+/* 설정 창 바로가기 탭: 한 줄에 아이콘, 이름과 주소, 삭제 */
+.lk-list { display: flex; flex-direction: column; gap: 6px; }
+.lk-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.lk-txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.lk-txt b { font-size: 14px; font-weight: 600; }
+.lk-txt span { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .emoji-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 6px; }
 .emoji-pick button { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 0; color: var(--ink); line-height: 1; cursor: pointer; display: grid; place-items: center; }
 .emoji-pick button svg { width: 22px; height: 22px; display: block; }
@@ -382,13 +379,10 @@ body { overflow: hidden; }
 /* 시계와 날짜 사이 여백은 칸이 넉넉할 때만. 작은 칸은 붙여 공간을 아낀다. */
 @container (min-height: 220px) { .cw-time { gap: clamp(6px, 2.6cqh, 18px); } }
 
-/* 바로가기를 한 칸 높이로 줄였을 때. 두 겹으로 쌓을 자리가 없어 한 줄로 눕힌다. */
+/* 가로로 긴 띠(세로 한 칸)일 때. 줄바꿈을 막아 한 줄에 다 눕히고, 이름은 그대로 보인다.
+   넘치면 fitCard() 가 칸 전체를 줄인다. */
 @container (max-height: 108px) {
-  .links { flex-direction: row; align-items: center; gap: 8px; }
-  .link-grid { flex: 1; min-width: 0; grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(34px, 1fr); }
-  .link-bar { flex: none; }
-  .link > .nm { display: none; }
-  .link { justify-content: center; padding: 5px; }
+  .links { flex-wrap: nowrap; }
 }
 
 /* ── 할 일 ── */
@@ -427,7 +421,7 @@ body { overflow: hidden; }
 }
 .q-plus:hover { border-color: var(--qc); }
 
-.wg-links .links { margin: 0; }
+.wg-links .links { margin: 0; flex: 1; }
 
 /* ══════════ 설정 패널 ══════════ */
 .scrim { position: fixed; inset: 0; z-index: 24; background: rgba(22, 32, 28, .28); }
@@ -841,14 +835,12 @@ body { overflow: hidden; }
   .timeline { grid-template-columns: 42px minmax(0, 1fr); }
   .period { grid-template-columns: 40px 70px minmax(0, 1fr); gap: 6px; padding: 5px 7px; }
   .book-seg button { padding: 6px 10px; }
-  .links, .link-grid, .link-bar { gap: 6px; }
+  .links { gap: 6px; }
   .link { padding: 5px 9px 5px 5px; }
-  .link-grid { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
 }
 @container (max-width: 200px) {
   .link > .nm { display: none; }
-  .link { justify-content: center; }
-  .link-grid { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); }
+  .link { justify-content: center; padding: 5px; }
   .link { padding: 5px; }
   .period { grid-template-columns: 36px minmax(0, 1fr); }
   .period .tm { display: none; }

@@ -61,7 +61,13 @@ const EXAMPLE_TT = [
   ["", "2-3", "2-2", "", "2-1", "2-4", ""],
   ["2-5", "", "2-4", "2-2", "", "동아리", ""],
 ];
+/* 업무포털과 나이스도 지울 수 있어야 한다(선생님 지시 2026-11-13). 코드에 박아 두지 않고 목록에 넣는다. */
+const OFFICIAL_LINKS = () => [
+  { id: uid(), name: "업무포털", url: "https://ice.eduptl.kr", icon: "landmark" },
+  { id: uid(), name: "나이스", url: "https://ice.neis.go.kr", icon: "layout-grid" },
+];
 const TEACHER_LINKS = () => [
+  ...OFFICIAL_LINKS(),
   { id: uid(), name: "에듀넷 티-클리어", url: "https://www.edunet.net" },
   { id: uid(), name: "학교알리미", url: "https://www.schoolinfo.go.kr" },
   { id: uid(), name: "구글 클래스룸", url: "https://classroom.google.com" },
@@ -166,10 +172,19 @@ const SPECS = [
   { key: "desk_settings",
     /* 주간 시간표는 5×7 이지만 **한 줄로 펴서** 담는다.
        파이어스토어는 배열 안에 배열을 담지 못한다(넣으려 들면 저장이 통째로 막힌다). */
-    pick: () => ({ links: state.links, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, idleMin: state.idleMin, school: state.school, neis: state.neis }),
+    pick: () => ({ links: state.links, officials: true, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, idleMin: state.idleMin, school: state.school, neis: state.neis }),
     put: (s) => {
-      if (arr(s.links)) state.links = s.links.filter(l => l && typeof l.url === "string")
-        .map(l => ({ ...l, icon: typeof l.icon === "string" ? l.icon.slice(0, 8) : "" }));
+      if (arr(s.links)) {
+        state.links = s.links.filter(l => l && typeof l.url === "string")
+          .map(l => ({ ...l, icon: typeof l.icon === "string" ? l.icon.slice(0, 20) : "" }));
+        /* 옛 자료에는 업무포털과 나이스가 코드에 박혀 있어 목록에 없다. 한 번만 앞에 끼운다.
+           주소로 걸러 두 번 끼우지 않는다 — 저장이 늦어 이 길로 다시 들어와도 늘어나지 않는다. */
+        if (!s.officials) {
+          const have = new Set(state.links.map(l => l.url));
+          state.links = [...OFFICIAL_LINKS().filter(o => !have.has(o.url)), ...state.links];
+          addOfficials = true;
+        }
+      }
       if (arr(s.bells) && s.bells.length === 7) state.bells = s.bells.map(b => ({ s: String(b.s || ""), e: String(b.e || "") }));
       if (Number.isInteger(s.lunchAfter) && s.lunchAfter >= 1 && s.lunchAfter <= 6) state.lunchAfter = s.lunchAfter;
       // 펴서 담은 35칸, 옛 5×7 모양 둘 다 읽는다(브라우저에 남은 옛 사본이 있다)
@@ -531,7 +546,16 @@ function openYearDocs() {
   for (const d of encDocs()) if (d !== docs.att) attach(d);
   ensureAtt(todayKey());
 }
+let addOfficials = false;
+const settingsDoc = () => plainDocs[SPECS.findIndex(s => s.key === "desk_settings")] || null;
 function afterPlain() {
+  /* apply() 가 put() 바로 뒤에 sliceJson 을 새로 적어 "이미 저장됨"으로 봐 버린다.
+     끼워 넣은 업무포털과 나이스를 남기려면 그 값을 비우고 save() 를 불러야 한다. */
+  if (addOfficials) {
+    addOfficials = false;
+    const d = settingsDoc();
+    if (d) { d.sliceJson = ""; save(true); }
+  }
   if (booted) applyGrid();
   openYearDocs();
   if (booted) renderAll();
@@ -1411,7 +1435,6 @@ $("ttEdit").addEventListener("click", () => {
 
 /* ---------- 바로가기 ---------- */
 const linksEl = $("links");
-let editingLinks = false;
 const TILE_COLORS = ["#0E7A5C", "#3567AE", "#B5543A", "#7A5AB8", "#B07C14", "#3C7F8C", "#A2456E", "#4F6B2E"];
 function tileColor(s) { let x = 0; for (const c of s) x = (x * 31 + c.codePointAt(0)) >>> 0; return TILE_COLORS[x % TILE_COLORS.length]; }
 function normalizeUrl(u) {
@@ -1419,12 +1442,6 @@ function normalizeUrl(u) {
   if (!/^https?:\/\//i.test(u)) u = "https://" + u;
   try { const p = new URL(u); return p.protocol.startsWith("http") ? p.href : ""; } catch (e) { return ""; }
 }
-function officialLink(name, sub, url, tile) {
-  return h("a", { class: "link official", href: url, target: "_blank", rel: "noopener" },
-    h("span", { class: "mono-tile", style: "background:var(--accent)", text: tile }),
-    h("span", { class: "nm" }, name, " ", h("span", { class: "sub", text: sub })));
-}
-
 const hostOf = (url) => { try { return new URL(url).hostname; } catch (e) { return ""; } };
 const linkLabel = (l) => l.name || hostOf(l.url).replace(/^www\./, "") || l.url;
 /* 아이콘은 한 칸(icon)에 적는다: 호클래스 아이콘 이름, "favicon", 또는 빈 값(첫 글자 타일).
@@ -1441,89 +1458,71 @@ function linkIcon(l, label) {
   if (l.icon) return h("span", { class: "link-ico svg", html: svgIc(resolveIcon(l.icon), 22) });
   return tile();
 }
-function renderLinks() {
-  linksEl.classList.toggle("editing", editingLinks);
-  const tiles = [
-    officialLink("업무포털", "인천", "https://ice.eduptl.kr", "업"),
-    officialLink("나이스", "인천", "https://ice.neis.go.kr", "N"),
-  ];
-  for (const l of state.links) {
-    const label = linkLabel(l);
-    const a = h("a", { class: "link custom", href: l.url, target: "_blank", rel: "noopener" },
-      linkIcon(l, label),
-      h("span", { class: "nm", text: label }),
-      h("button", { class: "x", type: "button", "aria-label": `${label} 삭제`, text: "×", onclick: (e) => {
-        e.preventDefault(); e.stopPropagation();
-        state.links = state.links.filter(x => x.id !== l.id); save(); renderLinks();
-      } }));
-    if (editingLinks) a.addEventListener("click", (e) => e.preventDefault());
-    tiles.push(a);
-  }
-  linksEl.replaceChildren(
-    h("div", { class: "link-grid" }, ...tiles),
-    h("div", { class: "link-bar" },
-      h("button", { class: "ghost-btn", type: "button", id: "linkAdd", title: "사이트 추가", "aria-label": "사이트 추가", text: "+", onclick: openLinkForm })));
-  $("editLinks").lastChild.nodeValue = editingLinks ? "편집 완료" : "바로가기 편집";
-  $("editLinks").classList.toggle("on", editingLinks);
-}
-
-/* ---------- 사이트 추가 모달 ---------- */
 /* 호클래스와 같은 단색 아이콘만 쓴다(shared/icons.js). 길잡이용(x, check 같은 것)은 뺐다. */
 const ICON_PICK = ["globe", "book-open", "book", "pencil", "scroll-text", "landmark", "castle", "users",
   "calendar-days", "clock", "layout-grid", "message-square", "image", "map", "compass", "list-ordered",
   "star", "trophy", "medal", "crown", "gem", "sparkles", "gift", "party-popper", "vote", "settings",
   "eye", "leaf"];
-let linkForm = null;   // 열려 있을 때만 { mode, ic }
-function openLinkForm() { linkForm = { mode: "icon", ic: ICON_PICK[0] }; renderLinkForm(); }
-function closeLinkForm() { linkForm = null; renderLinkForm(); }
-function pickedIcon() {
-  if (!linkForm || linkForm.mode === "none") return "";
-  if (linkForm.mode === "favicon") return "favicon";
-  return linkForm.ic || ICON_PICK[0];
-}
-function renderLinkForm() {
-  const p = $("linkPanel"), scrim = $("linkScrim");
-  p.hidden = !linkForm; scrim.hidden = !linkForm;
-  if (!linkForm) { p.replaceChildren(); return; }
-  // 다시 그려도 적던 이름과 주소는 지키다
-  const keep = { name: $("linkName") ? $("linkName").value : "", url: $("linkUrl") ? $("linkUrl").value : "" };
-  const seg = (key, label) => h("button", {
-    type: "button", "aria-pressed": String(linkForm.mode === key), "data-mode": key, text: label,
-    onclick: () => { linkForm.mode = key; renderLinkForm(); },
-  });
-  p.replaceChildren(
-    h("div", { class: "set-head" },
-      h("h2", { class: "set-title", id: "linkTitle", text: "사이트 추가" }),
-      h("button", { class: "set-x", type: "button", title: "닫기", "aria-label": "닫기", text: "×", onclick: closeLinkForm })),
-    h("form", { class: "set-sec", id: "linkForm", onsubmit: (e) => {
-      e.preventDefault();
-      const url = normalizeUrl($("linkUrl").value);
-      if (!url) { $("linkUrl").setCustomValidity("주소를 다시 넣어 주세요."); $("linkUrl").reportValidity(); return; }
-      state.links.push({ id: uid(), name: $("linkName").value.trim().slice(0, 30), url, icon: pickedIcon() });
-      closeLinkForm(); save(); renderLinks();
-    } },
-      h("div", { class: "set-grid" },
-        field("이름", h("input", { type: "text", id: "linkName", maxlength: "30", autocomplete: "off", value: keep.name })),
-        field("주소", h("input", { type: "text", id: "linkUrl", autocomplete: "off", value: keep.url, oninput: (e) => e.target.setCustomValidity("") }))),
-      h("div", { class: "set-block" },
-        h("p", { class: "set-sub", text: "아이콘" }),
-        h("div", { class: "seg" }, seg("icon", "이모지"), seg("favicon", "파비콘"), seg("none", "설정 안 함")),
-        linkForm.mode === "icon" ? h("div", { class: "emoji-pick" }, ...ICON_PICK.map(name => h("button", {
-          type: "button", "aria-pressed": String(linkForm.ic === name), "data-ic": name,
-          title: name, "aria-label": name, html: svgIc(name, 22),
-          onclick: () => { linkForm.ic = name; renderLinkForm(); },
-        }))) : null,
-        linkForm.mode === "favicon" ? h("p", { class: "set-state", text: "사이트가 쓰는 그림을 가져옵니다. 그림이 없는 사이트는 첫 글자가 나옵니다." }) : null,
-        linkForm.mode === "none" ? h("p", { class: "set-state", text: "이름의 첫 글자가 나옵니다." }) : null),
-      h("div", { class: "set-foot" },
-        h("button", { class: "btn", type: "submit", text: "추가" }),
-        h("button", { class: "btn secondary", type: "button", text: "취소", onclick: closeLinkForm }))));
-  $("linkName").focus();
-}
-$("linkScrim").addEventListener("click", closeLinkForm);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && linkForm) closeLinkForm(); });
 
-$("editLinks").addEventListener("click", () => { editingLinks = !editingLinks; renderLinks(); });
+/* 위젯에는 누를 타일만 둔다. 더하고 지우는 것은 설정 창의 바로가기 탭에서 한다. */
+function renderLinks() {
+  linksEl.replaceChildren(...state.links.map(l => {
+    const label = linkLabel(l);
+    return h("a", { class: "link", href: l.url, target: "_blank", rel: "noopener" },
+      linkIcon(l, label),
+      h("span", { class: "nm", text: label }));
+  }));
+}
+
+/* ---------- 설정: 바로가기 ---------- */
+const linkDraft = { name: "", url: "", mode: "icon", ic: ICON_PICK[0] };
+function draftIcon() {
+  if (linkDraft.mode === "none") return "";
+  if (linkDraft.mode === "favicon") return "favicon";
+  return linkDraft.ic || ICON_PICK[0];
+}
+function linksSection() {
+  const rows = state.links.map(l => h("div", { class: "lk-row" },
+    linkIcon(l, linkLabel(l)),
+    h("div", { class: "lk-txt" }, h("b", { text: linkLabel(l) }), h("span", { text: l.url })),
+    h("button", { class: "btn secondary small", type: "button", text: "삭제", onclick: () => {
+      state.links = state.links.filter(x => x.id !== l.id);
+      save(); renderLinks(); renderSet();
+    } })));
+  const seg = (key, label) => h("button", {
+    type: "button", "aria-pressed": String(linkDraft.mode === key), "data-mode": key, text: label,
+    onclick: () => { linkDraft.mode = key; renderSet(); },
+  });
+  return setSec("바로가기", [
+    setBlock("지금 있는 사이트", [rows.length
+      ? h("div", { class: "lk-list", id: "lkList" }, ...rows)
+      : h("p", { class: "set-state", text: "아직 없습니다" })]),
+    setBlock("사이트 추가", [
+      h("form", { class: "set-form", id: "linkForm", onsubmit: (e) => {
+        e.preventDefault();
+        const url = normalizeUrl($("linkUrl").value);
+        if (!url) { $("linkUrl").setCustomValidity("주소를 다시 넣어 주세요."); $("linkUrl").reportValidity(); return; }
+        state.links.push({ id: uid(), name: linkDraft.name.trim().slice(0, 30), url, icon: draftIcon() });
+        linkDraft.name = ""; linkDraft.url = "";
+        save(); renderLinks(); renderSet();
+      } },
+        h("div", { class: "set-grid" },
+          setField("이름", h("input", { type: "text", id: "linkName", maxlength: "30", autocomplete: "off",
+            value: linkDraft.name, oninput: (e) => { linkDraft.name = e.target.value; } })),
+          setField("주소", h("input", { type: "text", id: "linkUrl", autocomplete: "off",
+            value: linkDraft.url, oninput: (e) => { linkDraft.url = e.target.value; e.target.setCustomValidity(""); } }))),
+        h("div", { class: "seg" }, seg("icon", "이모지"), seg("favicon", "파비콘"), seg("none", "설정 안 함")),
+        linkDraft.mode === "icon" ? h("div", { class: "emoji-pick" }, ...ICON_PICK.map(name => h("button", {
+          type: "button", "aria-pressed": String(linkDraft.ic === name), "data-ic": name,
+          title: name, "aria-label": name, html: svgIc(name, 22),
+          onclick: () => { linkDraft.ic = name; renderSet(); },
+        }))) : null,
+        linkDraft.mode === "favicon" ? h("p", { class: "set-state", text: "사이트가 쓰는 그림을 가져옵니다. 그림이 없는 사이트는 첫 글자가 나옵니다." }) : null,
+        linkDraft.mode === "none" ? h("p", { class: "set-state", text: "이름의 첫 글자가 나옵니다." }) : null,
+        h("div", { class: "set-row" }, h("button", { class: "btn", type: "submit", text: "추가" }))),
+    ]),
+  ]);
+}
 
 /* ---------- 학년도 설정 ---------- */
 let setOpen = false;
@@ -1543,6 +1542,7 @@ function passField(id, label, auto) {
 }
 const SET_TABS = [
   { key: "year", name: "학년도" },
+  { key: "links", name: "바로가기" },
   { key: "grid", name: "화면" },
   { key: "neis", name: "나이스" },
   { key: "back", name: "백업" },
@@ -1579,7 +1579,8 @@ function renderSet() {
       "data-tab": t.key, text: t.name,
       onclick: () => { setTab = t.key; renderSet(); },
     }))),
-    setTab === "grid" ? gridSection()
+    setTab === "links" ? linksSection()
+      : setTab === "grid" ? gridSection()
       : setTab === "neis" ? neisSection()
       : setTab === "back" ? backupSection()
       : setTab === "pass" ? passSection()

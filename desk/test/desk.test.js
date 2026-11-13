@@ -190,8 +190,10 @@ function checkShrinkRules() {
     ["scrollbar-width: none", "스크롤 막대 치우기"],
     [".deck.arranging .wg > .card { overflow: hidden; }", "배치 중에는 안 넘치게 자르기"],
     ["container-type: inline-size", "좁은 화면에서는 가로만 재기(안 하면 칸 높이가 0으로 접힌다)"],
-    [".link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr))",
-     "바로가기 타일을 같은 폭으로 늘려 줄 끝을 오른쪽 가장자리에 맞추기(양쪽 정렬)"],
+    [".links { display: flex; flex-wrap: wrap; justify-content: center; align-content: center;",
+     "바로가기를 작업 표시줄처럼 가운데로 모으기(몇 개 없어도 왼쪽에 쏠리지 않게)"],
+    [".links { flex-wrap: nowrap; }",
+     "가로로 긴 띠에서는 한 줄에 눕히고 이름은 그대로 두기"],
   ];
   for (const [text, why] of need) {
     assert(css.includes(text), "desk.css 에 `" + text + "` 가 있어야 한다: " + why);
@@ -281,7 +283,7 @@ function checkHiddenRule() {
   assert(/^[0-9A-Z]{4}(-[0-9A-Z]{4}){7}$/.test(rec), "복구 키 형식");
   A.$("recoveryOk").checked = true; A.$("recoveryOk").dispatchEvent(new A.w.Event("change"));
   A.$("recoveryDone").click();
-  await until(() => A.$("linkAdd"), "바로가기가 그려짐");
+  await until(() => A.d.querySelector("#links .link"), "바로가기가 그려짐");
   for (const p of ["desk_crypto/keys", "desk_settings/general", "desk_years/all", "desk_todos/all", "desk_ddays/all", "desk_memo/all", "desk_calendar/all"]) {
     await until(() => store.has(p), p);
   }
@@ -294,7 +296,7 @@ function checkHiddenRule() {
   assert(A.$("setClose"), "머리줄에 닫기 단추가 있다");
   assert(!A.$("setScrim").hidden, "열면 뒤가 가려진다");
   assert.deepStrictEqual([...A.d.querySelectorAll("#setPanel .set-tab")].map(b => b.textContent),
-    ["학년도", "화면", "나이스", "백업", "비밀번호"], "탭 다섯");
+    ["학년도", "바로가기", "화면", "나이스", "백업", "비밀번호"], "탭 여섯");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden && A.$("setScrim").hidden, "닫기 단추로 닫힌다");
   A.$("toolSet").click();
@@ -394,47 +396,56 @@ function checkHiddenRule() {
   A.d.querySelector('#pagebar [aria-label="앞 장"]').click();
   await until(() => !A.wg("class").hidden, "앞 장으로 돌아온다");
 
-  /* 바로가기: 모달로 더하기, 아이콘 세 가지 */
-  const picks = () => [...A.d.querySelectorAll("#linkPanel .emoji-pick button")];
-  const mode = (k) => A.d.querySelector('#linkPanel .seg button[data-mode="' + k + '"]').click();
-  const made = (name) => [...A.d.querySelectorAll("#links .link.custom")].find(a => a.textContent.includes(name));
+  /* 바로가기: 위젯에는 타일만, 더하고 지우는 것은 설정 창에서 */
+  const picks = () => [...A.d.querySelectorAll("#setPanel .emoji-pick button")];
+  const mode = (k) => A.d.querySelector('#setPanel .seg button[data-mode="' + k + '"]').click();
+  const made = (name) => [...A.d.querySelectorAll("#links .link")].find(a => a.textContent.includes(name));
+  const lkRow = (name) => [...A.d.querySelectorAll("#setPanel .lk-row")].find(r => r.textContent.includes(name));
+  const type = (id, v) => { A.fill(id, v); A.$(id).dispatchEvent(new A.w.Event("input", { bubbles: true })); };
 
-  A.$("linkAdd").click();
-  assert(!A.$("linkPanel").hidden && !A.$("linkScrim").hidden, "사이트 추가는 팝업 모달로 연다");
-  A.fill("linkName", "이모지 시험"); A.fill("linkUrl", "example.com");
+  assert(!A.d.querySelector("#links button"), "위젯에는 누를 타일만 있고 단추는 없다");
+  assert(!A.$("editLinks"), "바로가기 편집 단추는 설정 창으로 옮겼다");
+
+  A.setTab("links");
+  await until(() => A.$("linkForm"), "바로가기 탭");
+  type("linkName", "이모지 시험"); type("linkUrl", "example.com");
   picks()[2].click();   // 다시 그려도 적던 이름과 주소가 남아야 한다
   const em = picks().find(b => b.getAttribute("aria-pressed") === "true").dataset.ic;
-  assert.strictEqual(A.$("linkName").value, "이모지 시험", "이모지를 골라도 적던 이름이 지워지지 않는다");
+  assert.strictEqual(A.$("linkName").value, "이모지 시험", "아이콘을 골라도 적던 이름이 지워지지 않는다");
   A.submit("linkForm");
-  assert(A.$("linkPanel").hidden, "추가하면 모달이 닫힌다");
   const one = made("이모지 시험");
   assert(one, "새 사이트가 바로가기에 생긴다");
   assert(one.querySelector(".link-ico.svg svg"), "고른 아이콘이 단색 SVG 로 붙는다");
   assert(new RegExp("lucide-" + em + String.fromCharCode(34)).test(one.querySelector(".link-ico.svg").innerHTML),
     "고른 아이콘(" + em + ")이 그대로 붙는다");
   assert.strictEqual(one.getAttribute("href"), "https://example.com/", "주소에 https 를 붙인다");
+  assert.strictEqual(A.$("linkName").value, "", "추가하면 적던 칸이 비워진다");
 
-  A.$("linkAdd").click();
-  A.fill("linkName", "파비콘 시험"); A.fill("linkUrl", "padlet.com");
+  type("linkName", "파비콘 시험"); type("linkUrl", "padlet.com");
   mode("favicon");
   A.submit("linkForm");
   const two = made("파비콘 시험");
   assert(/s2\/favicons\?domain=padlet\.com/.test(two.querySelector("img.link-ico").getAttribute("src")),
     "파비콘은 연결된 사이트 주소로 받아 온다");
 
-  A.$("linkAdd").click();
-  A.fill("linkName", "타일 시험"); A.fill("linkUrl", "example.org");
+  type("linkName", "타일 시험"); type("linkUrl", "example.org");
   mode("none");
   A.submit("linkForm");
   const three = made("타일 시험");
   assert(three.querySelector(".mono-tile") && !three.querySelector(".link-ico"),
     "설정 안 함은 첫 글자 타일만 나온다");
 
-  A.$("linkAdd").click();
-  A.d.dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  assert(A.$("linkPanel").hidden, "Esc 로 모달이 닫힌다");
-  for (const name of ["이모지 시험", "파비콘 시험", "타일 시험"]) made(name).querySelector(".x").click();
-  assert(!made("이모지 시험") && !made("파비콘 시험") && !made("타일 시험"), "× 로 지워진다");
+  /* 업무포털과 나이스도 설정 창에서 지울 수 있다 */
+  assert(made("업무포털") && made("나이스"), "업무포털과 나이스도 보통 바로가기다");
+  for (const name of ["업무포털", "나이스", "이모지 시험", "파비콘 시험", "타일 시험"]) {
+    const row = lkRow(name);
+    assert(row, "설정 창에 " + name + " 줄이 있다");
+    row.querySelector("button").click();
+  }
+  assert(!made("업무포털") && !made("나이스") && !made("이모지 시험"), "설정 창에서 지우면 위젯에서도 없어진다");
+  /* officials 표가 저장돼야 다음에 열 때 업무포털과 나이스가 되살아나지 않는다 */
+  await until(() => String(store.get("desk_settings/general")).includes('"officials":true'), "officials 표 저장");
+  A.$("setClose").click();
 
   A.setTab("grid");
   await until(() => A.$("setCols"), "화면 탭 열림");
