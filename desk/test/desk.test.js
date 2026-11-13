@@ -188,6 +188,8 @@ function checkShrinkRules() {
     ["scrollbar-width: none", "스크롤 막대 치우기"],
     [".deck.arranging .wg > .card { overflow: hidden; }", "배치 중에는 안 넘치게 자르기"],
     ["container-type: inline-size", "좁은 화면에서는 가로만 재기(안 하면 칸 높이가 0으로 접힌다)"],
+    [".link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr))",
+     "바로가기 타일을 같은 폭으로 늘려 줄 끝을 오른쪽 가장자리에 맞추기(양쪽 정렬)"],
   ];
   for (const [text, why] of need) {
     assert(css.includes(text), "desk.css 에 `" + text + "` 가 있어야 한다: " + why);
@@ -370,6 +372,46 @@ function checkHiddenRule() {
   assert(A.wg("class").hidden, "2장에서는 우리 반이 숨는다");
   A.d.querySelector('#pagebar [aria-label="앞 장"]').click();
   await until(() => !A.wg("class").hidden, "앞 장으로 돌아온다");
+
+  /* 바로가기: 모달로 더하기, 아이콘 세 가지 */
+  const picks = () => [...A.d.querySelectorAll("#linkPanel .emoji-pick button")];
+  const mode = (k) => A.d.querySelector('#linkPanel .seg button[data-mode="' + k + '"]').click();
+  const made = (name) => [...A.d.querySelectorAll("#links .link.custom")].find(a => a.textContent.includes(name));
+
+  A.$("linkAdd").click();
+  assert(!A.$("linkPanel").hidden && !A.$("linkScrim").hidden, "사이트 추가는 팝업 모달로 연다");
+  A.fill("linkName", "이모지 시험"); A.fill("linkUrl", "example.com");
+  picks()[2].click();   // 다시 그려도 적던 이름과 주소가 남아야 한다
+  const em = picks().find(b => b.getAttribute("aria-pressed") === "true").textContent;
+  assert.strictEqual(A.$("linkName").value, "이모지 시험", "이모지를 골라도 적던 이름이 지워지지 않는다");
+  A.submit("linkForm");
+  assert(A.$("linkPanel").hidden, "추가하면 모달이 닫힌다");
+  const one = made("이모지 시험");
+  assert(one, "새 사이트가 바로가기에 생긴다");
+  assert.strictEqual(one.querySelector(".link-ico.emoji").textContent, em, "고른 이모지가 앞에 붙는다");
+  assert.strictEqual(one.getAttribute("href"), "https://example.com/", "주소에 https 를 붙인다");
+
+  A.$("linkAdd").click();
+  A.fill("linkName", "파비콘 시험"); A.fill("linkUrl", "padlet.com");
+  mode("favicon");
+  A.submit("linkForm");
+  const two = made("파비콘 시험");
+  assert(/s2\/favicons\?domain=padlet\.com/.test(two.querySelector("img.link-ico").getAttribute("src")),
+    "파비콘은 연결된 사이트 주소로 받아 온다");
+
+  A.$("linkAdd").click();
+  A.fill("linkName", "타일 시험"); A.fill("linkUrl", "example.org");
+  mode("none");
+  A.submit("linkForm");
+  const three = made("타일 시험");
+  assert(three.querySelector(".mono-tile") && !three.querySelector(".link-ico"),
+    "설정 안 함은 첫 글자 타일만 나온다");
+
+  A.$("linkAdd").click();
+  A.d.dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  assert(A.$("linkPanel").hidden, "Esc 로 모달이 닫힌다");
+  for (const name of ["이모지 시험", "파비콘 시험", "타일 시험"]) made(name).querySelector(".x").click();
+  assert(!made("이모지 시험") && !made("파비콘 시험") && !made("타일 시험"), "× 로 지워진다");
 
   A.setTab("grid");
   await until(() => A.$("setCols"), "화면 탭 열림");

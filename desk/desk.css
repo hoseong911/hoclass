@@ -42,7 +42,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .date-main { font-size: clamp(18px, 2vw, 22px); font-weight: 600; text-wrap: balance; }
 
 /* 바로가기 */
-.links { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+/* 타일을 같은 폭으로 늘려 줄 끝이 오른쪽 가장자리에 맞는다(양쪽 정렬).
+   flex 로 흘리면 줄 끝이 들쭉날쭉해서 왼쪽만 맞은 것처럼 보인다. */
+.links { display: flex; flex-direction: column; gap: 10px; }
+.link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); gap: 10px; }
+.link-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .link {
   display: inline-flex; align-items: center; gap: 10px; padding: 7px 14px 7px 7px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
@@ -50,9 +54,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
   transition: border-color .15s, transform .15s;
 }
 .link:hover { border-color: var(--accent); transform: translateY(-1px); }
+.link .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .link.official { border-color: var(--sky); background: var(--sky-soft); }
 .link .sub { font-size: 11px; color: var(--muted); font-weight: 500; }
 .mono-tile { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-weight: 600; font-size: 13px; color: #fff; flex: none; }
+.link-ico { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; font-size: 19px; line-height: 1; object-fit: contain; }
 .link .x { display: none; }
 .links.editing .link.custom { padding-right: 34px; }
 .links.editing .link.custom .x { display: grid; }
@@ -64,9 +70,11 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .x:hover { background: var(--danger-soft); color: var(--danger); }
 .ghost-btn { border: 1px dashed var(--faint); background: transparent; color: var(--muted); border-radius: 12px; padding: 9px 14px; cursor: pointer; font-size: 14px; font-weight: 500; }
 .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
-.link-form { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
-.link-form input { flex: 1 1 160px; min-width: 0; }
-.link-form .field { flex: 1 1 160px; }
+.card.float.narrow { width: min(440px, calc(100vw - 32px)); }
+.emoji-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 6px; }
+.emoji-pick button { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 6px 0; font-size: 20px; line-height: 1.2; cursor: pointer; }
+.emoji-pick button:hover { border-color: var(--accent); }
+.emoji-pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .region { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-left: auto; }
 @media (max-width: 720px) { .region { margin-left: 0; } }
 
@@ -823,11 +831,13 @@ body { overflow: hidden; }
   .timeline { grid-template-columns: 42px minmax(0, 1fr); }
   .period { grid-template-columns: 40px 70px minmax(0, 1fr); gap: 6px; padding: 5px 7px; }
   .book-seg button { padding: 6px 10px; }
-  .links { gap: 6px; }
+  .links, .link-grid, .link-bar { gap: 6px; }
   .link { padding: 5px 9px 5px 5px; }
+  .link-grid { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
 }
 @container (max-width: 200px) {
-  .link > span:not(.mono-tile) { display: none; }
+  .link > .nm { display: none; }
+  .link-grid { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); }
   .link { padding: 5px; }
   .period { grid-template-columns: 36px minmax(0, 1fr); }
   .period .tm { display: none; }

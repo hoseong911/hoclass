@@ -167,7 +167,8 @@ const SPECS = [
        파이어스토어는 배열 안에 배열을 담지 못한다(넣으려 들면 저장이 통째로 막힌다). */
     pick: () => ({ links: state.links, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, idleMin: state.idleMin, school: state.school, neis: state.neis }),
     put: (s) => {
-      if (arr(s.links)) state.links = s.links.filter(l => l && typeof l.url === "string");
+      if (arr(s.links)) state.links = s.links.filter(l => l && typeof l.url === "string")
+        .map(l => ({ ...l, icon: typeof l.icon === "string" ? l.icon.slice(0, 8) : "" }));
       if (arr(s.bells) && s.bells.length === 7) state.bells = s.bells.map(b => ({ s: String(b.s || ""), e: String(b.e || "") }));
       if (Number.isInteger(s.lunchAfter) && s.lunchAfter >= 1 && s.lunchAfter <= 6) state.lunchAfter = s.lunchAfter;
       // 펴서 담은 35칸, 옛 5×7 모양 둘 다 읽는다(브라우저에 남은 옛 사본이 있다)
@@ -1409,7 +1410,7 @@ $("ttEdit").addEventListener("click", () => {
 
 /* ---------- 바로가기 ---------- */
 const linksEl = $("links");
-let editingLinks = false, showLinkForm = false;
+let editingLinks = false;
 const TILE_COLORS = ["#0E7A5C", "#3567AE", "#B5543A", "#7A5AB8", "#B07C14", "#3C7F8C", "#A2456E", "#4F6B2E"];
 function tileColor(s) { let x = 0; for (const c of s) x = (x * 31 + c.codePointAt(0)) >>> 0; return TILE_COLORS[x % TILE_COLORS.length]; }
 function normalizeUrl(u) {
@@ -1420,46 +1421,107 @@ function normalizeUrl(u) {
 function officialLink(name, sub, url, tile) {
   return h("a", { class: "link official", href: url, target: "_blank", rel: "noopener" },
     h("span", { class: "mono-tile", style: "background:var(--accent)", text: tile }),
-    h("span", null, name, " ", h("span", { class: "sub", text: sub })));
+    h("span", { class: "nm" }, name, " ", h("span", { class: "sub", text: sub })));
+}
+
+const hostOf = (url) => { try { return new URL(url).hostname; } catch (e) { return ""; } };
+const linkLabel = (l) => l.name || hostOf(l.url).replace(/^www\./, "") || l.url;
+/* 아이콘은 한 칸(icon)에 적는다: 이모지 글자 그대로, "favicon", 또는 빈 값(첫 글자 타일).
+   shortcut: 파비콘은 구글이 모아 주는 것을 쓴다. 구글이 막히면 사이트마다 /favicon.ico 를 직접 읽어야 한다. */
+const faviconUrl = (url) => "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(hostOf(url)) + "&sz=64";
+function linkIcon(l, label) {
+  const tile = () => h("span", { class: "mono-tile", style: `background:${tileColor(label)}`, text: [...label][0].toUpperCase() });
+  if (l.icon === "favicon") {
+    const img = h("img", { class: "link-ico", src: faviconUrl(l.url), alt: "", loading: "lazy" });
+    img.addEventListener("error", () => img.replaceWith(tile()));   // 파비콘이 없는 사이트는 첫 글자로 돌아간다
+    return img;
+  }
+  if (l.icon) return h("span", { class: "link-ico emoji", text: l.icon });
+  return tile();
 }
 function renderLinks() {
   linksEl.classList.toggle("editing", editingLinks);
-  const kids = [
+  const tiles = [
     officialLink("업무포털", "인천", "https://ice.eduptl.kr", "업"),
     officialLink("나이스", "인천", "https://ice.neis.go.kr", "N"),
   ];
   for (const l of state.links) {
-    const label = l.name || (() => { try { return new URL(l.url).hostname.replace(/^www\./, ""); } catch (e) { return l.url; } })();
+    const label = linkLabel(l);
     const a = h("a", { class: "link custom", href: l.url, target: "_blank", rel: "noopener" },
-      h("span", { class: "mono-tile", style: `background:${tileColor(label)}`, text: [...label][0].toUpperCase() }),
-      h("span", { text: label }),
+      linkIcon(l, label),
+      h("span", { class: "nm", text: label }),
       h("button", { class: "x", type: "button", "aria-label": `${label} 삭제`, text: "×", onclick: (e) => {
         e.preventDefault(); e.stopPropagation();
         state.links = state.links.filter(x => x.id !== l.id); save(); renderLinks();
       } }));
     if (editingLinks) a.addEventListener("click", (e) => e.preventDefault());
-    kids.push(a);
+    tiles.push(a);
   }
-  kids.push(h("button", { class: "ghost-btn", type: "button", text: "+ 사이트 추가", onclick: () => { showLinkForm = !showLinkForm; renderLinks(); if (showLinkForm) $("linkName").focus(); } }));
   const home = cfg().homeroom;
-  kids.push(h("button", { class: "region", type: "button", id: "setBtn", text: `${state.year.current}학년도 ${!state.year.configured ? "설정하기" : home ? "담임 " + home : "비담임"}`, onclick: () => { setOpen = !setOpen; renderSet(); } }));
-  if (showLinkForm) {
-    kids.push(h("form", { class: "link-form", onsubmit: (e) => {
-      e.preventDefault();
-      const url = normalizeUrl($("linkUrl").value);
-      if (!url) { $("linkUrl").setCustomValidity("주소를 다시 넣어 주세요."); $("linkUrl").reportValidity(); return; }
-      state.links.push({ id: uid(), name: $("linkName").value.trim().slice(0, 30), url });
-      showLinkForm = false; save(); renderLinks();
-    } },
-      field("이름", h("input", { type: "text", id: "linkName", maxlength: "30", autocomplete: "off" })),
-      field("주소", h("input", { type: "text", id: "linkUrl", autocomplete: "off", oninput: (e) => e.target.setCustomValidity("") })),
-      h("button", { class: "btn", type: "submit", text: "추가" }),
-      h("button", { class: "btn secondary", type: "button", text: "취소", onclick: () => { showLinkForm = false; renderLinks(); } })));
-  }
-  linksEl.replaceChildren(...kids);
+  linksEl.replaceChildren(
+    h("div", { class: "link-grid" }, ...tiles),
+    h("div", { class: "link-bar" },
+      h("button", { class: "ghost-btn", type: "button", id: "linkAdd", text: "+ 사이트 추가", onclick: openLinkForm }),
+      h("button", { class: "region", type: "button", id: "setBtn", text: `${state.year.current}학년도 ${!state.year.configured ? "설정하기" : home ? "담임 " + home : "비담임"}`, onclick: () => { setOpen = !setOpen; renderSet(); } })));
   $("editLinks").lastChild.nodeValue = editingLinks ? "편집 완료" : "바로가기 편집";
   $("editLinks").classList.toggle("on", editingLinks);
 }
+
+/* ---------- 사이트 추가 모달 ---------- */
+const EMOJIS = ["📚", "📝", "🏫", "💻", "🗂️", "📊", "🔗", "🧪", "🎨", "🎵", "🗺️", "🧮", "📬", "🏃", "🌏", "⚙️"];
+let linkForm = null;   // 열려 있을 때만 { mode, emoji }
+function openLinkForm() { linkForm = { mode: "emoji", emoji: EMOJIS[0] }; renderLinkForm(); }
+function closeLinkForm() { linkForm = null; renderLinkForm(); }
+function pickedIcon() {
+  if (!linkForm || linkForm.mode === "none") return "";
+  if (linkForm.mode === "favicon") return "favicon";
+  return [...(linkForm.emoji || "")].slice(0, 2).join("") || EMOJIS[0];
+}
+function renderLinkForm() {
+  const p = $("linkPanel"), scrim = $("linkScrim");
+  p.hidden = !linkForm; scrim.hidden = !linkForm;
+  if (!linkForm) { p.replaceChildren(); return; }
+  // 다시 그려도 적던 이름과 주소는 지키다
+  const keep = { name: $("linkName") ? $("linkName").value : "", url: $("linkUrl") ? $("linkUrl").value : "" };
+  const seg = (key, label) => h("button", {
+    type: "button", "aria-pressed": String(linkForm.mode === key), "data-mode": key, text: label,
+    onclick: () => { linkForm.mode = key; renderLinkForm(); },
+  });
+  p.replaceChildren(
+    h("div", { class: "set-head" },
+      h("h2", { class: "set-title", id: "linkTitle", text: "사이트 추가" }),
+      h("button", { class: "set-x", type: "button", title: "닫기", "aria-label": "닫기", text: "×", onclick: closeLinkForm })),
+    h("form", { class: "set-sec", id: "linkForm", onsubmit: (e) => {
+      e.preventDefault();
+      const url = normalizeUrl($("linkUrl").value);
+      if (!url) { $("linkUrl").setCustomValidity("주소를 다시 넣어 주세요."); $("linkUrl").reportValidity(); return; }
+      state.links.push({ id: uid(), name: $("linkName").value.trim().slice(0, 30), url, icon: pickedIcon() });
+      closeLinkForm(); save(); renderLinks();
+    } },
+      h("div", { class: "set-grid" },
+        field("이름", h("input", { type: "text", id: "linkName", maxlength: "30", autocomplete: "off", value: keep.name })),
+        field("주소", h("input", { type: "text", id: "linkUrl", autocomplete: "off", value: keep.url, oninput: (e) => e.target.setCustomValidity("") }))),
+      h("div", { class: "set-block" },
+        h("p", { class: "set-sub", text: "아이콘" }),
+        h("div", { class: "seg" }, seg("emoji", "이모지"), seg("favicon", "파비콘"), seg("none", "설정 안 함")),
+        linkForm.mode === "emoji" ? h("div", { class: "emoji-pick" }, ...EMOJIS.map(em => h("button", {
+          type: "button", "aria-pressed": String(linkForm.emoji === em), text: em,
+          onclick: () => { linkForm.emoji = em; renderLinkForm(); },
+        }))) : null,
+        linkForm.mode === "emoji" ? field("다른 이모지는 여기에 붙여 넣기", h("input", {
+          type: "text", id: "linkEmoji", maxlength: "8", autocomplete: "off", value: linkForm.emoji,
+          oninput: (e) => { linkForm.emoji = e.target.value; },
+        })) : null,
+        linkForm.mode === "favicon" ? h("p", { class: "set-state", text: "사이트가 쓰는 그림을 가져옵니다. 그림이 없는 사이트는 첫 글자가 나옵니다." }) : null,
+        linkForm.mode === "none" ? h("p", { class: "set-state", text: "이름의 첫 글자가 나옵니다." }) : null),
+      h("div", { class: "set-foot" },
+        h("button", { class: "btn", type: "submit", text: "추가" }),
+        h("button", { class: "btn secondary", type: "button", text: "취소", onclick: closeLinkForm }))));
+  $("linkName").focus();
+}
+$("linkScrim").addEventListener("click", closeLinkForm);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && linkForm) closeLinkForm(); });
+
 $("editLinks").addEventListener("click", () => { editingLinks = !editingLinks; renderLinks(); });
 
 /* ---------- 학년도 설정 ---------- */
