@@ -175,6 +175,22 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .att-sum .early, .att-sum .early b { color: var(--blue); }
 .att-sum .done b { color: var(--pass); }
 .cls-foot { display: flex; justify-content: flex-end; gap: 8px; }
+/* 수업 장 진도 표 */
+.prog-scroll { overflow-x: auto; }
+table.prog { width: 100%; border-collapse: collapse; font-size: 14px; }
+.prog th, .prog td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.prog thead th { font-size: 12px; font-weight: 500; color: var(--muted); padding-top: 4px; padding-bottom: 8px; white-space: nowrap; }
+.prog tbody th { font-weight: 600; white-space: nowrap; }
+.prog-row { cursor: pointer; }
+.prog-row:hover { background: var(--surface-2); }
+.prog-row.today th { color: var(--accent); }
+.prog .p-today { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.prog .p-when, .prog .p-n { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+.prog .p-hw, .prog .p-hc { color: var(--muted); }
+.prog .p-n { text-align: right; }
+/* 진도 표는 화면을 가로로 다 쓴다 */
+.book-cols > .panel:only-child { grid-column: 1 / -1; }
+
 /* 출결 날짜 줄과 한 달 표 */
 .att-nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .att-nav .pg-arrow:disabled { opacity: .3; cursor: default; background: none; }

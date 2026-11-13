@@ -771,11 +771,11 @@ let arranging = false, curPage = 1;
 /* 교무수첩 장(선생님 지시 2026-11-13): 1장은 대시보드, 그 뒤로 수업, 담임, 업무가 각각 화면 하나.
    장마다 위에서 작은 페이지(탭)를 넘긴다. 위젯 배치(장 추가, 끌어 옮기기)는 대시보드 장에서만 한다. */
 const NB = [
-  { key: "lesson", name: "수업", tabs: [["lesson", "수업 기록"], ["att", "출결"], ["col", "수합"]] },
+  { key: "lesson", name: "수업", tabs: [["prog", "진도"], ["lesson", "수업 기록"], ["student", "학생"], ["att", "출결"], ["col", "수합"]] },
   { key: "home", name: "담임", tabs: [["att", "출결"], ["col", "수합"], ["ann", "전달사항"], ["student", "학생"], ["consult", "상담 민원"]] },
   { key: "work", name: "업무", tabs: [["todo", "할 일"], ["work", "업무 기록"]] },
 ];
-const nbTab = { lesson: "lesson", home: "att", work: "todo" };
+const nbTab = { lesson: "prog", home: "att", work: "todo" };
 const dashPages = () => okPages(state.pages);
 const allPages = () => dashPages() + NB.length;
 const nbOf = (p) => NB[p - dashPages() - 1] || null;
@@ -2249,6 +2249,7 @@ function renderNb() {
   }
   if (encDocs().some(d => d.broken)) { wrap(note("일부 기록을 풀지 못했습니다. 페이지를 새로고침한 뒤 다시 열어 주세요. 기록은 그대로 있습니다.")); return; }
   if (encDocs().some(d => !d.ready)) { wrap(note("기록을 여는 중입니다.")); return; }
+  if (tab === "prog") { cols([progressView()]); return; }
   if (!roster().length && tab !== "lesson") {
     wrap([h("div", { class: "lock-panel" }, h("h3", { text: "학생 명단이 비어 있습니다" }),
       h("p", { text: hcHas(pick) ? "호클래스 이 강의실에 학생이 아직 없습니다. 호클래스 어드민의 학생 관리에서 넣어 주세요."
@@ -2864,15 +2865,17 @@ function studentPage() {
       : noneLine("미제출이 없습니다.");
   })());
 
+  const lessonSide = nbKey() === "lesson";            // 수업 장: 상담은 담임 일이라 빼고, 메모는 수업 메모로 따로 둔다
   const mine = docs.consults.value.items.filter(x => x.sid === bookSid);
-  const cons = panel("이 학생 상담 민원",
+  const cons = lessonSide ? null : panel("이 학생 상담 민원",
     mine.length ? h("ul", { class: "lines" }, ...mine.slice().sort((a, b) => b.at.localeCompare(a.at)).map(consultLine)) : noneLine("기록이 없습니다."),
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "이 학생 상담 적기", onclick: () => { nbTab.home = "consult"; renderNb(); } })));
 
-  const noteEl = h("textarea", { id: "stuNote", value: rec.note || "" });
-  const note = panel("학생 메모", noteEl,
+  const noteKey = lessonSide ? "lnote" : "note";
+  const noteEl = h("textarea", { id: "stuNote", value: rec[noteKey] || "" });
+  const note = panel(lessonSide ? "수업 메모" : "학생 메모", noteEl,
     h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "저장", onclick: () => {
-      S.value.byId[bookSid] = { ...rec, note: noteEl.value.trim() };
+      S.value.byId[bookSid] = { ...rec, [noteKey]: noteEl.value.trim().slice(0, 2000) };
       saveEnc(S); toast("메모를 저장했습니다"); renderBook();
     } })));
 
@@ -3010,6 +3013,36 @@ function lessonPage() {
     panel(classLabel(cls) + " 기록 " + mine.length + "건", lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("기록이 없습니다.")),
     hcPanel(cls, lessons),
   ];
+}
+
+/* ---------- 진도: 수업 반 한눈에 ---------- */
+/* 반마다 마지막 수업 기록과 호클래스 차시를 한 표에. 같은 과목을 여러 반에서 가르치면 어느 반이 어디까지
+   나갔는지가 제일 궁금하다(3단계, 2026-11-13). 줄을 누르면 그 반 수업 기록으로 간다. */
+function progressView() {
+  const today = todayKey(), row = todayRow(new Date());
+  const items = docs.lessons.value.items;
+  const lines = lessonClasses().map(c => {
+    const mine = items.filter(x => x.cls === c).sort((a, b) => b.at.localeCompare(a.at) || b.period - a.period);
+    const last = mine[0];
+    const periods = row ? row.map((x, i) => x.trim() === c ? (i + 1) + "교시" : "").filter(Boolean) : [];
+    const hcDone = lessonsOf(c).filter(x => x.date && x.date <= today).sort((a, b) => Number(b.order) - Number(a.order))[0];
+    return h("tr", { class: "prog-row" + (periods.length ? " today" : ""), "data-cls": c, tabindex: "0",
+      onclick: () => { goClass(c); nbTab.lesson = "lesson"; renderNb(); },
+      onkeydown: (e) => { if (e.key === "Enter") e.currentTarget.click(); } },
+      h("th", { text: classLabel(c) }),
+      h("td", { class: "p-today", text: periods.join(", ") }),
+      h("td", { class: "p-when", text: last ? dotDate(last.at) + " " + last.period + "교시" : "" }),
+      h("td", { class: "p-unit", text: last ? (last.unit || last.body.slice(0, 40)) : "기록 없음" }),
+      h("td", { class: "p-hw", text: last && last.hw ? last.hw : "" }),
+      h("td", { class: "p-hc", text: hcDone ? hcDone.order + "차시 " + (hcDone.title || "") : "" }),
+      h("td", { class: "p-n", text: String(mine.length) }));
+  });
+  return panel("반별 진도",
+    lines.length ? h("div", { class: "prog-scroll" }, h("table", { class: "prog", id: "progTable" },
+      h("thead", null, h("tr", null, ...["반", "오늘", "마지막 수업", "단원", "과제", "호클래스 차시", "기록"].map(t => h("th", { text: t })))),
+      h("tbody", null, ...lines)))
+      : noneLine("수업 반이 없습니다."),
+    h("p", { class: "tip", text: "줄을 누르면 그 반 수업 기록으로 갑니다. 오늘 시간표에 있는 반은 칠해 둡니다." }));
 }
 
 /* ---------- 호클래스 차시 칸 (연동) ---------- */

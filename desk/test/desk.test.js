@@ -170,7 +170,7 @@ function device() {
     go: (name) => [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === name).click(),
     sub: (k) => d.querySelector('#nbSeg [data-tab="' + k + '"]').click(),
     tab: (p) => {
-      const page = { student: "담임", consult: "담임", ann: "담임", lesson: "수업", work: "업무", todo: "업무" }[p];
+      const page = { student: "담임", consult: "담임", ann: "담임", lesson: "수업", prog: "수업", work: "업무", todo: "업무" }[p];
       [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === page).click();
       d.querySelector('#nbSeg [data-tab="' + p + '"]').click();
     },
@@ -742,6 +742,25 @@ function checkHiddenRule() {
   assert.strictEqual(A.$("leUnit").value, "3단원 조선의 성립", "차시 단원이 채워진다");
   A.submit("leForm");
   await until(() => A.book().includes("3단원 조선의 성립"), "수업 기록 저장");
+
+  /* ---------- 수업 장: 진도와 수업 메모 ---------- */
+  A.sub("prog");
+  await until(() => A.$("progTable"), "진도 표");
+  if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_prog.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
+  const progRow = (c) => A.d.querySelector('#progTable tr[data-cls="' + c + '"]');
+  assert(progRow("3-1") && progRow("3-2"), "수업 반마다 한 줄");
+  assert(progRow("3-1").textContent.includes("3단원 조선의 성립"), "3-1 마지막 수업 단원: " + progRow("3-1").textContent);
+  assert(progRow("3-1").textContent.includes("1차시"), "3-1 호클래스 차시(오늘 날짜인 1차시)");
+  assert(progRow("3-2").textContent.includes("기록 없음"), "3-2 는 기록이 없다");
+  progRow("3-2").click();
+  await until(() => A.$("className").textContent.includes("2반") && A.$("leForm"), "진도 줄을 누르면 그 반 수업 기록으로");
+  A.pick("3-1"); A.sub("student");
+  await until(() => A.d.querySelector("#classBody .stu-pick button"), "수업 장 학생 화면");
+  A.d.querySelector("#classBody .stu-pick button").click();
+  await until(() => A.$("stuNote"), "학생을 고르면 메모 칸");
+  assert(A.book().includes("수업 메모") && !A.book().includes("상담 민원"), "수업 장 학생 화면은 수업 메모, 상담은 뺀다");
+  A.sub("lesson");
+  await until(() => A.$("leForm"), "다시 수업 기록");
 
   A.btn("#classBody", "오늘 날짜 넣기").click();
   await until(() => !A.book().includes("날짜 없음"), "2차시에 날짜가 들어간다", 30000);
