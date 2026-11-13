@@ -1,6 +1,7 @@
 import { FB } from "./fb-desk.js";
 import * as GCal from "./gcal.js";
 import * as Neis from "./neis.js";
+import { icon as svgIc, resolveIcon } from "../shared/icons.js";
 import { WIDGETS, widgetDef, DEFAULT_GRID, DEFAULT_PAGES, MAX_PAGES, GRID_MIN, GRID_MAX,
          okGrid, okPages, normalize, pagesIn, hits, freeSlot, turnOn, moveToPage,
          cellSize, moved } from "./grid.js";
@@ -1426,7 +1427,8 @@ function officialLink(name, sub, url, tile) {
 
 const hostOf = (url) => { try { return new URL(url).hostname; } catch (e) { return ""; } };
 const linkLabel = (l) => l.name || hostOf(l.url).replace(/^www\./, "") || l.url;
-/* 아이콘은 한 칸(icon)에 적는다: 이모지 글자 그대로, "favicon", 또는 빈 값(첫 글자 타일).
+/* 아이콘은 한 칸(icon)에 적는다: 호클래스 아이콘 이름, "favicon", 또는 빈 값(첫 글자 타일).
+   옛 자료에 이모지 글자가 적혀 있으면 resolveIcon() 이 아이콘 이름으로 바꿔 준다.
    shortcut: 파비콘은 구글이 모아 주는 것을 쓴다. 구글이 막히면 사이트마다 /favicon.ico 를 직접 읽어야 한다. */
 const faviconUrl = (url) => "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(hostOf(url)) + "&sz=64";
 function linkIcon(l, label) {
@@ -1436,7 +1438,7 @@ function linkIcon(l, label) {
     img.addEventListener("error", () => img.replaceWith(tile()));   // 파비콘이 없는 사이트는 첫 글자로 돌아간다
     return img;
   }
-  if (l.icon) return h("span", { class: "link-ico emoji", text: l.icon });
+  if (l.icon) return h("span", { class: "link-ico svg", html: svgIc(resolveIcon(l.icon), 22) });
   return tile();
 }
 function renderLinks() {
@@ -1457,25 +1459,27 @@ function renderLinks() {
     if (editingLinks) a.addEventListener("click", (e) => e.preventDefault());
     tiles.push(a);
   }
-  const home = cfg().homeroom;
   linksEl.replaceChildren(
     h("div", { class: "link-grid" }, ...tiles),
     h("div", { class: "link-bar" },
-      h("button", { class: "ghost-btn", type: "button", id: "linkAdd", text: "+ 사이트 추가", onclick: openLinkForm }),
-      h("button", { class: "region", type: "button", id: "setBtn", text: `${state.year.current}학년도 ${!state.year.configured ? "설정하기" : home ? "담임 " + home : "비담임"}`, onclick: () => { setOpen = !setOpen; renderSet(); } })));
+      h("button", { class: "ghost-btn", type: "button", id: "linkAdd", title: "사이트 추가", "aria-label": "사이트 추가", text: "+", onclick: openLinkForm })));
   $("editLinks").lastChild.nodeValue = editingLinks ? "편집 완료" : "바로가기 편집";
   $("editLinks").classList.toggle("on", editingLinks);
 }
 
 /* ---------- 사이트 추가 모달 ---------- */
-const EMOJIS = ["📚", "📝", "🏫", "💻", "🗂️", "📊", "🔗", "🧪", "🎨", "🎵", "🗺️", "🧮", "📬", "🏃", "🌏", "⚙️"];
-let linkForm = null;   // 열려 있을 때만 { mode, emoji }
-function openLinkForm() { linkForm = { mode: "emoji", emoji: EMOJIS[0] }; renderLinkForm(); }
+/* 호클래스와 같은 단색 아이콘만 쓴다(shared/icons.js). 길잡이용(x, check 같은 것)은 뺐다. */
+const ICON_PICK = ["globe", "book-open", "book", "pencil", "scroll-text", "landmark", "castle", "users",
+  "calendar-days", "clock", "layout-grid", "message-square", "image", "map", "compass", "list-ordered",
+  "star", "trophy", "medal", "crown", "gem", "sparkles", "gift", "party-popper", "vote", "settings",
+  "eye", "leaf"];
+let linkForm = null;   // 열려 있을 때만 { mode, ic }
+function openLinkForm() { linkForm = { mode: "icon", ic: ICON_PICK[0] }; renderLinkForm(); }
 function closeLinkForm() { linkForm = null; renderLinkForm(); }
 function pickedIcon() {
   if (!linkForm || linkForm.mode === "none") return "";
   if (linkForm.mode === "favicon") return "favicon";
-  return [...(linkForm.emoji || "")].slice(0, 2).join("") || EMOJIS[0];
+  return linkForm.ic || ICON_PICK[0];
 }
 function renderLinkForm() {
   const p = $("linkPanel"), scrim = $("linkScrim");
@@ -1503,15 +1507,12 @@ function renderLinkForm() {
         field("주소", h("input", { type: "text", id: "linkUrl", autocomplete: "off", value: keep.url, oninput: (e) => e.target.setCustomValidity("") }))),
       h("div", { class: "set-block" },
         h("p", { class: "set-sub", text: "아이콘" }),
-        h("div", { class: "seg" }, seg("emoji", "이모지"), seg("favicon", "파비콘"), seg("none", "설정 안 함")),
-        linkForm.mode === "emoji" ? h("div", { class: "emoji-pick" }, ...EMOJIS.map(em => h("button", {
-          type: "button", "aria-pressed": String(linkForm.emoji === em), text: em,
-          onclick: () => { linkForm.emoji = em; renderLinkForm(); },
+        h("div", { class: "seg" }, seg("icon", "이모지"), seg("favicon", "파비콘"), seg("none", "설정 안 함")),
+        linkForm.mode === "icon" ? h("div", { class: "emoji-pick" }, ...ICON_PICK.map(name => h("button", {
+          type: "button", "aria-pressed": String(linkForm.ic === name), "data-ic": name,
+          title: name, "aria-label": name, html: svgIc(name, 22),
+          onclick: () => { linkForm.ic = name; renderLinkForm(); },
         }))) : null,
-        linkForm.mode === "emoji" ? field("다른 이모지는 여기에 붙여 넣기", h("input", {
-          type: "text", id: "linkEmoji", maxlength: "8", autocomplete: "off", value: linkForm.emoji,
-          oninput: (e) => { linkForm.emoji = e.target.value; },
-        })) : null,
         linkForm.mode === "favicon" ? h("p", { class: "set-state", text: "사이트가 쓰는 그림을 가져옵니다. 그림이 없는 사이트는 첫 글자가 나옵니다." }) : null,
         linkForm.mode === "none" ? h("p", { class: "set-state", text: "이름의 첫 글자가 나옵니다." }) : null),
       h("div", { class: "set-foot" },

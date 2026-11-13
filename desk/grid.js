@@ -10,7 +10,8 @@ export const MAX_PAGES = 8;
 export const MIN_SIZE = [2, 2];
 export const WIDGETS = [
   { id: "clock",   name: "시계",        min: MIN_SIZE },
-  { id: "links",   name: "바로가기",    min: MIN_SIZE },
+  /* 바로가기는 아이콘만 남기면 한 칸으로도 쓸 만하다. 다른 칸은 2×2 가 한계다. */
+  { id: "links",   name: "바로가기",    min: [1, 1] },
   { id: "now",     name: "지금 수업",   min: MIN_SIZE },
   { id: "periods", name: "오늘 시간표", min: MIN_SIZE },
   { id: "class",   name: "우리 반",     min: MIN_SIZE },

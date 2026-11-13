@@ -137,7 +137,7 @@ function device() {
   w.addEventListener("error", (e) => errs.push("페이지 오류: " + e.message));
   w.addEventListener("unhandledrejection", (e) => errs.push("처리 안 된 거부: " + (e.reason && e.reason.message)));
   // jsdom 은 import 를 못 따라가서 모듈을 이어 붙인다.
-  const sideCode = ["grid.js", "hoclass.js"]
+  const sideCode = ["../shared/icons.js", "grid.js", "hoclass.js"]
     .map(f => fs.readFileSync(path.join(DIR, f), "utf8").replace(/^export /gm, ""))
     .join("\n");
   const deskCode = fs.readFileSync(path.join(DIR, "desk.js"), "utf8")
@@ -145,7 +145,9 @@ function device() {
     .replace(/^import \{[^}]*\} from "\.\/hoclass\.js";$/m, "")
     .replace(/^import \{[^}]*\} from "\.\/grid\.js";$/m, "")
     .replace(/^import \* as GCal from "\.\/gcal\.js";$/m, "const GCal = window.__GCAL__;")
-    .replace(/^import \* as Neis from "\.\/neis\.js";$/m, "const Neis = window.__NEIS__;");
+    .replace(/^import \* as Neis from "\.\/neis\.js";$/m, "const Neis = window.__NEIS__;")
+    .replace(/^import \{ icon as svgIc, resolveIcon \} from "\.\.\/shared\/icons\.js";$/m,
+             "const svgIc = icon;");
   const code = sideCode + "\n" + deskCode;
   if (/^\s*(import|export)\s/m.test(code)) throw new Error("import/export 를 못 걷어냈다");
   w.eval(code);
@@ -158,7 +160,7 @@ function device() {
     book: () => $("bookBody").textContent,
     tab: (p) => [...d.querySelectorAll("#bookSeg button")].find(b => b.dataset.page === p).click(),
     setTab: (k) => {
-      if ($("setPanel").hidden) $("setBtn").click();
+      if ($("setPanel").hidden) $("toolSet").click();
       const b = d.querySelector('#setPanel .set-tab[data-tab="' + k + '"]');
       if (!b) throw new Error("설정 탭이 없다: " + k);
       b.click();
@@ -230,6 +232,19 @@ function checkWeatherCodes() {
   }
 }
 
+/* 고르개에 적어 둔 아이콘 이름이 호클래스 아이콘 묶음에 다 있는지 */
+function checkIconNames() {
+  const js = fs.readFileSync(path.join(DIR, "desk.js"), "utf8");
+  const m = /const ICON_PICK = \[([\s\S]*?)\];/.exec(js);
+  assert(m, "desk.js 에 ICON_PICK 이 있어야 한다");
+  const names = m[1].match(/"[a-z0-9-]+"/g).map(s => s.slice(1, -1));
+  const have = fs.readFileSync(path.join(DIR, "..", "shared", "icons.js"), "utf8");
+  for (const n of names) {
+    assert(have.includes('"' + n + '":"<svg'), "shared/icons.js 에 없는 아이콘: " + n);
+  }
+  assert(names.length >= 12, "고를 아이콘이 너무 적다: " + names.length);
+}
+
 function checkHiddenRule() {
   const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
   assert(/\[hidden\][^{]*\{[^}]*display:\s*none\s*!important/.test(css),
@@ -240,6 +255,7 @@ function checkHiddenRule() {
   checkHiddenRule();
   checkShrinkRules();
   checkWeatherCodes();
+  checkIconNames();
   seedHoclass();
   const A = device();
 
@@ -265,14 +281,14 @@ function checkHiddenRule() {
   assert(/^[0-9A-Z]{4}(-[0-9A-Z]{4}){7}$/.test(rec), "복구 키 형식");
   A.$("recoveryOk").checked = true; A.$("recoveryOk").dispatchEvent(new A.w.Event("change"));
   A.$("recoveryDone").click();
-  await until(() => A.$("setBtn"), "설정 단추");
+  await until(() => A.$("linkAdd"), "바로가기가 그려짐");
   for (const p of ["desk_crypto/keys", "desk_settings/general", "desk_years/all", "desk_todos/all", "desk_ddays/all", "desk_memo/all", "desk_calendar/all"]) {
     await until(() => store.has(p), p);
   }
   assert(!allStored().includes(rec.replace(/-/g, "")), "복구 키 평문 저장 금지");
 
   /* ---------- 올해 설정: 2027, 담임 반은 호클래스에 없는 3-9 ---------- */
-  A.$("setBtn").click();
+  A.$("toolSet").click();
   await until(() => A.$("setForm"), "설정 패널");
   assert.strictEqual(A.$("setTitle").textContent, "설정", "패널 머리줄 제목");
   assert(A.$("setClose"), "머리줄에 닫기 단추가 있다");
@@ -281,7 +297,7 @@ function checkHiddenRule() {
     ["학년도", "화면", "나이스", "백업", "비밀번호"], "탭 다섯");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden && A.$("setScrim").hidden, "닫기 단추로 닫힌다");
-  A.$("setBtn").click();
+  A.$("toolSet").click();
   await until(() => A.$("setForm"), "다시 열면 학년도 탭");
   /* 학년도를 더하고, 담임 반은 글이 아니라 고르개로 정한다 */
   A.fill("setYear", "2027");
@@ -363,6 +379,11 @@ function checkHiddenRule() {
     const g = spanOf(id);
     assert(g.w >= 4 && g.h >= 4, id + " 가 4×4 보다 작다: " + g.w + "×" + g.h);
   }
+  /* 바로가기만 한 칸까지 줄일 수 있다 */
+  const gridSrc = fs.readFileSync(path.join(DIR, "grid.js"), "utf8");
+  assert(/\{ id: "links",\s+name: "바로가기",\s+min: \[1, 1\] \}/.test(gridSrc),
+    "바로가기는 min 이 [1, 1] 이어야 한 칸으로 줄일 수 있다");
+  assert(/export const MIN_SIZE = \[2, 2\];/.test(gridSrc), "다른 칸은 2×2 가 한계로 남아야 한다");
   await until(() => store.has("desk_grid/all"), "desk_grid/all 저장");
   assert.strictEqual(JSON.parse(store.get("desk_grid/all")).state.pages, 2, "두 장으로 저장");
 
@@ -382,13 +403,15 @@ function checkHiddenRule() {
   assert(!A.$("linkPanel").hidden && !A.$("linkScrim").hidden, "사이트 추가는 팝업 모달로 연다");
   A.fill("linkName", "이모지 시험"); A.fill("linkUrl", "example.com");
   picks()[2].click();   // 다시 그려도 적던 이름과 주소가 남아야 한다
-  const em = picks().find(b => b.getAttribute("aria-pressed") === "true").textContent;
+  const em = picks().find(b => b.getAttribute("aria-pressed") === "true").dataset.ic;
   assert.strictEqual(A.$("linkName").value, "이모지 시험", "이모지를 골라도 적던 이름이 지워지지 않는다");
   A.submit("linkForm");
   assert(A.$("linkPanel").hidden, "추가하면 모달이 닫힌다");
   const one = made("이모지 시험");
   assert(one, "새 사이트가 바로가기에 생긴다");
-  assert.strictEqual(one.querySelector(".link-ico.emoji").textContent, em, "고른 이모지가 앞에 붙는다");
+  assert(one.querySelector(".link-ico.svg svg"), "고른 아이콘이 단색 SVG 로 붙는다");
+  assert(new RegExp("lucide-" + em + String.fromCharCode(34)).test(one.querySelector(".link-ico.svg").innerHTML),
+    "고른 아이콘(" + em + ")이 그대로 붙는다");
   assert.strictEqual(one.getAttribute("href"), "https://example.com/", "주소에 https 를 붙인다");
 
   A.$("linkAdd").click();

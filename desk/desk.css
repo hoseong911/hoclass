@@ -58,7 +58,9 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .link.official { border-color: var(--sky); background: var(--sky-soft); }
 .link .sub { font-size: 11px; color: var(--muted); font-weight: 500; }
 .mono-tile { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-weight: 600; font-size: 13px; color: #fff; flex: none; }
-.link-ico { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; font-size: 19px; line-height: 1; object-fit: contain; }
+.link-ico { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; line-height: 1; object-fit: contain; }
+.link-ico.svg { color: var(--accent); }
+.link-ico svg { width: 22px; height: 22px; display: block; }
 .link .x { display: none; }
 .links.editing .link.custom { padding-right: 34px; }
 .links.editing .link.custom .x { display: grid; }
@@ -71,12 +73,13 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .ghost-btn { border: 1px dashed var(--faint); background: transparent; color: var(--muted); border-radius: 12px; padding: 9px 14px; cursor: pointer; font-size: 14px; font-weight: 500; }
 .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
 .card.float.narrow { width: min(440px, calc(100vw - 32px)); }
+#linkAdd { padding: 7px 0; width: 38px; font-size: 18px; line-height: 1; text-align: center; }
 .emoji-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 6px; }
-.emoji-pick button { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 6px 0; font-size: 20px; line-height: 1.2; cursor: pointer; }
+.emoji-pick button { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 0; color: var(--ink); line-height: 1; cursor: pointer; display: grid; place-items: center; }
+.emoji-pick button svg { width: 22px; height: 22px; display: block; }
+.emoji-pick button[aria-pressed="true"] svg { color: var(--accent); }
 .emoji-pick button:hover { border-color: var(--accent); }
 .emoji-pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
-.region { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-left: auto; }
-@media (max-width: 720px) { .region { margin-left: 0; } }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 /* 내용 적은 위젯은 가운데로 모으고 세로를 꽉 채운다(선생님 지시 2026-11-12) */
@@ -294,8 +297,6 @@ table.tt { width: 100%; border-collapse: separate; border-spacing: 4px; min-widt
 .recovery-code { font-family: var(--font-num); font-size: 16px; letter-spacing: .04em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; overflow-wrap: anywhere; user-select: all; }
 .check-row { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .btn:disabled { opacity: .5; cursor: default; filter: none; }
-button.region { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 6px 12px; cursor: pointer; font-weight: 500; }
-button.region:hover { border-color: var(--accent); color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
@@ -380,6 +381,15 @@ body { overflow: hidden; }
 }
 /* 시계와 날짜 사이 여백은 칸이 넉넉할 때만. 작은 칸은 붙여 공간을 아낀다. */
 @container (min-height: 220px) { .cw-time { gap: clamp(6px, 2.6cqh, 18px); } }
+
+/* 바로가기를 한 칸 높이로 줄였을 때. 두 겹으로 쌓을 자리가 없어 한 줄로 눕힌다. */
+@container (max-height: 108px) {
+  .links { flex-direction: row; align-items: center; gap: 8px; }
+  .link-grid { flex: 1; min-width: 0; grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(34px, 1fr); }
+  .link-bar { flex: none; }
+  .link > .nm { display: none; }
+  .link { justify-content: center; padding: 5px; }
+}
 
 /* ── 할 일 ── */
 .wg-todo .quad { flex: 1; min-height: 0; }
@@ -837,6 +847,7 @@ body { overflow: hidden; }
 }
 @container (max-width: 200px) {
   .link > .nm { display: none; }
+  .link { justify-content: center; }
   .link-grid { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); }
   .link { padding: 5px; }
   .period { grid-template-columns: 36px minmax(0, 1fr); }
