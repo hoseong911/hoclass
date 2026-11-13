@@ -271,11 +271,16 @@ function checkTodoCells() {
   const base = css.slice(css.indexOf(".q-cell {"), css.indexOf(".q-cell.q0"));
   assert(block && base, "desk.css 에서 할 일 네 칸 규칙을 못 찾았다");
   assert(!/border-top:/.test(base), "칸 한 변에 색 막대를 박지 않는다(네일팁처럼 보인다)");
-  assert(!/background:/.test(base), "격자 카드에 바탕을 채우지 않는다(레포 화면 규칙)");
+  assert(!/background:/.test(base), "네 칸에 바탕을 두루 채우지 않는다(레포 화면 규칙)");
+  // 바탕을 칠하는 것은 가장 급한 한 칸뿐이다. 둘 이상이면 강조가 사라진다.
+  const bgCells = [0, 1, 2, 3].filter(q => block.includes(".q-cell.q" + q + " { background:"));
+  assert(bgCells.length === 1 && bgCells[0] === 0, "바탕은 중요 긴급 한 칸에만 칠한다");
   assert(!/--qc/.test(css), "색 넷으로 가르지 않는다. 중요 긴급만 레드이고 나머지는 회색 단계다");
   assert(!/dashed/.test(block), "끌어 놓는 자리를 점선으로 두르지 않는다. 바탕 한 단으로 알린다");
-  assert(block.includes(".q-cell.q0 .q-name { color: var(--accent); }"),
-    "색이 나는 곳은 중요 긴급 한 칸이어야 한다");
+  // 네 칸이 같아 보이지 않게 이름 색 네 단계는 그대로 둔다(선생님 지시 2026-11-13)
+  for (const [q, c] of [[0, "--accent"], [1, "--ink"], [2, "--sub"], [3, "--faint"]])
+    assert(block.includes(".q-cell.q" + q + " .q-name { color: var(" + c + ");"),
+      "q" + q + " 이름 색이 " + c + " 여야 한다");
   const px = [...css.matchAll(/\.q-(?:cell|head|list|add)[^{]*\{[^}]*?(?:padding|gap)[^;]*?(\d+)px/g)].map(m => +m[1]);
   // 2px 는 작은 조작 칸 안의 미세 조정이라 격자 밖이어도 둔다
   for (const v of px) assert(v % 4 === 0 || v === 2, "할 일 칸 여백이 4px 격자 밖이다: " + v + "px");

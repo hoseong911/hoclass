@@ -437,17 +437,23 @@ body { overflow: hidden; }
 /* ── 할 일 ── */
 .wg-todo .quad { flex: 1; min-height: 0; }
 .quad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
-/* 격자 카드라 네 변 테두리와 모서리는 두지만, 바탕을 채우고 한 변에 색 막대를 박으면
-   손톱 네일팁처럼 보인다. 바탕은 비우고 선으로만 나눈다. */
+/* 격자 카드라 네 변 테두리와 모서리는 두지만, 한 변에 색 막대를 박으면 손톱 네일팁처럼
+   보인다. 바탕을 칠하는 것은 가장 급한 한 칸(q0)뿐이고, 레포가 쓰는 레드 반투명이다. */
 .q-cell {
   display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; overflow: hidden;
   border: 1px solid var(--line); border-radius: 12px; padding: 8px;
 }
-/* 색이 나는 곳은 중요 긴급 한 칸뿐이고, 나머지는 회색 단계로 내려가 긴급도를 알린다. */
-.q-cell.q0 .q-name { color: var(--accent); }
-.q-cell.q1 .q-name { color: var(--ink); }
+/* 급한 칸부터 눈에 들어오게 네 단계로 내려간다. 색이 나는 곳은 중요 긴급 한 칸뿐이다.
+   바탕, 테두리, 이름, 할 일 글씨 네 가지를 같은 순서로 같이 내린다. */
+.q-cell.q0 { background: var(--accent-fade); border-color: var(--accent); }
+.q-cell.q1 { border-color: var(--line-strong); }
+.q-cell.q0 .q-name { color: var(--accent); font-weight: 700; }
+.q-cell.q1 .q-name { color: var(--ink); font-weight: 600; }
 .q-cell.q2 .q-name { color: var(--sub); }
 .q-cell.q3 .q-name { color: var(--faint); }
+.q-cell.q0 .q-tx { font-weight: 600; }
+.q-cell.q2 .q-tx { color: var(--sub); }
+.q-cell.q3 .q-tx { color: var(--faint); }
 .q-cell.over { background: var(--surface-2); border-color: var(--line-strong); }
 .q-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .q-name { font-size: var(--fs-sm); font-weight: 500; white-space: nowrap; }
