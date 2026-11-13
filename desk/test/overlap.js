@@ -164,17 +164,14 @@ async function dumpWidgets() {
   fill("setYear", "2027");
   [...d.querySelectorAll("#setPanel button")].find(b => b.textContent.includes("학년도 추가")).click();
   await until(() => d.querySelector('#setPanel .cpick[data-year="2027"][aria-pressed="true"]'), "2027학년도");
-  A.$("setHome").value = "home";
-  A.$("setHome").dispatchEvent(new w.Event("change", { bubbles: true }));
-  const [hg, hr] = A.$("setHomeCls").querySelectorAll("input");
-  hg.value = "3"; hr.value = "1";
-  for (let i = 0; i < 2; i++) A.$("setClassAdd").click();
-  [...A.$("setClasses").children].forEach((row, i) => {
-    const [g, r] = row.querySelectorAll("input");
-    g.value = "3"; r.value = String(i + 1);
-  });
-  submit("setForm");
-  await until(() => A.$("setPanel").hidden, "설정 저장");
+  const pickRoom = (id, g, r) => {
+    d.querySelector("#" + id + ' .cpick[data-grade="' + g + '"]').click();
+    d.querySelector("#" + id + ' .cpick[data-cls="' + g + "-" + r + '"]').click();
+  };
+  pickRoom("setHomeCls", 3, 1);
+  pickRoom("setClasses", 3, 1); pickRoom("setClasses", 3, 2);
+  A.$("setClose").click();
+  await until(() => A.$("setPanel").hidden, "설정 닫기");
 
   await until(() => [...d.querySelectorAll("#classPick .cpick")].length >= 2, "반 고르기");
   const pick = [...d.querySelectorAll("#classPick .cpick")].find(x => x.textContent.startsWith("3-1"));

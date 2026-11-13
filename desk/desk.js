@@ -77,7 +77,7 @@ const TEACHER_LINKS = () => [
 ];
 const TEACHER_TODOS = () => [
   { id: uid(), text: "주간 시간표를 내 시간표로 바꾸기", done: false, q: 0 },
-  { id: uid(), text: "'학년도 설정'에서 담임 반과 수업 반 넣기", done: false, q: 0 },
+  { id: uid(), text: "'기본 설정'에서 담임 반과 수업 반 넣기", done: false, q: 0 },
   { id: uid(), text: "기말고사, 방학식 날짜를 D-day에 등록하기", done: false, q: 1 },
 ];
 
@@ -1595,7 +1595,7 @@ function passField(id, label, auto) {
   return h("label", { class: "field" }, label, h("input", { type: "password", id, autocomplete: auto }));
 }
 const SET_TABS = [
-  { key: "year", name: "학년도" },
+  { key: "year", name: "기본" },
   { key: "links", name: "바로가기" },
   { key: "tt", name: "시간표" },
   { key: "grid", name: "화면" },
@@ -1643,30 +1643,59 @@ function renderSet() {
       : yearSection());
 }
 
-/* 학년도 설정: 학년도를 고르거나 더하고, 그 해의 담임 반과 수업 반을 정한다.
-   반은 글로 적지 않고 고르게 한다(선생님 지시 2026-11-12). */
-/* 숫자를 직접 쓴다(선생님 지시 2026-11-12 "드롭다운 말고 n학년 n반 의 n을 쓸 수 있게"). */
-function numIn(value, aria) {
-  return h("input", { type: "text", inputmode: "numeric", maxlength: "2", "aria-label": aria, value: String(value || "") });
+/* 기본 설정: 학교, 학년도, 담임 반, 수업 반, 자동 잠금. 누르는 즉시 저장한다(선생님 지시 2026-11-13).
+   반은 숫자칸 대신 학년 단추와 반 번호 단추로 고른다. 좁은 숫자칸 옆 "학년" 글자가 세로로 깨졌다. */
+// shortcut: 학년은 1~3, 반은 1~12 까지만 둔다. 초등학교나 13반 이상 학교에서 쓰게 되면 늘린다.
+const ROOM_MAX = 12;
+const pickGrade = {};          // 고르개마다 지금 펼친 학년(다시 그려도 남게)
+function roomPicker(id, picked, onPick) {
+  const g = pickGrade[id] || Number(String(picked[0] || "").split("-")[0]) || 1;
+  return h("div", { class: "room-pick", id },
+    h("div", { class: "set-row" }, ...[1, 2, 3].map(n => h("button", {
+      class: "cpick", type: "button", "data-grade": String(n), "aria-pressed": String(n === g), text: n + "학년",
+      onclick: () => { pickGrade[id] = n; renderSet(); } }))),
+    h("div", { class: "room-nums" }, ...Array.from({ length: ROOM_MAX }, (_, i) => {
+      const c = g + "-" + (i + 1);
+      return h("button", { class: "cpick", type: "button", "data-cls": c, "aria-pressed": String(picked.includes(c)),
+        text: (i + 1) + "반", onclick: () => onPick(c) });
+    })));
 }
-function classSel(id, value, onRemove) {
-  const m = /^(\d+)-(\d+)$/.exec(value || "");
-  const g = numIn(m ? m[1] : "", "학년"), r = numIn(m ? m[2] : "", "반");
-  const box = h("div", { class: "cls-pick", id: id || false },
-    g, h("span", { text: "학년" }), r, h("span", { text: "반" }),
-    onRemove ? h("button", { class: "x", type: "button", title: "반 삭제", "aria-label": "반 삭제", text: "×", onclick: onRemove }) : null);
-  box.read = () => {
-    const a = parseInt(g.value, 10), b = parseInt(r.value, 10);
-    return a > 0 && b > 0 ? a + "-" + b : "";
-  };
-  return box;
-}
+const byClass = (a, b) => a.localeCompare(b, "ko", { numeric: true });
 
 function yearSection() {
   const y = cfg();
   const years = Object.keys(state.year.years).map(Number).sort((a, b) => a - b);
   if (!years.includes(state.year.current)) years.push(state.year.current);
   const err = h("p", { class: "form-err", role: "alert" });
+  const putYear = (patch) => {
+    state.year.years[state.year.current] = { homeroom: y.homeroom || "", classes: y.classes || [], ...patch };
+    state.year.configured = true;
+    save(true); openYearDocs();
+    renderSet(); renderLinks(); renderClass(); renderBook();
+    hc = null; loadHc();
+  };
+
+  /* 학교: 나이스에서 찾는다. 급식, 학사 일정, 시간표가 이 학교로 온다. */
+  const school = state.neis.school;
+  const findIn = h("input", { type: "text", id: "neisFind", value: (school && school.name) || state.school || "", autocomplete: "off", "aria-label": "학교 이름" });
+  const found = h("div", { class: "set-row", id: "neisFound" });
+  const findBtn = h("button", { class: "btn small secondary", type: "button", id: "neisFindBtn", text: "학교 찾기", onclick: async () => {
+    err.textContent = "";
+    findBtn.disabled = true;
+    try {
+      const list = await Neis.findSchools(findIn.value.trim(), state.neis.key);
+      if (!list.length) { err.textContent = "그 이름의 학교를 찾지 못했습니다."; return; }
+      found.replaceChildren(...list.slice(0, 8).map(s => h("button", {
+        class: "cpick", type: "button", text: s.name + " (" + s.office.replace("교육청", "") + ")",
+        onclick: () => {
+          state.neis = { ...state.neis, school: { name: s.name, atpt: s.atpt, code: s.code, kind: s.kind } };
+          save(true); renderSet();
+          mealToday = null; loadMeal();
+          toast(s.name + "으로 정했습니다");
+        } })));
+    } catch (e) { err.textContent = (e && e.message) || "학교를 찾지 못했습니다."; }
+    finally { findBtn.disabled = false; }
+  } });
 
   /* 학년도 고르기와 더하기 */
   const chips = years.map(Y => h("button", {
@@ -1681,7 +1710,7 @@ function yearSection() {
       hc = null; loadHc();
     },
   }));
-  const addIn = h("input", { type: "number", id: "setYear", value: String(Math.max(...years) + 1), min: "2020", max: "2099" });
+  const addIn = h("input", { type: "number", id: "setYear", value: String(Math.max(...years) + 1), min: "2020", max: "2099", "aria-label": "더할 학년도" });
   const addBtn = h("button", { class: "btn small secondary", type: "button", id: "setYearAdd", text: "학년도 추가", onclick: () => {
     const Y = Number(addIn.value);
     if (!Number.isInteger(Y) || Y < 2020 || Y > 2099) { err.textContent = "학년도를 네 자리로 넣어 주세요."; return; }
@@ -1691,75 +1720,45 @@ function yearSection() {
     state.year.current = Y; state.year.configured = true;
     save(true); openYearDocs();
     renderSet(); renderClass(); renderBook();
-    toast(Y + "학년도를 더했습니다");
+    toast(Y + "학년도를 추가했습니다");
   } });
 
-  /* 담임 반: 비담임이면 반 고르개를 접는다 */
-  const homeSel = h("select", { id: "setHome" },
-    h("option", { value: "", text: "비담임" }),
-    h("option", { value: "home", text: "담임" }));
-  const homePick = classSel("setHomeCls", y.homeroom);
-  const homeField = h("div", { class: "field" }, "담임 반", homePick);
-  homeSel.value = y.homeroom ? "home" : "";
-  homeField.hidden = !y.homeroom;
-  homeSel.addEventListener("change", () => { homeField.hidden = homeSel.value !== "home"; });
-
-  /* 수업 반: 줄을 더하고 빼며 숫자를 직접 쓴다 */
-  const rows = h("div", { class: "cls-rows", id: "setClasses" });
-  const addRow = (v) => {
-    const row = classSel(null, v, () => { row.remove(); });
-    rows.append(row);
-    return row;
-  };
-  (y.classes || []).forEach(addRow);
-  const addClsBtn = h("button", { class: "btn small secondary", type: "button", id: "setClassAdd", text: "반 추가",
-    onclick: () => { addRow(""); } });
-
-  const schoolIn = h("input", { type: "text", id: "setSchool", value: state.school || "", maxlength: "40", autocomplete: "off" });
-  const idleSel = h("select", { id: "setIdle" }, ...[5, 15, 30, 60].map(m => h("option", { value: String(m), text: m + "분" })));
+  const classes = (y.classes || []).slice().sort(byClass);
+  const idleSel = h("select", { id: "setIdle", "aria-label": "자동 잠금",
+    onchange: (e) => { state.idleMin = Number(e.target.value); save(true); } },
+    ...[5, 15, 30, 60].map(m => h("option", { value: String(m), text: m + "분" })));
   idleSel.value = String(state.idleMin);
 
-  const form = h("form", { class: "set-form", id: "setForm", onsubmit: (e) => {
-    e.preventDefault();
-    const Y = state.year.current;
-    const classes = [...new Set([...rows.children].map(b => b.read()).filter(Boolean))];
-    state.year.years[Y] = { homeroom: homeSel.value === "home" ? homePick.read() : "", classes };
-    state.year.configured = true;
-    state.idleMin = Number(idleSel.value);
-    state.school = schoolIn.value.trim().slice(0, 40);
-    save(true);
-    setOpen = false;
-    openYearDocs();
-    renderSet(); renderLinks(); renderClass(); renderBook();
-    hc = null; loadHc();
-    toast(Y + "학년도 설정을 저장했습니다");
-  } },
-    setBlock("학년도 고르기", [
+  return h("section", { class: "set-sec", id: "setForm" },
+    h("h3", { text: "기본 설정" }),
+    setBlock("학교", [
+      h("div", { class: "set-row" }, findIn, findBtn),
+      found,
+      h("p", { class: "set-state", text: school ? school.name + " (" + school.kind + ")" : "학교를 아직 정하지 않았습니다." }),
+    ]),
+    setBlock("학년도", [
       h("div", { class: "set-row" }, ...chips),
       h("div", { class: "set-row" }, addIn, addBtn),
     ]),
-    setBlock("담임", [
-      h("div", { class: "set-grid" }, homeSel, homeField),
+    setBlock("담임 반", [
+      roomPicker("setHomeCls", y.homeroom ? [y.homeroom] : [],
+        (c) => putYear({ homeroom: y.homeroom === c ? "" : c })),
+      h("p", { class: "set-state", text: y.homeroom ? y.homeroom + " 담임" : "담임이 아닙니다. 반을 누르면 담임 반이 됩니다." }),
     ]),
     setBlock("수업 반", [
-      rows,
-      h("div", { class: "set-row" }, addClsBtn,
+      roomPicker("setClasses", classes,
+        (c) => putYear({ classes: classes.includes(c) ? classes.filter(x => x !== c) : [...classes, c].sort(byClass) })),
+      h("p", { class: "set-state", text: classes.length ? classes.join(", ") : "아직 없습니다" }),
+      h("div", { class: "set-row" },
         h("button", { class: "btn small secondary", type: "button", id: "setFromTT", text: "시간표에서 가져오기", onclick: () => {
-          const found = parseClasses(state.tt.flat().filter(c => /^\s*\d+\s*-\s*\d+\s*$/.test(c)).join(", "))
-            .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
-          if (!found.length) { err.textContent = "주간 시간표에 반이 적혀 있지 않습니다."; return; }
+          const got = parseClasses(state.tt.flat().filter(c => /^\s*\d+\s*-\s*\d+\s*$/.test(c)).join(", ")).sort(byClass);
+          if (!got.length) { err.textContent = "주간 시간표에 반이 적혀 있지 않습니다."; return; }
           err.textContent = "";
-          rows.replaceChildren();
-          found.forEach(addRow);
+          putYear({ classes: got });
         } })),
     ]),
-    setBlock("그 밖에", [
-      h("div", { class: "set-grid" }, setField("학교", schoolIn), setField("자동 잠금", idleSel)),
-    ]),
-    err,
-    h("div", { class: "set-foot" },
-      h("button", { class: "btn small", type: "submit", id: "setSave", text: "저장" })));
-  return h("section", { class: "set-sec" }, h("h3", { text: "학년도 설정" }), form);
+    setBlock("자동 잠금", [h("div", { class: "set-row" }, idleSel)]),
+    err);
 }
 
 /* ---------- 나이스에서 받아오기 ---------- */
@@ -1811,25 +1810,7 @@ function neisSection() {
       "aria-label": (s.name || "이 과목") + " 지우기",
       onclick: () => { N.subjects.splice(i, 1); save(true); renderSet(); } }));
 
-  /* 학교 찾기 */
-  const findIn = h("input", { type: "text", id: "neisFind", value: (N.school && N.school.name) || state.school || "", autocomplete: "off" });
-  const found = h("div", { class: "set-row", id: "neisFound" });
-  const pickSchool = (s) => {
-    state.neis = { ...state.neis, school: { name: s.name, atpt: s.atpt, code: s.code, kind: s.kind } };
-    if (!state.school) state.school = s.name;
-    save(true); renderSet();
-    mealToday = null; loadMeal();
-    toast(s.name + "으로 정했습니다");
-  };
-  const findBtn = doBtn("neisFindBtn", "학교 찾기", async () => {
-    const list = await Neis.findSchools(findIn.value.trim(), keyIn.value.trim());
-    if (!list.length) { err.textContent = "그 이름의 학교를 찾지 못했습니다."; return; }
-    found.replaceChildren(...list.slice(0, 8).map(s => h("button", {
-      class: "cpick", type: "button", text: s.name + " (" + s.office.replace("교육청", "") + ")",
-      onclick: () => pickSchool(s),
-    })));
-  });
-
+  // 학교는 기본 탭에서 한 번만 정한다(선생님 지적 2026-11-13: 학교 이름을 두 군데서 넣었다).
   const school = N.school;
   const now = new Date();
   const kids = [
@@ -1850,12 +1831,8 @@ function neisSection() {
         class: "btn small secondary", type: "button", id: "neisSubjAdd", text: "과목 추가",
         onclick: () => { N.subjects.push({ name: "", classes: myClasses() }); save(true); renderSet(); },
       })),
-    ] : [h("p", { class: "set-state", text: "학년도 설정에서 수업 반을 먼저 넣어 주세요." })]),
-    setBlock("학교", [
-      h("div", { class: "set-row" }, findIn, findBtn),
-      found,
-      h("p", { class: "set-state", text: school ? school.name + " " + school.kind + " (" + school.atpt + " " + school.code + ")" : "학교를 아직 정하지 않았습니다." }),
-    ]),
+    ] : [h("p", { class: "set-state", text: "기본 탭에서 수업 반을 먼저 골라 주세요." })]),
+    school ? null : h("p", { class: "set-state", text: "기본 탭에서 학교를 먼저 정해 주세요." }),
   ];
   if (school) {
     kids.push(setBlock("받아오기", [
@@ -2104,7 +2081,7 @@ function unlockView() {
     err,
     h("div", { class: "row" }, btn, h("button", { class: "text-btn", type: "button", id: "recoverLink", text: "비밀번호를 잊었습니다", onclick: () => { recoverMode = true; renderClass(); } })))];
 }
-const openSetBtn = () => h("button", { class: "btn small", type: "button", text: "학년도 설정 열기", onclick: () => { setTab = "year"; setOpen = true; renderSet(); } });
+const openSetBtn = () => h("button", { class: "btn small", type: "button", text: "기본 설정 열기", onclick: () => { setTab = "year"; setOpen = true; renderSet(); } });
 
 function softClass() {
   if (!booted) return;
@@ -2144,7 +2121,7 @@ function renderClass() {
   if (ks === "recovery") { body.replaceChildren(...recoveryView()); return; }
   if (ks === "locked") { body.replaceChildren(...unlockView()); return; }
   const rollover = state.year.configured && academicYear() > state.year.current
-    ? h("p", { class: "hint", text: `${academicYear()}학년도가 시작됐습니다. '학년도 설정'에서 담임 반과 수업 반을 새로 넣어 주세요.` }) : null;
+    ? h("p", { class: "hint", text: `${academicYear()}학년도가 시작됐습니다. '기본 설정'에서 담임 반과 수업 반을 새로 넣어 주세요.` }) : null;
   const banner = warnBanner();
   const hcNote = hcErr ? h("p", { class: "hint", text: hcErr })
     : (hcBusy && !hc) ? h("p", { class: "tip", text: "호클래스 명단을 읽는 중입니다." }) : null;
@@ -2152,7 +2129,7 @@ function renderClass() {
   const wrap = (kids) => body.replaceChildren(...[...head, ...kids]);
   if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "담임 반과 수업 반을 넣어 주세요" }), h("div", { class: "row" }, openSetBtn()))]); return; }
   ensureAtt(todayKey(), pick);
-  if (!pick) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "이 학년도에 들어가는 반이 없습니다" }), h("p", { text: "'학년도 설정'에서 담임 반이나 수업 반을 넣으면 출결과 수합을 쓸 수 있습니다." }), h("div", { class: "row" }, openSetBtn()))]); return; }
+  if (!pick) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "이 학년도에 들어가는 반이 없습니다" }), h("p", { text: "'기본 설정'에서 담임 반이나 수업 반을 넣으면 출결과 수합을 쓸 수 있습니다." }), h("div", { class: "row" }, openSetBtn()))]); return; }
   if (encDocs().some(d => d.broken)) { wrap(note("일부 기록을 풀지 못했습니다. 페이지를 새로고침한 뒤 다시 열어 주세요. 기록은 그대로 있습니다.")); return; }
   if (encDocs().some(d => !d.ready)) { wrap(note("기록을 여는 중입니다.")); return; }
   if (!roster().length) {
@@ -2599,7 +2576,7 @@ function renderBook() {
       : "수첩을 여는 중입니다."));
     return;
   }
-  if (!state.year.configured) { body.replaceChildren(noneLine("'학년도 설정'에서 담임 반과 수업 반을 넣으면 수첩을 쓸 수 있습니다.")); return; }
+  if (!state.year.configured) { body.replaceChildren(noneLine("'기본 설정'에서 담임 반과 수업 반을 넣으면 수첩을 쓸 수 있습니다.")); return; }
   if (!bookReady()) { body.replaceChildren(noneLine("기록을 여는 중입니다.")); return; }
   const kids = bookPage === "today" ? todayPage()
     : bookPage === "student" ? studentPage()
@@ -2862,7 +2839,7 @@ function lessonPage() {
   const err = h("p", { class: "form-err", role: "alert" });
   const form = h("form", { class: "book-form", id: "leForm", onsubmit: (e) => {
     e.preventDefault();
-    if (!cls) { err.textContent = "'학년도 설정'에서 수업 반을 먼저 넣어 주세요."; return; }
+    if (!cls) { err.textContent = "'기본 설정'에서 수업 반을 먼저 넣어 주세요."; return; }
     if (!unitIn.value.trim() && !bodyIn.value.trim()) { err.textContent = "단원이나 내용 하나는 적어 주세요."; return; }
     D.value.items.unshift({
       id: uid(), cls, at: atIn.value || todayKey(), period: Number(perIn.value),

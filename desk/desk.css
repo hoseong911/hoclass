@@ -534,8 +534,9 @@ body { overflow: hidden; }
 }
 .set-tab[aria-pressed="true"] { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
 .set-sec { display: flex; flex-direction: column; gap: 18px; padding: 16px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-/* 묶음마다 테두리와 여백. 한 화면에 다 쏟아 놓으면 빽빽해서 못 읽는다. */
-.set-block { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+/* 묶음은 회색 상자 대신 위 가는 줄과 여백으로 나눈다(선생님 지적 2026-11-13: 상자가 겹겹이라 난잡하다). */
+.set-block { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.set-sec > h3 + .set-block { border-top: 0; padding-top: 0; }
 .set-block > .set-sub { margin: 0 0 2px; }
 .set-head, .set-tabs { flex: none; }
 .set-sec > h3 { font-size: 15px; font-weight: 600; margin: 0; }
@@ -588,10 +589,9 @@ body { overflow: hidden; }
 .wg-check input { flex: none; accent-color: var(--accent); margin: 0; }
 .wg-check .sz { font-family: var(--font-num); font-size: 11px; color: var(--faint); margin-left: auto; }
 
-/* 반 고르개: 학년과 반을 나란히 */
-.cls-pick { display: flex; gap: 6px; }
-.cls-pick select { flex: 1 1 0; min-width: 0; }
-.cls-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+/* 반 고르개: 학년 단추 줄 아래 반 번호 단추 */
+.room-nums { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.room-nums .cpick { justify-content: center; padding: 6px 0; }
 
 /* 구글 캘린더 */
 .gcal-day { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 6px 10px; align-items: baseline; }

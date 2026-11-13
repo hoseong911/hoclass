@@ -172,6 +172,10 @@ function device() {
       if (!b) throw new Error("설정 탭이 없다: " + k);
       b.click();
     },
+    pickRoom: (id, g, r) => {
+      d.querySelector("#" + id + ' .cpick[data-grade="' + g + '"]').click();
+      d.querySelector("#" + id + ' .cpick[data-cls="' + g + "-" + r + '"]').click();
+    },
     btn: (where, label) => [...d.querySelectorAll(where + " button")].find(b => b.textContent.includes(label)),
     pick: (c) => [...d.querySelectorAll("#classPick .cpick")].find(x => x.textContent.startsWith(c)).click(),
     stu: () => [...d.querySelectorAll("#classBody .stu")],
@@ -387,27 +391,24 @@ async function checkHomeroomCC() {
   assert(A.$("setClose"), "머리줄에 닫기 단추가 있다");
   assert(!A.$("setScrim").hidden, "열면 뒤가 가려진다");
   assert.deepStrictEqual([...A.d.querySelectorAll("#setPanel .set-tab")].map(b => b.textContent),
-    ["학년도", "바로가기", "시간표", "화면", "나이스", "백업", "비밀번호"], "탭 일곱");
+    ["기본", "바로가기", "시간표", "화면", "나이스", "백업", "비밀번호"], "탭 일곱");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden && A.$("setScrim").hidden, "닫기 단추로 닫힌다");
   A.$("toolSet").click();
-  await until(() => A.$("setForm"), "다시 열면 학년도 탭");
+  await until(() => A.$("setForm"), "다시 열면 기본 탭");
   /* 학년도를 더하고, 담임 반은 글이 아니라 고르개로 정한다 */
   A.fill("setYear", "2027");
   A.btn("#setPanel", "학년도 추가").click();
   await until(() => A.d.querySelector('#setPanel .cpick[data-year="2027"][aria-pressed="true"]'), "2027학년도를 더하고 고른다");
-  A.$("setHome").value = "home";
-  A.$("setHome").dispatchEvent(new A.w.Event("change", { bubbles: true }));
-  const [hg, hr] = A.$("setHomeCls").querySelectorAll("input");
-  hg.value = "3"; hr.value = "9";
-  A.$("setClassAdd").click();                     // 수업 반 3-1 (담임 반 3-9 와 따로)
-  {
-    const [cg, cr] = A.$("setClasses").lastElementChild.querySelectorAll("input");
-    cg.value = "3"; cr.value = "1";
-  }
-  A.submit("setForm");
-  await until(() => A.$("setPanel").hidden, "저장하면 닫힌다");
-  await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state; return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9"; }, "담임 반이 3-9 로 저장된다");
+  assert(!A.d.querySelector("#setPanel input[id=setSchool]"), "학교 이름 칸은 없다. 학교는 나이스 학교 찾기 한 곳에서만 정한다");
+  assert(!A.$("setSave"), "기본 탭은 누르는 즉시 저장하므로 저장 단추가 없다");
+  A.pickRoom("setHomeCls", 3, 9);                 // 담임 반 3-9
+  A.pickRoom("setClasses", 3, 1);                 // 수업 반 3-1 (담임 반 3-9 와 따로)
+  await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state;
+    return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9" && y.years["2027"].classes.join() === "3-1"; },
+    "누르는 즉시 담임 반 3-9, 수업 반 3-1 로 저장된다");
+  assert.strictEqual(A.d.querySelector('#setHomeCls .cpick[data-grade="3"]').getAttribute("aria-pressed"), "true", "다시 그려도 3학년이 펼쳐져 있다");
+  A.$("setClose").click();
 
   /* ---------- 시계 ---------- */
   const clockText = A.wg("clock").textContent;
@@ -693,7 +694,7 @@ async function checkHomeroomCC() {
   renameHoclassStudent("301", 2, "전학온애");
   A.setTab("year");
   await until(() => A.$("setForm"), "설정 다시");
-  A.submit("setForm");
+  A.pickRoom("setClasses", 3, 1); A.pickRoom("setClasses", 3, 1);   // 껐다 켜면 다시 저장된다
   await until(() => A.text().includes("학번에 붙은 이름이 달라졌습니다"), "파수꾼이 알린다", 30000);
   await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state;
     return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9"; }, "다시 저장해도 담임 반이 지워지지 않는다");
@@ -768,10 +769,14 @@ async function checkHomeroomCC() {
   A.fill("neisKey", "시험열쇠");
   A.$("neisSave").click();
   await until(() => A.$("neisKey") && A.$("neisKey").value === "시험열쇠", "인증키가 남는다");
+  A.setTab("year");                                // 학교는 기본 탭에서 정한다
+  await until(() => A.$("neisFindBtn"), "기본 탭의 학교 찾기");
   A.$("neisFindBtn").click();
   await until(() => A.d.querySelector("#neisFound .cpick"), "학교를 찾아 보여 준다");
   A.d.querySelector("#neisFound .cpick").click();
-  await until(() => A.$("neisCal"), "학교를 정하면 받아오기 단추가 생긴다");
+  await until(() => A.$("setForm").textContent.includes("인천동양중학교 (중학교)"), "정한 학교가 보인다");
+  A.setTab("neis");
+  await until(() => A.$("neisCal"), "학교를 정하면 나이스 탭에 받아오기 단추가 생긴다");
   A.$("neisCal").click();
   await until(() => A.$("ddayList").textContent.includes("입학식"), "학사 일정이 D-day 에 들어온다");
   /* 과목 줄이 없으면 받아오지 않는다. 거를 것이 없어 첫 반이 35칸을 다 먹는다. */
