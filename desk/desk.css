@@ -175,6 +175,31 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .att-sum .early, .att-sum .early b { color: var(--blue); }
 .att-sum .done b { color: var(--pass); }
 .cls-foot { display: flex; justify-content: flex-end; gap: 8px; }
+/* 업무 장 주간 계획: 월~금 다섯 칸 */
+.wk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; flex: 1 1 auto; min-height: 320px; }
+.wk-day { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); min-width: 0; }
+.wk-day.today { border-color: var(--accent); }
+.wk-day.wk-offday { background: var(--surface-2); }
+.wk-head { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; }
+.wk-head .md { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.wk-head .tag, .wk-ev .tag { font-size: 11px; font-weight: 600; border-radius: 5px; padding: 1px 6px; background: var(--surface-2); color: var(--muted); }
+.wk-day.today .wk-head .tag { background: var(--accent-soft); color: var(--accent); }
+.wk-evs, .wk-plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.wk-ev { font-size: 13px; line-height: 1.4; display: flex; gap: 6px; align-items: baseline; overflow-wrap: anywhere; }
+.wk-ev .tag { flex: none; }
+.wk-ev.wk-cal .tag { background: var(--blue-soft); color: var(--blue); }
+.wk-ev.wk-off .tag { background: var(--warn-soft); color: var(--warn); }
+.wk-ev.wk-dday .tag { background: var(--accent-soft); color: var(--accent); }
+.wk-ev.wk-due .tag { background: var(--danger-soft); color: var(--danger); }
+.wk-ev.done { color: var(--faint); text-decoration: line-through; }
+.wk-plan .todo { padding: 5px 0; gap: 8px; font-size: 13px; }
+.wk-plan .todo:first-child { border-top: 0; }
+.wk-add { margin-top: auto; }
+/* 비어 있는 회색 덩어리처럼 보이지 않게, 적을 자리만 점선으로 */
+.wk-add input { width: 100%; font-size: 13px; padding: 6px 8px; background: transparent; border: 1px dashed var(--line); }
+.wk-add input:focus { border-style: solid; background: var(--surface); }
+@media (max-width: 900px) { .wk-grid { grid-template-columns: minmax(0, 1fr); } }
+
 /* 수업 장 진도 표 */
 .prog-scroll { overflow-x: auto; }
 table.prog { width: 100%; border-collapse: collapse; font-size: 14px; }

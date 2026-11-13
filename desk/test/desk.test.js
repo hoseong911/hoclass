@@ -170,7 +170,7 @@ function device() {
     go: (name) => [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === name).click(),
     sub: (k) => d.querySelector('#nbSeg [data-tab="' + k + '"]').click(),
     tab: (p) => {
-      const page = { student: "담임", consult: "담임", ann: "담임", lesson: "수업", prog: "수업", work: "업무", todo: "업무" }[p];
+      const page = { student: "담임", consult: "담임", ann: "담임", lesson: "수업", prog: "수업", work: "업무", todo: "업무", week: "업무" }[p];
       [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === page).click();
       d.querySelector('#nbSeg [data-tab="' + p + '"]').click();
     },
@@ -486,7 +486,7 @@ function checkHiddenRule() {
   await until(() => A.$("deck").hidden && !A.$("nb").hidden && A.$("nbTitle").textContent === "담임", "담임 장");
   A.d.querySelector('#pagebar [aria-label="앞 장"]').click();
   await until(() => A.$("nbTitle").textContent === "수업", "앞 장은 수업");
-  A.go("업무");
+  A.go("업무"); A.sub("todo");
   await until(() => A.$("nbTitle").textContent === "업무" && A.$("classBody").querySelector("#todoQuad"), "업무 장 할 일은 대시보드 할 일 위젯 그대로");
   assert(!A.wg("todos").querySelector("#todoQuad"), "할 일 카드는 한 벌만(업무 장으로 옮겨 왔다)");
   A.go("대시보드");
@@ -711,6 +711,31 @@ function checkHiddenRule() {
   await until(() => store.has("desk_consults/2027"), "desk_consults/2027");
   await wait(900);
   assert(!allStored().includes("지각 잦음"), "상담 내용 평문 금지");
+
+  /* ---------- 업무 장: 주간 계획 ---------- */
+  A.tab("work");
+  await until(() => A.$("woForm"), "업무 기록");
+  const mon = (() => { const t = new Date(), w = t.getDay(); t.setDate(t.getDate() + (w === 0 ? 1 : w === 6 ? 2 : 1 - w));
+    return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); })();
+  A.fill("woTitle", "생기부 점검 제출"); A.fill("woDue", mon);
+  A.submit("woForm");
+  await until(() => A.book().includes("생기부 점검 제출"), "업무 기록 추가");
+  A.tab("week");
+  await until(() => A.$("wkGrid") && A.d.querySelectorAll("#wkGrid .wk-day").length === 5, "주간 계획 다섯 칸");
+  const monCol = () => A.d.querySelector('#wkGrid .wk-day[data-day="' + mon + '"]');
+  assert(monCol().textContent.includes("생기부 점검 제출"), "월요일 칸에 업무 기한이 보인다");
+  A.fill("plan_" + mon, "교과협의회 자료 준비");
+  A.$("plan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
+  await until(() => monCol().textContent.includes("교과협의회 자료 준비"), "월요일 칸에 계획을 적는다");
+  monCol().querySelector(".wk-plan .check").click();
+  await until(() => monCol().querySelector(".wk-plan .todo.done"), "계획을 다 했음으로");
+  A.d.querySelector('#classBody [aria-label="다음 주"]').click();
+  await until(() => A.$("wkThis") && !A.d.querySelector('#wkGrid .wk-day[data-day="' + mon + '"]'), "다음 주로 넘긴다");
+  A.$("wkThis").click();
+  await until(() => monCol() && monCol().textContent.includes("교과협의회 자료 준비"), "이번 주로 돌아온다");
+  if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_week.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
+  await wait(900);
+  assert(!allStored().includes("교과협의회 자료"), "계획 내용 평문 금지");
 
   /* ---------- 파수꾼: 학번의 이름이 달라지면 알린다 ---------- */
   renameHoclassStudent("301", 2, "전학온애");

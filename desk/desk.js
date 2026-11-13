@@ -773,9 +773,9 @@ let arranging = false, curPage = 1;
 const NB = [
   { key: "lesson", name: "수업", tabs: [["prog", "진도"], ["lesson", "수업 기록"], ["student", "학생"], ["att", "출결"], ["col", "수합"]] },
   { key: "home", name: "담임", tabs: [["att", "출결"], ["col", "수합"], ["ann", "전달사항"], ["student", "학생"], ["consult", "상담 민원"]] },
-  { key: "work", name: "업무", tabs: [["todo", "할 일"], ["work", "업무 기록"]] },
+  { key: "work", name: "업무", tabs: [["week", "주간 계획"], ["todo", "할 일"], ["work", "업무 기록"]] },
 ];
-const nbTab = { lesson: "prog", home: "att", work: "todo" };
+const nbTab = { lesson: "prog", home: "att", work: "week" };
 const dashPages = () => okPages(state.pages);
 const allPages = () => dashPages() + NB.length;
 const nbOf = (p) => NB[p - dashPages() - 1] || null;
@@ -2238,6 +2238,7 @@ function renderNb() {
   if (nb.key === "work") {
     if (tab === "todo") { wrap([]); if (TODO_CARD) body.append(TODO_CARD); return; }
     if (!bookReady()) { wrap(note("기록을 여는 중입니다.")); return; }
+    if (tab === "week") { wrap(weekView()); return; }
     cols(workPage()); return;
   }
   if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "담임 반과 수업 반을 넣어 주세요" }), h("div", { class: "row" }, openSetBtn()))]); return; }
@@ -3172,6 +3173,64 @@ function workPage() {
     panel("새 업무", form),
     panel("업무 " + left + "건 남음" + (over ? ", 기한 지남 " + over : ""),
       lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("업무가 없습니다.")),
+  ];
+}
+
+/* ---------- 업무 장: 주간 계획 ---------- */
+/* 월~금 다섯 칸에 그날 것을 모은다: 학사 일정, D-day, 구글 캘린더, 업무 기한, 내가 적는 계획(4단계, 2026-11-13).
+   계획은 업무 문서(암호)에 plan 으로 둔다: { id, d, text, done }. */
+let weekMon = "";                                     // 보는 주의 월요일, 빈 글자면 이번 주
+function mondayIso(d) {
+  const t = new Date(d), w = t.getDay();
+  t.setDate(t.getDate() + (w === 0 ? 1 : w === 6 ? 2 : 1 - w));   // 주말에는 다음 주를 본다
+  return isoOf(t);
+}
+const addDaysIso = (iso, n) => { const d = parseDate(iso); d.setDate(d.getDate() + n); return isoOf(d); };
+function weekView() {
+  const W = docs.works, today = todayKey(), thisMon = mondayIso(new Date()), mon = weekMon || thisMon;
+  if (!Array.isArray(W.value.plan)) W.value.plan = [];
+  const plan = W.value.plan;
+  const days = [0, 1, 2, 3, 4].map(i => addDaysIso(mon, i));
+  const gday = (d) => { const g = gcalDays.find(x => x.at === d); return g ? g.items : []; };
+  const md = (iso) => `${+iso.slice(5, 7)}월 ${+iso.slice(8)}일`;
+  const col = (d, i) => {
+    const off = offName(d);
+    const ev = [
+      ...(state.cal || []).filter(x => x.d === d).map(x => h("li", { class: "wk-ev wk-cal" + (OFF_RE.test(x.name) ? " wk-off" : "") }, h("span", { class: "tag", text: "학사" }), x.name)),
+      ...state.ddays.filter(x => x.date === d).map(x => h("li", { class: "wk-ev wk-dday" }, h("span", { class: "tag", text: "D-day" }), x.title)),
+      ...gday(d).map(x => h("li", { class: "wk-ev wk-gcal" }, h("span", { class: "tag", text: x.allDay ? "종일" : x.time }), x.title)),
+      ...W.value.items.filter(x => x.due === d).map(x => h("li", { class: "wk-ev wk-due" + (x.done ? " done" : "") }, h("span", { class: "tag", text: "기한" }), x.title)),
+    ];
+    const mine = plan.filter(p => p.d === d);
+    const input = h("input", { type: "text", id: "plan_" + d, maxlength: "100", autocomplete: "off", "aria-label": WD5[i] + "요일 계획" });
+    return h("section", { class: "wk-day" + (d === today ? " today" : "") + (off ? " wk-offday" : ""), "data-day": d },
+      h("h4", { class: "wk-head" }, h("span", { class: "wd", text: WD5[i] }), h("span", { class: "md", text: md(d) }), d === today ? h("span", { class: "tag", text: "오늘" }) : null),
+      ev.length ? h("ul", { class: "wk-evs" }, ...ev) : null,
+      h("ul", { class: "wk-plan" }, ...mine.map(p => {
+        const chk = h("button", { class: "check", type: "button", "aria-pressed": String(!!p.done), "aria-label": p.done ? "다시 하기" : "다 했음",
+          onclick: () => { p.done = !p.done; saveEnc(W); renderNb(); } });
+        chk.innerHTML = CHECK;
+        return h("li", { class: "todo" + (p.done ? " done" : "") }, chk, h("span", { class: "todo-text", text: p.text }),
+          h("button", { class: "del", type: "button", "aria-label": "삭제", text: "×", onclick: () => { W.value.plan = plan.filter(x => x.id !== p.id); saveEnc(W); renderNb(); } }));
+      })),
+      h("form", { class: "wk-add", onsubmit: (e) => {
+        e.preventDefault();
+        const t = input.value.trim(); if (!t) return;
+        plan.push({ id: uid(), d, text: t.slice(0, 100), done: false });
+        saveEnc(W); renderNb();
+        const again = $("plan_" + d); if (again) again.focus();
+      } }, input));
+  };
+  const range = `${md(days[0])} ~ ${md(days[4])}`;
+  return [
+    h("div", { class: "cls-line" },
+      h("div", { class: "att-nav" },
+        navBtn("앞 주", CHEV_L, () => { weekMon = addDaysIso(mon, -7); renderNb(); }),
+        h("span", { class: "att-date wk-range", id: "wkRange", text: range }),
+        navBtn("다음 주", CHEV_R, () => { weekMon = addDaysIso(mon, 7); renderNb(); }),
+        mon === thisMon ? null : h("button", { class: "text-btn", type: "button", id: "wkThis", text: "이번 주", onclick: () => { weekMon = ""; renderNb(); } })),
+      h("span", { class: "tip", text: "칸 아래 입력칸에 적고 Enter" })),
+    h("div", { class: "wk-grid", id: "wkGrid" }, ...days.map(col)),
   ];
 }
 
