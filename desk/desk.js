@@ -1834,6 +1834,8 @@ function neisSection() {
           const classes = (cfg().classes || []).slice();
           if (!classes.length && cfg().homeroom) classes.push(cfg().homeroom);
           if (!classes.length) { err.textContent = "학년도 설정에서 수업 반이나 담임 반을 먼저 넣어 주세요."; return; }
+          // 과목이 비면 거를 것이 없어 첫 반이 35칸을 다 먹는다.
+          if (!N.subject) { err.textContent = "내 과목을 먼저 넣고 저장해 주세요."; return; }
           // 나이스가 아는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도와 다를 수 있다.
           const tt = await Neis.loadMyWeek(school, academicYear(now), Neis.semesterOf(now),
             Neis.mondayOf(now), classes, N.subject, N.key);

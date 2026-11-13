@@ -129,6 +129,7 @@ function device() {
     loadSchedule: async () => [{ d: "2027-03-02", name: "입학식" }, { d: "2027-07-20", name: "여름방학식" }],
     loadMeal: async () => [{ kind: "중식", dishes: ["흑미밥", "된장국"], kcal: "800 Kcal" }],
     loadMyWeek: async (...a) => { neisArgs.week = a;
+      if (!a[5]) throw new Error("과목 없이 시간표를 받아오면 첫 반이 모든 칸을 먹는다");
       return [["3-1", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
               ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]]; },
     loadClassDay: async () => [],
@@ -729,7 +730,7 @@ function checkHiddenRule() {
   /* ---------- 나이스에서 받아오기 ---------- */
   A.setTab("neis");
   await until(() => A.$("neisKey"), "나이스 탭");
-  A.fill("neisKey", "시험열쇠"); A.fill("neisSubject", "역사");
+  A.fill("neisKey", "시험열쇠");
   A.$("neisSave").click();
   await until(() => A.$("neisKey") && A.$("neisKey").value === "시험열쇠", "인증키가 남는다");
   A.$("neisFindBtn").click();
@@ -738,6 +739,14 @@ function checkHiddenRule() {
   await until(() => A.$("neisCal"), "학교를 정하면 받아오기 단추가 생긴다");
   A.$("neisCal").click();
   await until(() => A.$("ddayList").textContent.includes("입학식"), "학사 일정이 D-day 에 들어온다");
+  /* 과목이 비면 받아오지 않는다. 거를 것이 없어 첫 반이 35칸을 다 먹는다. */
+  A.$("neisTT").click();
+  await until(() => A.d.querySelector("#setPanel .form-err").textContent.includes("내 과목"),
+    "과목이 비면 까닭을 알리고 멈춘다");
+  A.fill("neisSubject", "역사");
+  A.$("neisSave").click();
+  await until(() => A.$("neisSubject") && A.$("neisSubject").value === "역사", "과목이 남는다");
+
   A.$("neisTT").click();
   await until(() => A.$("tt").textContent.includes("3-1"), "시간표가 주간 시간표에 들어온다");
   /* 나이스에 묻는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도를 넘기면 0칸이 온다. */
