@@ -221,32 +221,45 @@ table.tt { width: 100%; border-collapse: separate; border-spacing: 4px; min-widt
 .tt .bell { display: flex; gap: 2px; align-items: center; }
 .tt .bell input { width: 50%; padding: 4px 2px; font-size: 11px; font-family: var(--font-num); }
 
-/* 칸 높이가 남으면 줄이 늘어 자리를 채우고, 모자라면 지금처럼 굴러간다. */
+/* 칸 높이가 남으면 줄이 늘어 자리를 채운다. 모자라면 굴리지 않고 fitCards() 가 칸 속을 통째로 줄인다
+   (선생님 지시 2026-11-13: "스크롤이 안 생기게"). 폰에서는 칸이 내용만큼 늘어나므로 굴러갈 일이 없다. */
 .wg[data-w="tt"] .tt-scroll { flex: 1; min-height: 0; overflow: auto; }
+@container (min-height: 1px) {   /* 높이 조건이 먹는 곳 = 데스크톱 격자(container-type: size)에서만 */
+  .wg[data-w="tt"] > .card, .wg[data-w="tt"] .tt-scroll { overflow: hidden; }
+}
 /* 위젯은 칸 폭에 늘 맞춘다. 옆으로 굴리지 않는다(스크롤 막대가 숨어 있어 목, 금이 없는 줄 안다). */
 .wg[data-w="tt"] table.tt { height: 100%; min-width: 0; }
 .wg[data-w="tt"] .tt td { height: auto; }
 /* 낮은 칸에서는 종 시간을 접고 줄을 좁힌다. */
+/* 끝까지 줄여도(FIT_MIN) 몇 px 모자란 일이 있어, 줄 높이를 글자만큼으로 붙인다. */
 @container (max-height: 320px) {
   .wg[data-w="tt"] .tt th.ph .tm { display: none; }
-  .wg[data-w="tt"] .tt td { padding: 4px; }
+  .wg[data-w="tt"] .tt td { padding: 0 4px; }
+  .wg[data-w="tt"] .tt td, .wg[data-w="tt"] .tt th { line-height: 1.2; }
 }
 @container (max-height: 230px) {
   .wg[data-w="tt"] table.tt { border-spacing: 2px; }
-  .wg[data-w="tt"] .tt th { padding: 2px 4px; }
+  .wg[data-w="tt"] .tt th { padding: 0 4px; }
+  .wg[data-w="tt"] .tt tr.lunch { display: none; }   /* 점심 줄은 접는다 */
+}
+/* 끝까지 낮으면 "주간 시간표" 제목줄도 접는다. 표만 봐도 무엇인지 안다. */
+@container (max-height: 170px) {
+  .wg[data-w="tt"] .card-head { display: none; }
 }
 /* 아주 좁은 칸(가로 두세 칸)에서도 다섯 요일이 다 보이게: "1교시"는 "1", "(오늘)"은 접고 칸 사이를 붙인다. */
 @container (max-width: 300px) {
   .wg[data-w="tt"] .tt .td-lbl, .wg[data-w="tt"] .tt th.ph .pl { display: none; }
   .wg[data-w="tt"] .tt th.ph { width: 18px; text-align: center; }
   .wg[data-w="tt"] table.tt { border-spacing: 2px; }
-  .wg[data-w="tt"] .tt th { padding: 2px 0; }
-  .wg[data-w="tt"] .tt td { padding: 2px 1px; border-radius: 5px; }
+  .wg[data-w="tt"] .tt th { padding: 0; }
+  .wg[data-w="tt"] .tt td { padding: 0 1px; border-radius: 5px; }
 }
+/* 가로 두 칸: 과목 이름이 세 줄로 꺾여 줄이 높아지지 않게 한 줄로 두고 넘치면 말줄임표. */
 @container (max-width: 200px) {
   .wg[data-w="tt"] table.tt { border-spacing: 1px; }
   .wg[data-w="tt"] .tt th.ph { width: 12px; }
-  .wg[data-w="tt"] .tt td, .wg[data-w="tt"] .tt th { font-size: 10px; padding: 1px 0; word-break: break-all; }
+  .wg[data-w="tt"] .tt td, .wg[data-w="tt"] .tt th { font-size: 10px; padding: 0; line-height: 1.1; }
+  .wg[data-w="tt"] .tt td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* 메모 */
@@ -457,6 +470,21 @@ body { overflow: hidden; }
   border-radius: 8px; font-size: 16px; line-height: 1; cursor: pointer;
 }
 .q-plus:hover { border-color: var(--accent); color: var(--accent); }
+/* 할 일이 많아도 칸 안에서 굴리지 않는다. 넘치면 fitCards() 가 칸 속을 통째로 줄이고,
+   그래도 안 들어가는 줄은 trimTodos() 가 숨기고 "외 N개"로 알린다(데스크톱 격자에서만). */
+@container (min-height: 1px) {
+  .wg > .wg-todo, .wg-todo .q-list { overflow: hidden; }
+  /* 목록이 높이 0으로 접히면 fitCard 가 못 보고(높이 0은 건너뛴다) 할 일이 통째로 사라졌다.
+     한 줄 자리는 늘 남겨, 모자라면 칸 전체가 줄어들게 한다. */
+  .wg-todo .q-list:has(.q-todo) { min-height: 18px; }   /* "외 N개" 한 줄 높이 */
+  /* 줄이 납작하게 눌리면 넘친 줄을 못 알아채고 × 단추가 깎인다. 줄 높이는 그대로 두고 넘치게 한다. */
+  .wg-todo .q-todo { flex: none; }
+  .wg-todo .q-todo .del { line-height: 1.2; }   /* 줄 높이가 글자보다 낮으면 × 아래가 3px 삐져나왔다 */
+}
+.q-todo.cut { display: none; }
+.q-more { display: none; flex: none; font-size: var(--fs-sm); color: var(--muted); }
+.q-list[data-more] .q-more { display: block; }
+.q-more::after { content: "외 " attr(data-n) "개"; }
 
 .wg-links .links { margin: 0; flex: 1; }
 

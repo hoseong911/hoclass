@@ -1137,6 +1137,8 @@ function clipOverflow(card) {
 function fitCard(wg, hard) {
   const card = wg.firstElementChild;
   if (!card) return;
+  const todos = wg.dataset.w === "todos";
+  if (todos) trimTodos(card, false);                             // 숨겼던 줄을 다 꺼내 놓고 잰다
   // 시계 칸은 글을 CSS 비례(cqw/cqh)로만 키운다. 여기서 또 줄이면(--z) 둘이 밀당해 크기가 떨린다.
   if (wg.dataset.w === "clock") { wg.style.removeProperty("--z"); return; }
   if (isStacked()) { wg.style.removeProperty("--z"); return; }   // 폰, 세워 둔 태블릿은 칸이 내용만큼 늘어난다
@@ -1158,6 +1160,32 @@ function fitCard(wg, hard) {
     z = back;
   }
   if (z >= 1) wg.style.removeProperty("--z");
+  if (todos) trimTodos(card, true);
+}
+
+/* 할 일 칸은 굴리지 않는다(선생님 지시 2026-11-13). 끝까지 줄여도 다 안 들어가면
+   칸마다 아래 줄부터 통째로 숨기고 "외 N개"로 알린다. 칸을 키우면 다시 나온다.
+   class 와 data 속성만 바꾸므로 MutationObserver(childList)가 다시 부르지 않는다.
+   넘침은 그려진 자리(getBoundingClientRect)로 잰다. zoom 이 걸리면 scrollHeight 와
+   clientHeight 가 어긋나 자리가 남는데도 다 숨긴 적이 있다. */
+function trimTodos(card, on) {
+  for (const list of card.querySelectorAll(".q-list")) {
+    const items = [...list.children].filter((li) => li.classList.contains("q-todo"));
+    const more = list.querySelector(".q-more");
+    for (const li of items) li.classList.remove("cut");
+    delete list.dataset.more;
+    if (!on || !more) continue;
+    const over = () => {
+      const lim = list.getBoundingClientRect().bottom + 1;
+      return [...list.children].some((el) => { const r = el.getBoundingClientRect(); return r.height > 0 && r.bottom > lim; });
+    };
+    let n = 0;
+    while (n < items.length && over()) {
+      items[items.length - 1 - n].classList.add("cut");
+      more.dataset.n = String(++n);
+      list.dataset.more = "";
+    }
+  }
 }
 
 let fitWait = 0, fitHard = false;
@@ -2963,7 +2991,7 @@ function renderTodos() {
       }, chk, h("span", { class: "q-tx", text: t.text, title: t.text }),
         h("button", { class: "del", type: "button", "aria-label": `${t.text} 삭제`, text: "×", onclick: () => { state.todos = state.todos.filter(x => x.id !== t.id); save(); renderTodos(); } }));
       return li;
-    }));
+    }), h("li", { class: "q-more", "aria-hidden": "true" }));   // "외 N개". trimTodos() 가 켠다
     const inp = h("input", { type: "text", class: "q-in", "data-q": String(Q.q), maxlength: "200", autocomplete: "off", "aria-label": `${Q.name}에 할 일 더하기` });
     const form = h("form", { class: "q-add", onsubmit: (e) => {
       e.preventDefault();

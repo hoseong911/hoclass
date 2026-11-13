@@ -186,7 +186,9 @@ async function dumpWidgets() {
 
   const qCells = () => [...d.querySelectorAll("#todoQuad .q-cell")];
   for (const [text, q] of [["긴급 공문 회신 — 교육청 제출 기한 오늘까지", 0], ["성적 처리 마감 확인", 1],
-                           ["동아리 명부 정리", 2], ["도서 신청 목록 작성하기", 3], ["학급 게시판 교체", 3]]) {
+                           ["동아리 명부 정리", 2], ["도서 신청 목록 작성하기", 3], ["학급 게시판 교체", 3],
+                           /* 한 칸에 여럿 쌓여도 굴리지 않고 줄어드는지 본다 */
+                           ["학부모 민원 회신", 0], ["출결 확인", 0], ["수행평가 채점", 0], ["교과협의회 자료", 1]]) {
     const c = qCells()[q];
     c.querySelector(".q-in").value = text;
     c.querySelector(".q-add").dispatchEvent(new w.Event("submit", { bubbles: true, cancelable: true }));
@@ -239,7 +241,7 @@ function fitCodeFromDesk() {
     pick(/const FIT_MIN = [^\n]+/), pick(/const FIT_TRIES = [^\n]+/),
     "const arranging = false;",          // 배치 중이 아닐 때를 잰다
     "const isStacked = () => false;",    // PC 칸 배치를 잰다
-    grab("function clipOverflow("), grab("function fitCard("),
+    grab("function clipOverflow("), grab("function fitCard("), grab("function trimTodos("),
   ].join("\n");
 }
 
@@ -343,7 +345,7 @@ const sel = (el) => {
 
 /* 담는 글이 정해져 있어 "굴리지 않고 한눈에" 보여야 하는 칸.
    desk.css 에서 이 칸들의 카드에 overflow: hidden 을 걸어 fitCards() 가 줄이게 해 둔다. */
-const MUST_FIT = ["clock", "now", "periods", "todos"];
+const MUST_FIT = ["clock", "now", "periods", "todos", "tt"];
 const bad = [];
 function one(name, html, w, h) {
   deck.style.setProperty("--cols", 24); deck.style.setProperty("--rows", 16);
@@ -430,6 +432,9 @@ function findChrome() {
     process.exit(0);
   }
   const widgets = await dumpWidgets();
+  /* 몇 칸만 빨리 보고 싶을 때: OVERLAP_ONLY=tt,todos npm run overlap */
+  const only = (process.env.OVERLAP_ONLY || "").split(",").filter(Boolean);
+  if (only.length) for (const k of Object.keys(widgets)) if (!only.includes(k.split(":")[0])) delete widgets[k];
   console.log("칸 " + Object.keys(widgets).length + "개 × 크기 " + SIZES.length + "가지 × 화면 " + SCREENS.length + "가지를 잽니다…");
   fs.writeFileSync(TMP, buildPage(widgets), "utf8");
   const url = "file:///" + TMP.replace(/\\/g, "/");
