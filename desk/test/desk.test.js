@@ -217,6 +217,17 @@ function checkShrinkRules() {
   assert(n >= 7, "칸 크기에 따라 줄이는 규칙이 모자란다(@container " + n + "개)");
 }
 
+/* wttr.in 코드 옮김표가 비·눈·뇌우를 제대로 가르는지 */
+function checkWeatherCodes() {
+  const js = fs.readFileSync(path.join(DIR, "desk.js"), "utf8");
+  const m = /const WWO_WMO = [\s\S]*?^}/m.exec(js);
+  assert(m, "desk.js 에 wttr.in → WMO 코드 옮김표가 있어야 한다");
+  const to = new Function(m[0] + "; return wwoToWmo;")();
+  for (const [wwo, wmo] of [[113, 0], [122, 3], [248, 45], [296, 61], [326, 71], [395, 95]]) {
+    assert.equal(to(wwo), wmo, `wttr.in 코드 ${wwo} 는 WMO ${wmo} 로 가야 한다`);
+  }
+}
+
 function checkHiddenRule() {
   const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
   assert(/\[hidden\][^{]*\{[^}]*display:\s*none\s*!important/.test(css),
@@ -226,6 +237,7 @@ function checkHiddenRule() {
 (async () => {
   checkHiddenRule();
   checkShrinkRules();
+  checkWeatherCodes();
   seedHoclass();
   const A = device();
 

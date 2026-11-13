@@ -362,7 +362,7 @@ body { overflow: hidden; }
 /* 가로로 넉넉할 때만 좌우로. 좁은 칸에서 누이면 시각이 날씨 글 위로 올라탄다. */
 @container (min-aspect-ratio: 13/10) and (min-width: 300px) {
   .wg-clock { flex-direction: row; align-items: center; gap: 0; }
-  .cw-time { flex: 1; align-items: center; justify-content: center; text-align: center; gap: clamp(4px, 2cqh, 14px); }
+  .cw-time { flex: 1; align-items: center; justify-content: center; text-align: center; gap: clamp(6px, 3cqh, 22px); }
   .wg-clock .clock { font-size: clamp(24px, min(15cqw, 52cqh), 104px); }
   .wg-clock .date-main { font-size: clamp(11px, min(5cqw, 10cqh), 22px); color: var(--sub); }
   .cw-wx { flex: none; min-width: 38%; height: 100%; border-top: 0; border-left: 1px solid var(--line); padding: 0 20px; }
@@ -371,7 +371,7 @@ body { overflow: hidden; }
   .wx-cond { font-size: clamp(11px, min(6cqw, 14cqh), 20px); }
 }
 /* 시계와 날짜 사이 여백은 칸이 넉넉할 때만. 작은 칸은 붙여 공간을 아낀다. */
-@container (min-height: 220px) { .cw-time { gap: clamp(4px, 1.6cqh, 12px); } }
+@container (min-height: 220px) { .cw-time { gap: clamp(6px, 2.6cqh, 18px); } }
 
 /* ── 할 일 ── */
 .wg-todo .quad { flex: 1; min-height: 0; }

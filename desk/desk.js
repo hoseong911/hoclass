@@ -1197,8 +1197,10 @@ function status(now) {
   return { kind: "after" };
 }
 
-/* ---------- 날씨 (open-meteo, 인천) ---------- */
-const WX_PLACE = { name: "인천", lat: 37.4563, lon: 126.7052 };
+/* ---------- 날씨 (wttr.in, 인천) ----------
+   학교 망이 api.open-meteo.com 을 TLS 손인사 단계에서 끊어 버려 wttr.in 으로 바꿨다.
+   shortcut: wttr.in 은 개인이 돌리는 무료 서비스라 가끔 막힌다. 끊기면 기상청 공공데이터 API(키 필요)로 옮긴다. */
+const WX_PLACE = { name: "인천", q: "Incheon" };
 const WX_EVERY = 30 * 60 * 1000;
 const svgIcon = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 function wxKind(code) {
@@ -1211,6 +1213,16 @@ function wxKind(code) {
   if (code >= 95) return { t: "뇌우", c: "sun", i: '<path d="M18 13a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1A4 4 0 0 0 7 12M13 14l-3 5h4l-3 5"/>' };
   return { t: "알 수 없음", c: "dim", i: '<circle cx="12" cy="12" r="4"/>' };
 }
+/* wttr.in 은 WWO 코드를 준다. 아이콘 표(wxKind)는 WMO 코드용이라 옮겨 준다. */
+const WWO_WMO = { 113: 0, 116: 2, 119: 3, 122: 3, 143: 45, 248: 45, 260: 48 };
+const WWO_SNOW = [179, 182, 227, 230, 323, 326, 329, 332, 335, 338, 350, 362, 365, 368, 371, 374, 377];
+function wwoToWmo(c) {
+  if (WWO_WMO[c] != null) return WWO_WMO[c];
+  if (c === 200 || c >= 386) return 95;
+  if (WWO_SNOW.includes(c)) return 71;
+  return 61;
+}
+
 let wx = null, wxAt = 0, wxBusy = false;
 function renderWx() {
   const box = $("wx");
@@ -1227,12 +1239,12 @@ async function loadWx(force) {
   wxBusy = true;
   try {
     if (typeof fetch !== "function") throw new Error("fetch 없음");
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${WX_PLACE.lat}&longitude=${WX_PLACE.lon}&current=temperature_2m,weather_code&timezone=Asia%2FSeoul&forecast_days=1`;
-    const r = await fetch(u, { cache: "no-store" });
+    const r = await fetch(`https://wttr.in/${WX_PLACE.q}?format=j1`, { cache: "no-store" });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const j = await r.json();
-    if (!j.current || typeof j.current.temperature_2m !== "number") throw new Error("모양이 다름");
-    wx = { temp: j.current.temperature_2m, code: j.current.weather_code };
+    const c = j && j.current_condition && j.current_condition[0];
+    if (!c || !isFinite(Number(c.temp_C))) throw new Error("모양이 다름");
+    wx = { temp: Number(c.temp_C), code: wwoToWmo(Number(c.weatherCode)) };
   } catch (e) {
     if (!wx || wx.err) wx = { err: true };
   }
