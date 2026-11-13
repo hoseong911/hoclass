@@ -101,6 +101,7 @@ function makeFB() {
 }
 
 /* ---------- 화면 띄우기 ---------- */
+let neisArgs = {};   // 나이스 가짜가 받은 인수를 여기 적어 둔다
 const errs = [], saved = [];
 function device() {
   const dom = new JSDOM(fs.readFileSync(path.join(DIR, "index.html"), "utf8"), {
@@ -122,12 +123,14 @@ function device() {
     CONSOLE_URL: "https://example.invalid/",
   };
   /* 나이스는 바깥 인터넷이라 시험에서는 부르지 않는다 */
+  neisArgs = {};
   w.__NEIS__ = {
     findSchools: async () => [{ name: "인천동양중학교", atpt: "E10", code: "7331219", kind: "중학교", office: "인천광역시교육청", address: "" }],
     loadSchedule: async () => [{ d: "2027-03-02", name: "입학식" }, { d: "2027-07-20", name: "여름방학식" }],
     loadMeal: async () => [{ kind: "중식", dishes: ["흑미밥", "된장국"], kcal: "800 Kcal" }],
-    loadMyWeek: async () => [["3-1", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
-                             ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]],
+    loadMyWeek: async (...a) => { neisArgs.week = a;
+      return [["3-1", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+              ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]]; },
     loadClassDay: async () => [],
     mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "",
   };
@@ -737,6 +740,11 @@ function checkHiddenRule() {
   await until(() => A.$("ddayList").textContent.includes("입학식"), "학사 일정이 D-day 에 들어온다");
   A.$("neisTT").click();
   await until(() => A.$("tt").textContent.includes("3-1"), "시간표가 주간 시간표에 들어온다");
+  /* 나이스에 묻는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도를 넘기면 0칸이 온다. */
+  {
+    const d = new Date(), ay = d.getMonth() >= 2 ? d.getFullYear() : d.getFullYear() - 1;
+    assert.strictEqual(neisArgs.week[1], ay, "나이스 시간표는 그 주의 학년도로 물어야 한다");
+  }
   await until(() => { const st = JSON.parse(store.get("desk_settings/general") || "{}").state;
     return st && st.neis && st.neis.school && st.neis.school.code === "7331219"; }, "학교가 저장된다");
   A.$("setClose").click();

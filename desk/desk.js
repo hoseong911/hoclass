@@ -1834,10 +1834,16 @@ function neisSection() {
           const classes = (cfg().classes || []).slice();
           if (!classes.length && cfg().homeroom) classes.push(cfg().homeroom);
           if (!classes.length) { err.textContent = "학년도 설정에서 수업 반이나 담임 반을 먼저 넣어 주세요."; return; }
-          const tt = await Neis.loadMyWeek(school, state.year.current, Neis.semesterOf(now),
+          // 나이스가 아는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도와 다를 수 있다.
+          const tt = await Neis.loadMyWeek(school, academicYear(now), Neis.semesterOf(now),
             Neis.mondayOf(now), classes, N.subject, N.key);
           const n = tt.flat().filter(Boolean).length;
-          if (!n) { err.textContent = "그 주에 내 과목 수업을 찾지 못했습니다. 과목 이름을 확인해 주세요."; return; }
+          if (!n) {
+            err.textContent = tt.short
+              ? "인증키가 없어 1~5교시만 받았습니다. 설정에 인증키를 넣고 다시 받아 주세요."
+              : "그 주에 내 과목 수업을 찾지 못했습니다. 과목 이름을 확인해 주세요.";
+            return;
+          }
           state.tt = tt; state.ttExample = false;
           save(true); renderTT(); renderPeriods(); renderNow(new Date());
           note.textContent = n + "칸을 채웠습니다." + (tt.short ? " " + Neis.KEY_HINT : "");
