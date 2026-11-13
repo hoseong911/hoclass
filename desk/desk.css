@@ -118,7 +118,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 /* 쌓인 목록 줄이라 가로 구분선만 둔다. 모서리를 둥글리거나 바탕을 채우면 손톱 네일팁처럼 보인다.
    색이 나는 곳은 지금 교시 한 줄뿐이고, 그 표시는 레포가 쓰는 레드 반투명 바탕 하나다. */
 .periods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.period { display: grid; grid-template-columns: 52px 92px minmax(0, 1fr); align-items: center; gap: 8px; padding: 8px; }
+.period { display: grid; grid-template-columns: 68px 112px minmax(0, 1fr); align-items: center; gap: 8px; padding: 8px; }
 .period + .period { border-top: 1px solid var(--line); }
 .period .p { font-weight: 400; font-size: 14px; color: var(--muted); }
 .period .tm { font-family: var(--font-num); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
