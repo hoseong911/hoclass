@@ -131,21 +131,28 @@ export async function loadClassDay(school, ay, sem, ymd, grade, room, key) {
   return out;
 }
 
-/* 내 수업 반들의 한 주 시간표에서 **내 과목인 칸만** 골라 5×7 을 만든다.
+/* 과목마다 가르치는 반이 다르다(역사는 1~6반, 사회는 3~6반 같은 식). 그래서 과목 줄을 받는다.
+   subjects = [{ name: "역사", classes: ["3-1", "3-2"] }, ...]
    같은 과목을 다른 선생님도 가르치면 그 칸까지 들어오므로 뒤에 손으로 고친다. */
-export async function loadMyWeek(school, ay, sem, mondayYmd, classes, subject, key) {
+export async function loadMyWeek(school, ay, sem, mondayYmd, subjects, key) {
   const tt = Array.from({ length: 5 }, () => Array.from({ length: 7 }, () => ""));
-  const want = String(subject || "").trim();
+  const got = new Map();   // 같은 날 같은 반을 두 번 받지 않는다(과목 줄끼리 반이 겹친다)
   for (let day = 0; day < 5; day++) {
     const ymd = addDays(mondayYmd, day);
-    for (const cls of classes) {
-      const m = /^(\d+)-(\d+)$/.exec(cls);
-      if (!m) continue;
-      const rows = await loadClassDay(school, ay, sem, ymd, m[1], m[2], key);
-      if (rows.short) tt.short = true;
-      for (const x of rows) {
-        if (want && !x.subject.includes(want)) continue;
-        if (!tt[day][x.period - 1]) tt[day][x.period - 1] = cls;
+    for (const s of subjects || []) {
+      const want = String(s.name || "").trim();
+      if (!want) continue;
+      for (const cls of s.classes || []) {
+        const m = /^(\d+)-(\d+)$/.exec(cls);
+        if (!m) continue;
+        const k = ymd + " " + cls;
+        if (!got.has(k)) got.set(k, await loadClassDay(school, ay, sem, ymd, m[1], m[2], key));
+        const rows = got.get(k);
+        if (rows.short) tt.short = true;
+        for (const x of rows) {
+          if (!x.subject.includes(want)) continue;
+          if (!tt[day][x.period - 1]) tt[day][x.period - 1] = cls;
+        }
       }
     }
   }

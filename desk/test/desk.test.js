@@ -129,7 +129,10 @@ function device() {
     loadSchedule: async () => [{ d: "2027-03-02", name: "입학식" }, { d: "2027-07-20", name: "여름방학식" }],
     loadMeal: async () => [{ kind: "중식", dishes: ["흑미밥", "된장국"], kcal: "800 Kcal" }],
     loadMyWeek: async (...a) => { neisArgs.week = a;
-      if (!a[5]) throw new Error("과목 없이 시간표를 받아오면 첫 반이 모든 칸을 먹는다");
+      const subjects = a[4] || [];
+      if (!subjects.length || subjects.some(x => !x.name || !x.classes.length)) {
+        throw new Error("과목과 반 없이 받아오면 첫 반이 모든 칸을 먹는다");
+      }
       return [["3-1", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
               ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]]; },
     loadClassDay: async () => [],
@@ -370,6 +373,11 @@ function checkHiddenRule() {
   A.$("setHome").dispatchEvent(new A.w.Event("change", { bubbles: true }));
   const [hg, hr] = A.$("setHomeCls").querySelectorAll("input");
   hg.value = "3"; hr.value = "9";
+  A.$("setClassAdd").click();                     // 수업 반 3-1 (담임 반 3-9 와 따로)
+  {
+    const [cg, cr] = A.$("setClasses").lastElementChild.querySelectorAll("input");
+    cg.value = "3"; cr.value = "1";
+  }
   A.submit("setForm");
   await until(() => A.$("setPanel").hidden, "저장하면 닫힌다");
   await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state; return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9"; }, "담임 반이 3-9 로 저장된다");
@@ -739,13 +747,33 @@ function checkHiddenRule() {
   await until(() => A.$("neisCal"), "학교를 정하면 받아오기 단추가 생긴다");
   A.$("neisCal").click();
   await until(() => A.$("ddayList").textContent.includes("입학식"), "학사 일정이 D-day 에 들어온다");
-  /* 과목이 비면 받아오지 않는다. 거를 것이 없어 첫 반이 35칸을 다 먹는다. */
+  /* 과목 줄이 없으면 받아오지 않는다. 거를 것이 없어 첫 반이 35칸을 다 먹는다. */
   A.$("neisTT").click();
   await until(() => A.d.querySelector("#setPanel .form-err").textContent.includes("내 과목"),
-    "과목이 비면 까닭을 알리고 멈춘다");
-  A.fill("neisSubject", "역사");
-  A.$("neisSave").click();
-  await until(() => A.$("neisSubject") && A.$("neisSubject").value === "역사", "과목이 남는다");
+    "과목 줄이 없으면 까닭을 알리고 멈춘다");
+
+  /* 과목마다 가르치는 반이 다르다. 줄을 둘 두고 반을 달리 고른다. */
+  A.$("neisSubjAdd").click();
+  await until(() => A.d.querySelector("#neisSubjects .nsub"), "과목 줄이 생긴다");
+  const nsubs = () => [...A.d.querySelectorAll("#neisSubjects .nsub")];
+  const nameSubj = (row, v) => { const i = row.querySelector(".nsub-nm"); i.value = v;
+    i.dispatchEvent(new A.w.Event("change", { bubbles: true })); };
+  const clsBtn = (row, c) => [...row.querySelectorAll(".cpick")].find(b => b.textContent === c);
+  for (const c of ["3-1", "3-9"])
+    assert(clsBtn(nsubs()[0], c) && clsBtn(nsubs()[0], c).getAttribute("aria-pressed") === "true",
+      "새 과목 줄은 수업 반과 담임 반이 다 켜진 채로 시작한다: " + c);
+  nameSubj(nsubs()[0], "역사");
+  A.$("neisSubjAdd").click();
+  await until(() => nsubs().length === 2, "과목 줄 둘");
+  nameSubj(nsubs()[1], "사회");
+  clsBtn(nsubs()[1], "3-1").click();            // 사회는 3-1 을 안 가르친다
+  await until(() => clsBtn(nsubs()[1], "3-1").getAttribute("aria-pressed") === "false",
+    "반을 끌 수 있다");
+  await until(() => { const st = JSON.parse(store.get("desk_settings/general") || "{}").state;
+    const sj = st && st.neis && st.neis.subjects;
+    return sj && sj.length === 2 && sj[0].name === "역사" && sj[1].name === "사회"
+      && sj[0].classes.includes("3-1") && !sj[1].classes.includes("3-1"); },
+    "과목 줄이 반까지 저장된다");
 
   A.$("neisTT").click();
   await until(() => A.$("tt").textContent.includes("3-1"), "시간표가 주간 시간표에 들어온다");
@@ -753,6 +781,12 @@ function checkHiddenRule() {
   {
     const d = new Date(), ay = d.getMonth() >= 2 ? d.getFullYear() : d.getFullYear() - 1;
     assert.strictEqual(neisArgs.week[1], ay, "나이스 시간표는 그 주의 학년도로 물어야 한다");
+    const sent = neisArgs.week[4];
+    assert.strictEqual(sent.length, 2, "과목 줄 둘을 그대로 넘긴다");
+    assert(sent[0].classes.includes("3-1") && sent[0].classes.includes("3-9"),
+      "역사는 두 반 다 넘어간다");
+    assert(!sent[1].classes.includes("3-1") && sent[1].classes.includes("3-9"),
+      "사회는 끈 반을 빼고 넘어간다");
   }
   await until(() => { const st = JSON.parse(store.get("desk_settings/general") || "{}").state;
     return st && st.neis && st.neis.school && st.neis.school.code === "7331219"; }, "학교가 저장된다");

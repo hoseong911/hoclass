@@ -103,7 +103,7 @@ const state = {
   pages: DEFAULT_PAGES,
   layout: normalize(null, DEFAULT_GRID, DEFAULT_PAGES),
   school: "",
-  neis: { key: "", school: null, subject: "" },   // 나이스에서 받아오기
+  neis: { key: "", school: null, subject: "", subjects: [] },   // 나이스에서 받아오기
   cal: [], calSchool: "", calAt: "",
 };
 
@@ -200,6 +200,10 @@ const SPECS = [
         state.neis = {
           key: typeof n.key === "string" ? n.key : "",
           subject: typeof n.subject === "string" ? n.subject.slice(0, 20) : "",
+          subjects: (arr(n.subjects) || []).slice(0, 10).map(x => ({
+            name: typeof x.name === "string" ? x.name.slice(0, 20) : "",
+            classes: (arr(x.classes) || []).map(String).filter(c => /^\d+-\d+$/.test(c)),
+          })).filter(x => x.name),
           school: sc && typeof sc.atpt === "string" && typeof sc.code === "string"
             ? { name: String(sc.name || ""), atpt: sc.atpt, code: sc.code, kind: String(sc.kind || "") } : null,
         };
@@ -1779,7 +1783,32 @@ function neisSection() {
 
   /* 인증키 */
   const keyIn = h("input", { type: "text", id: "neisKey", value: N.key || "", autocomplete: "off", spellcheck: "false" });
-  const subjIn = h("input", { type: "text", id: "neisSubject", value: N.subject || "", maxlength: "20", autocomplete: "off" });
+
+  /* 과목마다 가르치는 반이 다르다. 그래서 과목은 줄 여럿이고 줄마다 반을 고른다. */
+  const myClasses = () => {
+    const c = (cfg().classes || []).slice();
+    if (cfg().homeroom && !c.includes(cfg().homeroom)) c.push(cfg().homeroom);
+    return c;
+  };
+  // 옛 자료는 과목 칸 하나였다. 탭을 열 때 줄 하나로 옮기고 수업 반을 다 켜 둔다.
+  if (!N.subjects.length && N.subject) {
+    N.subjects.push({ name: N.subject, classes: myClasses() });
+    N.subject = "";
+    save(true);
+  }
+  const subjRow = (s, i) => h("div", { class: "nsub" },
+    h("input", { type: "text", class: "nsub-nm", maxlength: "20", autocomplete: "off", value: s.name,
+      "aria-label": "과목 이름",
+      onchange: (e) => { s.name = e.target.value.trim().slice(0, 20); save(true); } }),
+    h("div", { class: "nsub-cls" }, ...myClasses().map(c => h("button", {
+      class: "cpick", type: "button", text: c, "aria-pressed": String(s.classes.includes(c)),
+      onclick: () => {
+        s.classes = s.classes.includes(c) ? s.classes.filter(x => x !== c) : [...s.classes, c];
+        save(true); renderSet();
+      } }))),
+    h("button", { class: "btn secondary small", type: "button", text: "삭제",
+      "aria-label": (s.name || "이 과목") + " 지우기",
+      onclick: () => { N.subjects.splice(i, 1); save(true); renderSet(); } }));
 
   /* 학교 찾기 */
   const findIn = h("input", { type: "text", id: "neisFind", value: (N.school && N.school.name) || state.school || "", autocomplete: "off" });
@@ -1804,14 +1833,23 @@ function neisSection() {
   const now = new Date();
   const kids = [
     setBlock("인증키", [
-      h("div", { class: "set-grid" }, setField("나이스 인증키", keyIn), setField("내 과목", subjIn)),
+      h("div", { class: "set-grid" }, setField("나이스 인증키", keyIn)),
       h("div", { class: "set-row" },
         h("button", { class: "btn small", type: "button", id: "neisSave", text: "저장", onclick: () => {
-          state.neis = { ...state.neis, key: keyIn.value.trim(), subject: subjIn.value.trim().slice(0, 20) };
+          state.neis = { ...state.neis, key: keyIn.value.trim() };
           save(true); renderSet(); toast("저장했습니다");
         } }),
         h("a", { class: "text-btn", href: "https://open.neis.go.kr", target: "_blank", rel: "noopener", text: "인증키 받으러 가기" })),
     ]),
+    setBlock("내 과목", myClasses().length ? [
+      N.subjects.length
+        ? h("div", { class: "nsub-list", id: "neisSubjects" }, ...N.subjects.map(subjRow))
+        : h("p", { class: "set-state", text: "아직 없습니다" }),
+      h("div", { class: "set-row" }, h("button", {
+        class: "btn small secondary", type: "button", id: "neisSubjAdd", text: "과목 추가",
+        onclick: () => { N.subjects.push({ name: "", classes: myClasses() }); save(true); renderSet(); },
+      })),
+    ] : [h("p", { class: "set-state", text: "학년도 설정에서 수업 반을 먼저 넣어 주세요." })]),
     setBlock("학교", [
       h("div", { class: "set-row" }, findIn, findBtn),
       found,
@@ -1831,14 +1869,12 @@ function neisSection() {
           note.textContent = list.length + "건을 받았습니다." + (list.short ? " " + Neis.KEY_HINT : "");
         }),
         doBtn("neisTT", "이번 주 시간표", async () => {
-          const classes = (cfg().classes || []).slice();
-          if (!classes.length && cfg().homeroom) classes.push(cfg().homeroom);
-          if (!classes.length) { err.textContent = "학년도 설정에서 수업 반이나 담임 반을 먼저 넣어 주세요."; return; }
           // 과목이 비면 거를 것이 없어 첫 반이 35칸을 다 먹는다.
-          if (!N.subject) { err.textContent = "내 과목을 먼저 넣고 저장해 주세요."; return; }
+          const subjects = N.subjects.filter(s => s.name && s.classes.length);
+          if (!subjects.length) { err.textContent = "내 과목과 그 과목을 가르치는 반을 먼저 넣어 주세요."; return; }
           // 나이스가 아는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도와 다를 수 있다.
           const tt = await Neis.loadMyWeek(school, academicYear(now), Neis.semesterOf(now),
-            Neis.mondayOf(now), classes, N.subject, N.key);
+            Neis.mondayOf(now), subjects, N.key);
           const n = tt.flat().filter(Boolean).length;
           if (!n) {
             err.textContent = tt.short

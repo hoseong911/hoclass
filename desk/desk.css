@@ -160,6 +160,12 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .cpick:hover { border-color: var(--faint); }
 .cpick[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .cpick .hr { font-size: 10px; font-weight: 600; opacity: .72; }
+/* 나이스 탭의 과목 줄: 과목 이름 한 칸과 그 과목을 가르치는 반 고르개 */
+.nsub-list { display: flex; flex-direction: column; gap: 8px; }
+.nsub { display: flex; align-items: flex-start; gap: 8px; }
+.nsub-nm { flex: 0 0 96px; }
+.nsub-cls { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }
+.nsub-cls .cpick { padding: 3px 9px; }
 .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .sum { border-radius: 10px; padding: 6px 8px; background: var(--surface-2); }
 .sum .k { font-size: 11px; color: var(--muted); }
