@@ -408,6 +408,8 @@ async function checkHomeroomCC() {
     return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9" && y.years["2027"].classes.join() === "3-1"; },
     "누르는 즉시 담임 반 3-9, 수업 반 3-1 로 저장된다");
   assert.strictEqual(A.d.querySelector('#setHomeCls .cpick[data-grade="3"]').getAttribute("aria-pressed"), "true", "다시 그려도 3학년이 펼쳐져 있다");
+  // 눈으로 볼 때: DUMP_SET=파일 npm test 하면 설정 패널을 떠 둔다. 브라우저로 찍어 본다.
+  if (process.env.DUMP_SET) fs.writeFileSync(process.env.DUMP_SET, A.$("setPanel").outerHTML);
   A.$("setClose").click();
 
   /* ---------- 시계 ---------- */

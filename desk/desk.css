@@ -538,6 +538,8 @@ body { overflow: hidden; }
 .set-block { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
 .set-sec > h3 + .set-block { border-top: 0; padding-top: 0; }
 .set-block > .set-sub { margin: 0 0 2px; }
+/* .set-state 는 줄(row) 안에서 늘어나라고 flex-basis 140px 이다. 세로 묶음 안에서는 그게 높이가 된다. */
+.set-block > .set-state { flex: none; }
 .set-head, .set-tabs { flex: none; }
 .set-sec > h3 { font-size: 15px; font-weight: 600; margin: 0; }
 .set-sub { font-size: 12px; font-weight: 600; color: var(--muted); margin: 2px 0 -4px; }
@@ -590,8 +592,9 @@ body { overflow: hidden; }
 .wg-check .sz { font-family: var(--font-num); font-size: 11px; color: var(--faint); margin-left: auto; }
 
 /* 반 고르개: 학년 단추 줄 아래 반 번호 단추 */
-.room-nums { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
-.room-nums .cpick { justify-content: center; padding: 6px 0; }
+.room-pick { display: flex; flex-direction: column; gap: 8px; }
+.room-nums { display: flex; flex-wrap: wrap; gap: 6px; }
+.room-nums .cpick { width: 52px; justify-content: center; padding: 5px 0; }
 
 /* 구글 캘린더 */
 .gcal-day { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 6px 10px; align-items: baseline; }
