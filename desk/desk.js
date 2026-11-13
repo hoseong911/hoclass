@@ -2997,7 +2997,8 @@ function renderTodos() {
   // 다른 기기에서 고친 것이 들어와 다시 그려도 쓰던 글을 잃지 않게 한다.
   const act = document.activeElement;
   const typing = act && act.classList && act.classList.contains("q-in") ? { q: act.dataset.q, v: act.value } : null;
-  $("clearDone").hidden = !state.todos.some(t => t.done);
+  // 자리는 늘 잡아 둔다. hidden 으로 지우면 머리글 높이가 바뀌어 칸이 들썩였다.
+  $("clearDone").classList.toggle("off", !state.todos.some(t => t.done));
   const cells = QUADS.map((Q) => {
     const mine = state.todos.filter(t => todoQ(t) === Q.q);
     const ordered = [...mine.filter(t => !t.done), ...mine.filter(t => t.done)];
