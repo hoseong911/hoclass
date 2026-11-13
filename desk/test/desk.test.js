@@ -158,7 +158,7 @@ function device() {
              "const svgIc = icon;");
   const code = sideCode + "\n" + deskCode;
   if (/^\s*(import|export)\s/m.test(code)) throw new Error("import/export 를 못 걷어냈다");
-  w.eval(code);
+  w.eval('"use strict"; ' + code);   // 브라우저처럼 엄격 모드로: 없는 이름에 쓰면 시험에서 걸린다
   const $ = (id) => d.getElementById(id);
   return {
     w, d, $,

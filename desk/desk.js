@@ -573,7 +573,7 @@ function openYearDocs() {
   if (yearOpen === y) return;
   for (const d of encDocs()) closeDoc(d);
   yearOpen = y; attDay = ""; attCls = ""; docs.att = null; activeCollect = null; pickedCls = "";
-  attCache.clear(); attLoaded = ""; todayAttLoaded = "";
+  attCache.clear(); attLoaded = "";
   docs.roster = makeDoc(`y${y}_roster`, { enc: true, makeDefault: () => ({ classes: {} }) });
   docs.collects = makeDoc(`y${y}_collects`, { enc: true, makeDefault: () => ({ items: [] }) });
   docs.notices = makeDoc(`y${y}_notices`, { enc: true, makeDefault: () => ({ items: [] }) });
