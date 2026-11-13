@@ -1358,25 +1358,24 @@ function renderPeriods(now = new Date()) {
 }
 
 /* ---------- 주간 시간표 ---------- */
-let ttEditing = false;
-function renderTT() {
-  if (ttEditing && $("tt").contains(document.activeElement)) return;
+const WD5 = ["월", "화", "수", "목", "금"];
+/* 위젯은 보기만, 설정 창 시간표 탭은 고치기. 같은 함수가 둘 다 그린다. */
+function ttRows(edit) {
   const now = new Date(), di = dayIdx(now), m = now.getHours() * 60 + now.getMinutes();
-  $("ttEdit").textContent = ttEditing ? "편집 완료" : "편집";
-  const head = h("tr", null, h("th", { class: "ph", text: "교시" }), ...["월", "화", "수", "목", "금"].map((d, i) => h("th", { class: i === di ? "today" : "", text: d + (i === di ? " (오늘)" : "") })));
-  const rows = [head];
+  const rows = [h("tr", null, h("th", { class: "ph", text: "교시" }),
+    ...WD5.map((d, i) => h("th", { class: !edit && i === di ? "today" : "", text: d + (!edit && i === di ? " (오늘)" : "") })))];
   for (let p = 0; p < 7; p++) {
     const b = state.bells[p];
-    const ph = ttEditing
+    const ph = edit
       ? h("th", { class: "ph" }, h("div", null, `${p + 1}교시`), h("div", { class: "bell" },
-          h("input", { type: "time", value: b.s, "aria-label": `${p + 1}교시 시작`, onchange: (e) => { b.s = e.target.value; state.ttExample = false; save(); renderPeriods(); } }),
-          h("input", { type: "time", value: b.e, "aria-label": `${p + 1}교시 끝`, onchange: (e) => { b.e = e.target.value; state.ttExample = false; save(); renderPeriods(); } })))
+          h("input", { type: "time", value: b.s, "aria-label": `${p + 1}교시 시작`, onchange: (e) => { b.s = e.target.value; state.ttExample = false; save(); renderTT(); renderPeriods(); } }),
+          h("input", { type: "time", value: b.e, "aria-label": `${p + 1}교시 끝`, onchange: (e) => { b.e = e.target.value; state.ttExample = false; save(); renderTT(); renderPeriods(); } })))
       : h("th", { class: "ph" }, `${p + 1}교시`, h("span", { class: "tm", text: `${b.s}~${b.e}` }));
     const cells = [0, 1, 2, 3, 4].map((d) => {
       const v = state.tt[d][p];
-      if (ttEditing) {
-        return h("td", null, h("input", { type: "text", value: v, maxlength: "12", "aria-label": `${["월", "화", "수", "목", "금"][d]} ${p + 1}교시`,
-          oninput: (e) => { state.tt[d][p] = e.target.value; state.ttExample = false; save(); } }));
+      if (edit) {
+        return h("td", null, h("input", { type: "text", value: v, maxlength: "12", "aria-label": `${WD5[d]} ${p + 1}교시`,
+          oninput: (e) => { state.tt[d][p] = e.target.value; state.ttExample = false; save(); renderTT(); } }));
       }
       const cls = [];
       if (!v.trim()) cls.push("empty-cell");
@@ -1386,8 +1385,9 @@ function renderTT() {
     rows.push(h("tr", null, ph, ...cells));
     if (p + 1 === state.lunchAfter) rows.push(h("tr", { class: "lunch" }, h("td", { colspan: "6", text: "점심" })));
   }
-  $("tt").replaceChildren(...rows);
+  return rows;
 }
+function renderTT() { $("tt").replaceChildren(...ttRows(false)); }
 const fmtHM = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 function makeBells(start, cls, brk, lunch, lunchAfter) {
   let t = toMin(start);
@@ -1415,7 +1415,7 @@ function bellForm() {
     }
     state.bells = makeBells(startIn.value, cls, brk, lunch, la);
     state.ttExample = false; save();
-    renderTT(); renderPeriods(); renderNow(new Date());
+    renderTT(); renderPeriods(); renderNow(new Date()); renderSet();
     toast("시정을 채웠습니다");
   } });
   return h("div", { class: "tt-bells" },
@@ -1424,15 +1424,6 @@ function bellForm() {
     brkIn, h("span", { text: "분 쉬는 시간" }),
     lunchIn, h("span", { text: "분 점심시간" }), fill);
 }
-$("ttEdit").addEventListener("click", () => {
-  ttEditing = !ttEditing;
-  const box = $("ttBells");
-  box.hidden = !ttEditing;
-  box.replaceChildren(...(ttEditing ? [bellForm()] : []));   // 1분마다 도는 renderTT 가 적던 값을 지우지 않게 여기서만 만든다
-  if (!ttEditing) { document.activeElement && document.activeElement.blur(); renderPeriods(); renderNow(new Date()); }
-  renderTT();
-});
-
 /* ---------- 바로가기 ---------- */
 const linksEl = $("links");
 const TILE_COLORS = ["#0E7A5C", "#3567AE", "#B5543A", "#7A5AB8", "#B07C14", "#3C7F8C", "#A2456E", "#4F6B2E"];
@@ -1472,6 +1463,14 @@ function renderLinks() {
       linkIcon(l, label),
       h("span", { class: "nm", text: label }));
   }));
+}
+
+/* ---------- 설정: 주간 시간표 ---------- */
+function ttSection() {
+  return setSec("주간 시간표", [
+    setBlock("시정", [bellForm()]),
+    setBlock("시간표", [h("div", { class: "tt-scroll" }, h("table", { class: "tt", id: "ttSet" }, ...ttRows(true)))]),
+  ]);
 }
 
 /* ---------- 설정: 바로가기 ---------- */
@@ -1543,6 +1542,7 @@ function passField(id, label, auto) {
 const SET_TABS = [
   { key: "year", name: "학년도" },
   { key: "links", name: "바로가기" },
+  { key: "tt", name: "시간표" },
   { key: "grid", name: "화면" },
   { key: "neis", name: "나이스" },
   { key: "back", name: "백업" },
@@ -1580,6 +1580,7 @@ function renderSet() {
       onclick: () => { setTab = t.key; renderSet(); },
     }))),
     setTab === "links" ? linksSection()
+      : setTab === "tt" ? ttSection()
       : setTab === "grid" ? gridSection()
       : setTab === "neis" ? neisSection()
       : setTab === "back" ? backupSection()

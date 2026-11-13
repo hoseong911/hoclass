@@ -348,7 +348,7 @@ function checkHiddenRule() {
   assert(A.$("setClose"), "머리줄에 닫기 단추가 있다");
   assert(!A.$("setScrim").hidden, "열면 뒤가 가려진다");
   assert.deepStrictEqual([...A.d.querySelectorAll("#setPanel .set-tab")].map(b => b.textContent),
-    ["학년도", "바로가기", "화면", "나이스", "백업", "비밀번호"], "탭 여섯");
+    ["학년도", "바로가기", "시간표", "화면", "나이스", "백업", "비밀번호"], "탭 일곱");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden && A.$("setScrim").hidden, "닫기 단추로 닫힌다");
   A.$("toolSet").click();
@@ -714,22 +714,31 @@ function checkHiddenRule() {
   A.tab("today");
   await until(() => A.book().includes("흑미밥"), "오늘 급식이 수첩 오늘 화면에 보인다");
 
-  /* ---------- 시정 채우기 ---------- */
-  A.$("ttEdit").click();
-  await until(() => A.d.querySelector("#ttBells input"), "편집하면 시정 칸이 나온다");
-  const bIn = A.d.querySelectorAll("#ttBells input");
-  bIn[0].value = "09:00"; bIn[1].value = "40"; bIn[2].value = "10"; bIn[3].value = "50";
-  A.btn("#ttBells", "채우기").click();
-  const times = () => [...A.d.querySelectorAll("#tt input[type=\"time\"]")].map(i => i.value);
+  /* ---------- 시정 채우기 (설정 창 시간표 탭) ---------- */
+  assert(!A.$("ttEdit"), "위젯의 편집 단추는 설정 창으로 옮겼다");
+  assert(!A.d.querySelector('.wg[data-w="tt"] input'), "위젯의 시간표는 보기만 한다");
+  A.setTab("tt");
+  await until(() => A.$("ttSet"), "시간표 탭");
+  /* 채우면 패널을 다시 그리므로 칸을 그때그때 다시 찾는다 */
+  const bells = () => [...A.d.querySelectorAll("#setPanel .tt-bells input")];
+  const fillBtn = () => A.btn("#setPanel", "채우기");
+  const times = () => [...A.d.querySelectorAll("#ttSet input[type=\"time\"]")].map(i => i.value);
+  const b1 = bells();
+  b1[0].value = "09:00"; b1[1].value = "40"; b1[2].value = "10"; b1[3].value = "50";
+  fillBtn().click();
   await until(() => times()[0] === "09:00", "1교시 시작이 공식대로 채워진다");
   assert(times().slice(0, 4).join(",") === "09:00,09:40,09:50,10:30", "수업 40분, 쉬는 시간 10분");
   assert(times()[6] === "11:30" && times()[8] === "13:00", "4교시 뒤 점심 50분");
-  bIn[1].value = "999";
-  A.btn("#ttBells", "채우기").click();
+  bells()[1].value = "999";
+  fillBtn().click();
   await wait(40);
   assert(times()[0] === "09:00" && times()[1] === "09:40", "말이 안 되는 값으로는 채우지 않는다");
-  A.$("ttEdit").click();
-  await until(() => A.$("ttBells").hidden, "편집을 끝내면 시정 칸이 숨는다");
+  /* 설정 창에서 고치면 위젯 표도 따라 바뀐다 */
+  const cell = A.d.querySelector('#ttSet input[type="text"]');
+  cell.value = "3-7"; cell.dispatchEvent(new A.w.Event("input", { bubbles: true }));
+  await until(() => A.$("tt").textContent.includes("3-7"), "설정 창에서 고치면 위젯에 바로 보인다");
+  A.$("setClose").click();
+  await until(() => A.$("setPanel").hidden, "시간표 탭 닫기");
 
   /* ---------- 백업 ---------- */
   A.setTab("back");

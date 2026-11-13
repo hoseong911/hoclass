@@ -221,6 +221,20 @@ table.tt { width: 100%; border-collapse: separate; border-spacing: 4px; min-widt
 .tt .bell { display: flex; gap: 2px; align-items: center; }
 .tt .bell input { width: 50%; padding: 4px 2px; font-size: 11px; font-family: var(--font-num); }
 
+/* 칸 높이가 남으면 줄이 늘어 자리를 채우고, 모자라면 지금처럼 굴러간다. */
+.wg[data-w="tt"] .tt-scroll { flex: 1; min-height: 0; overflow: auto; }
+.wg[data-w="tt"] table.tt { height: 100%; }
+.wg[data-w="tt"] .tt td { height: auto; }
+/* 낮은 칸에서는 종 시간을 접고 줄을 좁힌다. */
+@container (max-height: 320px) {
+  .wg[data-w="tt"] .tt th.ph .tm { display: none; }
+  .wg[data-w="tt"] .tt td { padding: 4px; }
+}
+@container (max-height: 230px) {
+  .wg[data-w="tt"] table.tt { border-spacing: 2px; }
+  .wg[data-w="tt"] .tt th { padding: 2px 4px; }
+}
+
 /* 메모 */
 .memo { min-height: 240px; resize: vertical; line-height: 1.7; width: 100%; background: var(--surface-2); flex: 1; }
 
