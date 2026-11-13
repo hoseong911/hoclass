@@ -395,24 +395,26 @@ body { overflow: hidden; }
 /* ── 할 일 ── */
 .wg-todo .quad { flex: 1; min-height: 0; }
 .quad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+/* 격자 카드라 네 변 테두리와 모서리는 두지만, 바탕을 채우고 한 변에 색 막대를 박으면
+   손톱 네일팁처럼 보인다. 바탕은 비우고 선으로만 나눈다. */
 .q-cell {
-  display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; overflow: hidden;
-  background: var(--surface-2); border-radius: 12px; padding: 9px 10px; border-top: 3px solid var(--qc, var(--line));
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 12px; padding: 8px;
 }
-.q-cell.q0 { --qc: var(--danger); }
-.q-cell.q1 { --qc: var(--accent); }
-.q-cell.q2 { --qc: var(--warn); }
-.q-cell.q3 { --qc: var(--faint); }
-.q-cell.over { outline: 2px dashed var(--qc); outline-offset: -2px; background: var(--surface); }
-.q-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
-.q-name { font-size: var(--fs-sm); font-weight: 600; color: var(--qc); white-space: nowrap; }
-.q-hint { font-size: var(--fs-label); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.q-list { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 3px; }
-.q-todo { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+/* 색이 나는 곳은 중요 긴급 한 칸뿐이고, 나머지는 회색 단계로 내려가 긴급도를 알린다. */
+.q-cell.q0 .q-name { color: var(--accent); }
+.q-cell.q1 .q-name { color: var(--ink); }
+.q-cell.q2 .q-name { color: var(--sub); }
+.q-cell.q3 .q-name { color: var(--faint); }
+.q-cell.over { background: var(--surface-2); border-color: var(--line-strong); }
+.q-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.q-name { font-size: var(--fs-sm); font-weight: 500; white-space: nowrap; }
+.q-list { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.q-todo { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .q-todo.lifted { opacity: .35; }
 .q-ghost { position: fixed; left: 0; top: 0; z-index: 40; pointer-events: none; }
 .q-ghost .q-todo { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; list-style: none; }
-.q-todo .check { width: 18px; height: 18px; border-radius: 8px; flex: none; }
+.q-todo .check { width: 18px; height: 18px; border-radius: 4px; flex: none; }
 .q-todo .check svg { width: 12px; height: 12px; }
 .q-todo.done .check { background: var(--accent); border-color: var(--accent); }
 .q-todo.done .check svg { opacity: 1; }
@@ -420,13 +422,13 @@ body { overflow: hidden; }
 .q-todo.done .q-tx { color: var(--faint); text-decoration: line-through; }
 .q-todo .del { font-size: 15px; padding: 0 4px; flex: none; }
 .q-todo:hover .del { opacity: 1; }
-.q-add { display: flex; gap: 5px; flex: none; }
+.q-add { display: flex; gap: 4px; flex: none; }
 .q-add input { flex: 1; min-width: 0; padding: 4px 8px; font-size: var(--fs-sm); background: var(--surface); border-radius: 8px; }
 .q-plus {
-  flex: none; width: 28px; border: 1px solid var(--line); background: var(--surface); color: var(--qc);
-  border-radius: 8px; font-size: 16px; font-weight: 600; line-height: 1; cursor: pointer;
+  flex: none; width: 28px; border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  border-radius: 8px; font-size: 16px; line-height: 1; cursor: pointer;
 }
-.q-plus:hover { border-color: var(--qc); }
+.q-plus:hover { border-color: var(--accent); color: var(--accent); }
 
 .wg-links .links { margin: 0; flex: 1; }
 
@@ -688,11 +690,10 @@ body { overflow: hidden; }
 
 /* 칸 높이 230px 이하 */
 @container (max-height: 230px) {
-  .quad { gap: 6px; }
-  .q-cell { padding: 7px 8px; gap: 4px; }
+  .quad { gap: 4px; }
+  .q-cell { padding: 4px 8px; }
   .q-tx { font-size: 13px; }
   .q-name { font-size: 12px; }
-  .q-hint { font-size: 10.5px; }
   .q-todo .check { width: 16px; height: 16px; }
   .card { padding: 11px; gap: 7px; }
   .card-title { font-size: 11.5px; }
@@ -741,10 +742,9 @@ body { overflow: hidden; }
   /* 여기까지 작아지면 줄여도 안 들어간다. 가장 덜 급한 "다음 교시" 줄을 접는다. */
   .now-next { display: none; }
   .quad { gap: 4px; }
-  .q-cell { padding: 5px 6px; gap: 3px; border-top-width: 2px; }
-  .q-hint { display: none; }
+  .q-cell { padding: 4px; }
   .q-tx { font-size: 12px; }
-  .q-add input { padding: 2px 6px; font-size: 11.5px; }
+  .q-add input { padding: 2px 8px; font-size: 11.5px; }
   .q-plus { width: 22px; font-size: 14px; }
   .card { padding: 9px; gap: 5px; }
   .card-title { font-size: 11px; }

@@ -2935,10 +2935,10 @@ function workPage() {
 const CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
 // q 가 없는 옛 할 일은 0번 칸에 둔다.
 const QUADS = [
-  { q: 0, name: "중요 긴급", hint: "지금 하기",   c: "q0" },
-  { q: 1, name: "중요 여유", hint: "계획하기",    c: "q1" },
-  { q: 2, name: "일반 긴급", hint: "빨리 끝내기", c: "q2" },
-  { q: 3, name: "일반 여유", hint: "천천히",      c: "q3" },
+  { q: 0, name: "중요 긴급", c: "q0" },
+  { q: 1, name: "중요 여유", c: "q1" },
+  { q: 2, name: "일반 긴급", c: "q2" },
+  { q: 3, name: "일반 여유", c: "q3" },
 ];
 const todoQ = (t) => [0, 1, 2, 3].includes(t.q) ? t.q : 0;
 function renderTodos() {
@@ -2969,7 +2969,7 @@ function renderTodos() {
       const again = document.querySelector(`#todoQuad .q-in[data-q="${Q.q}"]`); if (again) again.focus();
     } }, inp, h("button", { class: "q-plus", type: "submit", "aria-label": `${Q.name}에 더하기`, text: "+" }));
     return h("div", { class: "q-cell " + Q.c, "data-q": String(Q.q) },
-      h("div", { class: "q-head" }, h("span", { class: "q-name", text: Q.name }), h("span", { class: "q-hint", text: Q.hint })), list, form);
+      h("div", { class: "q-head" }, h("span", { class: "q-name", text: Q.name })), list, form);
   });
   $("todoQuad").replaceChildren(...cells);
   if (typing) {

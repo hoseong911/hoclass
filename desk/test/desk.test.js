@@ -263,6 +263,27 @@ function checkPeriodRows() {
   for (const v of px) assert(v % 4 === 0, "오늘 시간표 여백이 4px 격자 밖이다: " + v + "px");
 }
 
+/* 할 일 네 칸도 같다. 채운 바탕 위의 색 막대와 색 넷으로 되돌아가지 않게 */
+function checkTodoCells() {
+  const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
+  const block = css.slice(css.indexOf(".q-cell {"), css.indexOf(".q-list {"));
+  // 바탕과 색 막대는 기본 .q-cell 규칙만 본다(.over 의 바탕 한 단은 끌어 놓는 자리 표시라 둔다)
+  const base = css.slice(css.indexOf(".q-cell {"), css.indexOf(".q-cell.q0"));
+  assert(block && base, "desk.css 에서 할 일 네 칸 규칙을 못 찾았다");
+  assert(!/border-top:/.test(base), "칸 한 변에 색 막대를 박지 않는다(네일팁처럼 보인다)");
+  assert(!/background:/.test(base), "격자 카드에 바탕을 채우지 않는다(레포 화면 규칙)");
+  assert(!/--qc/.test(css), "색 넷으로 가르지 않는다. 중요 긴급만 레드이고 나머지는 회색 단계다");
+  assert(!/dashed/.test(block), "끌어 놓는 자리를 점선으로 두르지 않는다. 바탕 한 단으로 알린다");
+  assert(block.includes(".q-cell.q0 .q-name { color: var(--accent); }"),
+    "색이 나는 곳은 중요 긴급 한 칸이어야 한다");
+  const px = [...css.matchAll(/\.q-(?:cell|head|list|add)[^{]*\{[^}]*?(?:padding|gap)[^;]*?(\d+)px/g)].map(m => +m[1]);
+  // 2px 는 작은 조작 칸 안의 미세 조정이라 격자 밖이어도 둔다
+  for (const v of px) assert(v % 4 === 0 || v === 2, "할 일 칸 여백이 4px 격자 밖이다: " + v + "px");
+  const js = fs.readFileSync(path.join(DIR, "desk.js"), "utf8");
+  assert(!/q-hint/.test(js) && !/hint:/.test(js.slice(js.indexOf("const QUADS"), js.indexOf("const todoQ"))),
+    "칸 이름 옆에 작은 글씨 설명을 달지 않는다(레포 화면 규칙)");
+}
+
 /* 글꼴: 지금 수업 큰 글씨는 잘난체, 모노체는 남아 있지 않아야 한다 */
 function checkFonts() {
   const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
@@ -288,6 +309,7 @@ function checkHiddenRule() {
   checkIconNames();
   checkFonts();
   checkPeriodRows();
+  checkTodoCells();
   seedHoclass();
   const A = device();
 
