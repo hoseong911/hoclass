@@ -549,6 +549,18 @@ body { overflow: hidden; }
 .set-state:empty { display: none; }
 .set-foot { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); }
 .set-grid .field > .btn { align-self: flex-start; }
+/* 기본 설정: 왼쪽 이름, 오른쪽 값. 좁으면 위아래로 */
+.set-line { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 12px; align-items: start; }
+.set-label { font-size: 14px; font-weight: 500; color: var(--ink); padding-top: 6px; }
+.set-val { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; min-width: 0; }
+.set-val > .set-row { width: 100%; }
+.set-now { font-size: 15px; font-weight: 600; }
+.set-val input[type="text"] { flex: 1 1 160px; min-width: 0; }
+.set-block .set-line + .set-line { padding-top: 12px; border-top: 1px dashed var(--line); }
+@media (max-width: 480px) {
+  .set-line { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .set-label { padding-top: 0; font-size: 13px; color: var(--muted); }
+}
 
 /* ── 배치 모드 ── */
 .deck.arranging .wg > .card { pointer-events: none; }
@@ -592,7 +604,7 @@ body { overflow: hidden; }
 .wg-check .sz { font-family: var(--font-num); font-size: 11px; color: var(--faint); margin-left: auto; }
 
 /* 반 고르개: 학년 단추 줄 아래 반 번호 단추 */
-.room-pick { display: flex; flex-direction: column; gap: 8px; }
+.room-pick { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .room-nums { display: flex; flex-wrap: wrap; gap: 6px; }
 .room-nums .cpick { width: 52px; justify-content: center; padding: 5px 0; }
 

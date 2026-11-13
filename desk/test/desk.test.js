@@ -136,6 +136,7 @@ function device() {
       return [["3-1", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
               ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]]; },
     loadClassDay: async () => [],
+    loadRoomCounts: async () => ({ 1: 10, 2: 10, 3: 10 }),
     mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "",
   };
   w.URL.createObjectURL = (blob) => { saved.push(blob); return "blob:fake/" + saved.length; };
@@ -173,7 +174,7 @@ function device() {
       b.click();
     },
     pickRoom: (id, g, r) => {
-      d.querySelector("#" + id + ' .cpick[data-grade="' + g + '"]').click();
+      d.querySelector("#" + id + ' [data-grade="' + g + '"]').click();
       d.querySelector("#" + id + ' .cpick[data-cls="' + g + "-" + r + '"]').click();
     },
     btn: (where, label) => [...d.querySelectorAll(where + " button")].find(b => b.textContent.includes(label)),
@@ -397,19 +398,18 @@ async function checkHomeroomCC() {
   A.$("toolSet").click();
   await until(() => A.$("setForm"), "다시 열면 기본 탭");
   /* 학년도를 더하고, 담임 반은 글이 아니라 고르개로 정한다 */
-  A.fill("setYear", "2027");
-  A.btn("#setPanel", "학년도 추가").click();
+  A.$("setYearAdd").click();                      // 다음 학년도(2027)를 더하고 고른다
   await until(() => A.d.querySelector('#setPanel .cpick[data-year="2027"][aria-pressed="true"]'), "2027학년도를 더하고 고른다");
   assert(!A.d.querySelector("#setPanel input[id=setSchool]"), "학교 이름 칸은 없다. 학교는 나이스 학교 찾기 한 곳에서만 정한다");
   assert(!A.$("setSave"), "기본 탭은 누르는 즉시 저장하므로 저장 단추가 없다");
+  A.d.querySelector('#setHome [data-home="1"]').click();   // 담임을 고르면 반 고르개가 나온다
+  await until(() => A.$("setHomeCls"), "담임 반 고르개");
   A.pickRoom("setHomeCls", 3, 9);                 // 담임 반 3-9
   A.pickRoom("setClasses", 3, 1);                 // 수업 반 3-1 (담임 반 3-9 와 따로)
   await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state;
     return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9" && y.years["2027"].classes.join() === "3-1"; },
     "누르는 즉시 담임 반 3-9, 수업 반 3-1 로 저장된다");
-  assert.strictEqual(A.d.querySelector('#setHomeCls .cpick[data-grade="3"]').getAttribute("aria-pressed"), "true", "다시 그려도 3학년이 펼쳐져 있다");
-  // 눈으로 볼 때: DUMP_SET=파일 npm test 하면 설정 패널을 떠 둔다. 브라우저로 찍어 본다.
-  if (process.env.DUMP_SET) fs.writeFileSync(process.env.DUMP_SET, A.$("setPanel").outerHTML);
+  assert.strictEqual(A.d.querySelector('#setHomeCls [data-grade="3"]').getAttribute("aria-pressed"), "true", "다시 그려도 3학년이 펼쳐져 있다");
   A.$("setClose").click();
 
   /* ---------- 시계 ---------- */
@@ -776,7 +776,9 @@ async function checkHomeroomCC() {
   A.$("neisFindBtn").click();
   await until(() => A.d.querySelector("#neisFound .cpick"), "학교를 찾아 보여 준다");
   A.d.querySelector("#neisFound .cpick").click();
-  await until(() => A.$("setForm").textContent.includes("인천동양중학교 (중학교)"), "정한 학교가 보인다");
+  await until(() => A.$("schoolEdit") && A.$("setForm").textContent.includes("인천동양중학교"), "정한 학교가 보인다");
+  // 눈으로 볼 때: DUMP_SET=파일 npm test 하면 학교를 정한 뒤 기본 탭을 떠 둔다. 브라우저로 찍어 본다.
+  if (process.env.DUMP_SET) fs.writeFileSync(process.env.DUMP_SET, A.$("setPanel").outerHTML);
   A.setTab("neis");
   await until(() => A.$("neisCal"), "학교를 정하면 나이스 탭에 받아오기 단추가 생긴다");
   A.$("neisCal").click();

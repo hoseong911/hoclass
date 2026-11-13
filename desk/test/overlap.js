@@ -122,7 +122,7 @@ function device() {
   /* 나이스는 바깥 인터넷이라 시험에서는 부르지 않는다 */
   w.__NEIS__ = {
     findSchools: async () => [], loadSchedule: async () => [], loadMeal: async () => [],
-    loadMyWeek: async () => [], loadClassDay: async () => [],
+    loadMyWeek: async () => [], loadClassDay: async () => [], loadRoomCounts: async () => ({}),
     mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "",
   };
   w.URL.createObjectURL = () => "blob:fake";
@@ -161,13 +161,13 @@ async function dumpWidgets() {
 
   A.$("toolSet").click();
   await until(() => A.$("setForm"), "설정 패널");
-  fill("setYear", "2027");
-  [...d.querySelectorAll("#setPanel button")].find(b => b.textContent.includes("학년도 추가")).click();
+  A.$("setYearAdd").click();
   await until(() => d.querySelector('#setPanel .cpick[data-year="2027"][aria-pressed="true"]'), "2027학년도");
   const pickRoom = (id, g, r) => {
-    d.querySelector("#" + id + ' .cpick[data-grade="' + g + '"]').click();
+    d.querySelector("#" + id + ' [data-grade="' + g + '"]').click();
     d.querySelector("#" + id + ' .cpick[data-cls="' + g + "-" + r + '"]').click();
   };
+  d.querySelector('#setHome [data-home="1"]').click();
   pickRoom("setHomeCls", 3, 1);
   pickRoom("setClasses", 3, 1); pickRoom("setClasses", 3, 2);
   A.$("setClose").click();

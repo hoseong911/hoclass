@@ -131,6 +131,21 @@ export async function loadClassDay(school, ay, sem, ymd, grade, room, key) {
   return out;
 }
 
+/* 학년별 반 수 { "1": 5, "2": 6, "3": 6 }. 인증키가 없으면 다섯 줄만 오므로
+   학년마다 한 줄만 묻고 전체 수(list_total_count)를 읽는다.
+   shortcut: 특수학급도 반 하나로 센다. 그런 학교에서 쓰게 되면 CLASS_NM 을 보고 거른다. */
+export async function loadRoomCounts(school, ay, key) {
+  const out = {};
+  const grades = school.kind === "초등학교" ? 6 : 3;
+  for (let g = 1; g <= grades; g++) {
+    const { total } = await page("classInfo", {
+      ATPT_OFCDC_SC_CODE: school.atpt, SD_SCHUL_CODE: school.code, AY: String(ay), GRADE: String(g), pSize: 1,
+    }, key, 1);
+    if (total > 0) out[g] = total;
+  }
+  return out;
+}
+
 /* 과목마다 가르치는 반이 다르다(역사는 1~6반, 사회는 3~6반 같은 식). 그래서 과목 줄을 받는다.
    subjects = [{ name: "역사", classes: ["3-1", "3-2"] }, ...]
    같은 과목을 다른 선생님도 가르치면 그 칸까지 들어오므로 뒤에 손으로 고친다.
