@@ -247,6 +247,22 @@ function checkIconNames() {
   assert(names.length >= 12, "고를 아이콘이 너무 적다: " + names.length);
 }
 
+/* 오늘 시간표 줄은 가로 구분선만. 둥근 알약과 왼쪽 색 막대로 되돌아가지 않게 */
+function checkPeriodRows() {
+  const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
+  const block = css.slice(css.indexOf(".periods {"), css.indexOf(".period.lunch .c"));
+  assert(block, "desk.css 에서 오늘 시간표 규칙을 못 찾았다");
+  assert(!/border-radius/.test(block), "쌓인 목록 줄에 모서리를 둥글리지 않는다(네일팁처럼 보인다)");
+  assert(!/box-shadow/.test(block), "지금 교시를 왼쪽 색 막대로 알리지 않는다. 바탕 하나로만 알린다");
+  assert(!/opacity/.test(block), "지난 교시를 투명도로 흐리지 않는다. 글자색만 내린다");
+  assert(block.includes(".period + .period { border-top: 1px solid var(--line); }"),
+    "줄 사이는 가로 구분선 하나다(레포 화면 규칙)");
+  assert(block.includes(".period.current { background: var(--accent-fade); }"),
+    "지금 교시는 레드 반투명 바탕으로 알린다(레포 화면 규칙)");
+  const px = [...block.matchAll(/(?:padding|gap|padding-inline|padding-block)[^;]*?(\d+)px/g)].map(m => +m[1]);
+  for (const v of px) assert(v % 4 === 0, "오늘 시간표 여백이 4px 격자 밖이다: " + v + "px");
+}
+
 /* 글꼴: 지금 수업 큰 글씨는 잘난체, 모노체는 남아 있지 않아야 한다 */
 function checkFonts() {
   const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
@@ -271,6 +287,7 @@ function checkHiddenRule() {
   checkWeatherCodes();
   checkIconNames();
   checkFonts();
+  checkPeriodRows();
   seedHoclass();
   const A = device();
 

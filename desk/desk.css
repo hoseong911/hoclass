@@ -115,15 +115,20 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .now-next b { color: #fff; font-weight: 600; }
 
 /* 오늘 시간표 */
-.periods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.period { display: grid; grid-template-columns: 52px 92px minmax(0, 1fr); align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; }
-.period .p { font-weight: 600; font-size: 14px; }
+/* 쌓인 목록 줄이라 가로 구분선만 둔다. 모서리를 둥글리거나 바탕을 채우면 손톱 네일팁처럼 보인다.
+   색이 나는 곳은 지금 교시 한 줄뿐이고, 그 표시는 레포가 쓰는 레드 반투명 바탕 하나다. */
+.periods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.period { display: grid; grid-template-columns: 52px 92px minmax(0, 1fr); align-items: center; gap: 8px; padding: 8px; }
+.period + .period { border-top: 1px solid var(--line); }
+.period .p { font-weight: 400; font-size: 14px; color: var(--muted); }
 .period .tm { font-family: var(--font-num); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .period .c { font-weight: 500; overflow-wrap: anywhere; }
 .period.free .c { color: var(--faint); font-weight: 400; }
-.period.past { opacity: .5; }
-.period.current { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.period.lunch { background: var(--surface-2); padding-block: 5px; }
+/* 지난 교시는 투명도로 흐리지 않는다. 글자색만 내려 또렷함을 지킨다. */
+.period.past .p, .period.past .tm { color: var(--faint); }
+.period.past .c { color: var(--sub); font-weight: 400; }
+.period.current { background: var(--accent-fade); }
+.period.current .c { color: var(--accent); }
 .period.lunch .c { color: var(--muted); font-size: 13px; }
 
 /* 할 일 */
@@ -873,13 +878,17 @@ body { overflow: hidden; }
   .wg[data-w="periods"] .periods { flex: 1; min-height: 0; overflow: hidden; }
   .wg[data-w="periods"] .period { flex: 1 1 0; min-height: 0; max-height: 46px; padding-block: 0; overflow: hidden; }
 }
+/* 칸이 낮아지면 구분선 일곱 줄이 자리를 먹어 글자가 잘린다(2x2 에서 2px 깎였다).
+   두 단으로 설 때도 줄이 이어지지 않아 구분선이 뜻을 잃는다. 그때는 걷는다. */
+@container (max-height: 300px) {
+  .wg[data-w="periods"] .period + .period { border-top: 0; }
+}
 @container (max-height: 300px) and (min-width: 300px) {
   .wg[data-w="periods"] .periods {
     display: grid; grid-auto-flow: column; grid-template-rows: repeat(4, minmax(0, 1fr));
-    grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px;
   }
-  .wg[data-w="periods"] .period { max-height: none; grid-template-columns: 38px auto minmax(0, 1fr); gap: 6px; padding-inline: 7px; }
-  .wg[data-w="periods"] .period.lunch { padding-block: 0; }
+  .wg[data-w="periods"] .period { max-height: none; grid-template-columns: 38px auto minmax(0, 1fr); gap: 8px; padding-inline: 8px; }
 }
 @container (max-height: 300px) and (min-width: 300px) and (max-width: 440px) {
   .wg[data-w="periods"] .period { grid-template-columns: 38px minmax(0, 1fr); }

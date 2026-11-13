@@ -127,13 +127,15 @@ function device() {
   };
   w.URL.createObjectURL = () => "blob:fake";
   w.URL.revokeObjectURL = () => {};
-  const sideCode = ["grid.js", "hoclass.js"].map(f => fs.readFileSync(path.join(DIR, f), "utf8").replace(/^export /gm, "")).join("\n");
+  const sideCode = ["../shared/icons.js", "grid.js", "hoclass.js"].map(f => fs.readFileSync(path.join(DIR, f), "utf8").replace(/^export /gm, "")).join("\n");
   const deskCode = fs.readFileSync(path.join(DIR, "desk.js"), "utf8")
     .replace(/^import \{ FB \} from "\.\/fb-desk\.js";$/m, "const FB = window.__FB__;")
     .replace(/^import \{[^}]*\} from "\.\/hoclass\.js";$/m, "")
     .replace(/^import \{[^}]*\} from "\.\/grid\.js";$/m, "")
     .replace(/^import \* as GCal from "\.\/gcal\.js";$/m, "const GCal = window.__GCAL__;")
-    .replace(/^import \* as Neis from "\.\/neis\.js";$/m, "const Neis = window.__NEIS__;");
+    .replace(/^import \* as Neis from "\.\/neis\.js";$/m, "const Neis = window.__NEIS__;")
+    .replace(/^import \{ icon as svgIc, resolveIcon \} from "\.\.\/shared\/icons\.js";$/m,
+             "const svgIc = icon;");
   w.eval(sideCode + "\n" + deskCode);
   return { w, d, $: (id) => d.getElementById(id) };
 }
@@ -155,9 +157,9 @@ async function dumpWidgets() {
   await until(() => A.$("recoveryCode"), "복구 키");
   A.$("recoveryOk").checked = true; A.$("recoveryOk").dispatchEvent(new w.Event("change"));
   A.$("recoveryDone").click();
-  await until(() => A.$("setBtn"), "설정 단추");
+  await until(() => d.querySelector("#links .link"), "바로가기가 그려짐");
 
-  A.$("setBtn").click();
+  A.$("toolSet").click();
   await until(() => A.$("setForm"), "설정 패널");
   fill("setYear", "2027");
   [...d.querySelectorAll("#setPanel button")].find(b => b.textContent.includes("학년도 추가")).click();
