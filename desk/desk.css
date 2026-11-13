@@ -241,7 +241,6 @@ table.tt-edit th.ph { width: 132px; padding: 6px 4px; vertical-align: middle; }
 .tt-edit input[type="text"]:hover { border-color: var(--line); }
 .tt-edit input[type="text"]:focus { border-color: var(--accent); background: var(--surface); }
 .tt-edit td.on input[type="text"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.tt-edit td.cc input[type="text"] { background: var(--surface-2); color: var(--muted); font-size: 12px; }
 .tt-edit tr.lunch td { padding: 4px; border-bottom: 1px solid var(--line); }
 
 /* 칸 높이가 남으면 줄이 늘어 자리를 채운다. 모자라면 굴리지 않고 fitCards() 가 칸 속을 통째로 줄인다

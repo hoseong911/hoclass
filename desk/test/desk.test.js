@@ -137,7 +137,7 @@ function device() {
               ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]]; },
     loadClassDay: async () => [],
     loadRoomCounts: async () => ({ 1: 10, 2: 10, 3: 10 }),
-    mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "", CC_RE: /진로|자율|자치|동아리|봉사/,
+    mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "",
   };
   w.URL.createObjectURL = (blob) => { saved.push(blob); return "blob:fake/" + saved.length; };
   w.URL.revokeObjectURL = () => {};
@@ -319,34 +319,7 @@ function checkHiddenRule() {
     "desk.css 에 [hidden] { display: none !important } 가 있어야 한다. 없으면 로그인 창이 수첩 위를 덮는다");
 }
 
-/* 진로테마학습 날: 내 과목은 한 칸도 없고 담임 반은 하루가 다 창체다. 창체는 빈칸에만 들어간다. */
-async function checkHomeroomCC() {
-  const Neis = await import(require("url").pathToFileURL(path.join(__dirname, "..", "neis.js")).href);
-  const days = {
-    "20261109 3-6": ["진로활동", "진로활동", "진로활동", "진로활동", "진로활동"],
-    "20261110 3-6": ["역사", "수학", "동아리활동", "자율활동", "영어"],
-    "20261110 3-1": ["체육", "수학", "과학", "역사", "국어"],
-  };
-  const calls = [];
-  const realFetch = global.fetch;
-  global.fetch = async (u) => {
-    const q = new URL(u).searchParams, k = q.get("ALL_TI_YMD") + " " + q.get("GRADE") + "-" + q.get("CLASS_NM");
-    calls.push(k);
-    const row = (days[k] || []).map((s, i) => ({ PERIO: String(i + 1), ITRT_CNTNT: s }));
-    return { ok: true, json: async () => ({ misTimetable: [{ head: [{ list_total_count: row.length }, { RESULT: { CODE: "INFO-000" } }] }, { row }] }) };
-  };
-  try {
-    const tt = await Neis.loadMyWeek({ atpt: "E10", code: "1", kind: "중학교" }, 2026, 2, "20261109",
-      [{ name: "역사", classes: ["3-1", "3-6"] }], "", "3-6");
-    assert.deepStrictEqual(tt[0].slice(0, 5), Array(5).fill("진로활동"), "진로테마학습 날은 담임 반 창체로 채운다");
-    // 4교시: 담임 반은 자율활동이지만 내 3-1 역사 수업이 먼저다. 수학, 영어 같은 교과는 넣지 않는다.
-    assert.deepStrictEqual(tt[1].slice(0, 5), ["3-6", "", "동아리활동", "3-1", ""], "내 수업이 먼저, 창체는 빈칸에만");
-  } finally { global.fetch = realFetch; }
-  assert.strictEqual(calls.filter(k => k === "20261110 3-6").length, 1, "담임 반이 과목 반과 겹치면 두 번 부르지 않는다");
-}
-
 (async () => {
-  await checkHomeroomCC();
   checkHiddenRule();
   checkShrinkRules();
   checkWeatherCodes();

@@ -1438,8 +1438,8 @@ function ttRows(edit) {
   return rows;
 }
 function renderTT() { $("tt").replaceChildren(...ttRows(false)); }
-/* 설정 창 칸 색: 수업(반)은 칠하고, 진로활동 같은 창체는 옅게, 빈칸은 그대로 */
-const cellKind = (v) => !String(v).trim() ? "" : Neis.CC_RE.test(v) ? "cc" : "on";
+/* 설정 창 칸 색: 수업이 든 칸은 칠하고 빈칸은 그대로 */
+const cellKind = (v) => String(v).trim() ? "on" : "";
 /* 종 시간 칸. type=time 은 좁으면 "오전" 만 보이고 시각이 잘려서 08:50 글자로 받는다(선생님 지적 2026-11-13). */
 function hmIn(b, k, label) {
   return h("input", { type: "text", inputmode: "numeric", maxlength: "5", value: b[k], "aria-label": label,
@@ -2726,7 +2726,7 @@ async function fetchWeek(now = new Date()) {
   if (!subjects.length) throw new Error("내 과목과 그 과목을 가르치는 반을 먼저 넣어 주세요.");
   // 나이스가 아는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도와 다를 수 있다.
   const tt = await Neis.loadMyWeek(N.school, academicYear(now), Neis.semesterOf(now),
-    Neis.mondayOf(now), subjects, N.key, cfg().homeroom);
+    Neis.mondayOf(now), subjects, N.key);
   const n = tt.flat().filter(Boolean).length;
   if (!n) throw new Error(tt.short
     ? "인증키가 없어 1~5교시만 받았습니다. 설정에 인증키를 넣고 다시 받아 주세요."
