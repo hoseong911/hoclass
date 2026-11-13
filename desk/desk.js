@@ -629,8 +629,30 @@ async function useRaw(raw) {
   lastActive = Date.now();
   await openAllEnc();
 }
+/* 이 기기에서 잠그지 않기(선생님 지시 2026-11-13, 설정 기본 탭 보안). 열쇠(raw)를 이 브라우저 localStorage 에 둔다.
+   켜 두면 열 때 비밀번호를 묻지 않고, 한참 안 써도 잠그지 않는다. 기기마다 따로이고 나가기를 누르면 지운다.
+   열쇠는 가져온 뒤 꺼낼 수 없게(extractable false) 만들므로 켤 때 비밀번호를 한 번 받아 그때 둔다. */
+let keepOn = !!lsGet("keepKey"), keepTried = false;
+function forgetKeep() { lsSet("keepKey", null); keepOn = false; }
+async function keepWith(pass) {
+  if (!C.body || !C.body.pass) throw new Error("교무수첩 비밀번호를 먼저 만들어 주세요.");
+  let raw;
+  try { raw = await unwrapRaw(C.body.pass, normPass(pass), "pass"); }
+  catch (e) { throw new Error("비밀번호가 맞지 않습니다."); }
+  lsSet("keepKey", b64(raw)); keepOn = true;
+  if (!dataKey) await useRaw(raw); else raw.fill(0);
+}
+/* 잠긴 채로 열렸고 둔 열쇠가 있으면 한 번만 스스로 연다. 손으로 잠근 뒤에는 다시 열지 않는다(keepTried). */
+function tryKeep() {
+  const k = keepOn && !keepTried && lsGet("keepKey");
+  if (!k) return false;
+  keepTried = true;
+  useRaw(unb64(k)).then(() => { renderNb(); if (setOpen) renderSet(); }).catch(() => { forgetKeep(); renderNb(); });
+  return true;
+}
 async function lockNow() {
   if (!dataKey) return;
+  keepTried = true;
   // 다 보낼 때까지 기다린다. 안 기다리면 나가기가 참조를 지워 마지막 글이 안 올라간다.
   const sending = [];
   for (const d of encDocs()) {
@@ -1116,6 +1138,7 @@ function openApp(user) {
 }
 async function signOutNow() {
   await lockNow();
+  forgetKeep();                                       // 나가면 이 기기에 둔 열쇠도 지운다
   for (const d of allDocs()) { if (d.unsub) d.unsub(); d.unsub = null; d.ref = null; }
   cloud = null; signedIn = null;
   GCal.forgetToken(); gcalDays = []; gcalErr = "";
@@ -1416,7 +1439,7 @@ function tick() {
     $("dateMain").textContent = `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 (${WD[now.getDay()]})`;
     ensureAtt(k); renderDdays(); renderClass(); loadMeal(); autoWeek();
   }
-  if (dataKey && Date.now() - lastActive > state.idleMin * 60000) lockNow();
+  if (dataKey && !keepOn && Date.now() - lastActive > state.idleMin * 60000) lockNow();
   renderNow(now);
   const mm = now.getHours() * 60 + now.getMinutes();
   if (mm !== lastMinute) { lastMinute = mm; renderPeriods(now); renderTT(); loadWx(); }
@@ -1766,6 +1789,31 @@ function roomPicker(id, picked, onPick) {
 const setLine = (label, ...kids) => h("div", { class: "set-line" },
   h("span", { class: "set-label", text: label }), h("div", { class: "set-val" }, ...kids.filter(Boolean)));
 
+let keepAsk = false;           // 잠그지 않기를 켜려고 비밀번호 칸을 연 때
+function keepLine() {
+  const err = h("p", { class: "form-err", role: "alert" });
+  const box = h("input", { type: "checkbox", id: "keepOpen", checked: keepOn || keepAsk ? true : null,
+    onchange: (e) => {
+      if (e.target.checked) { keepAsk = true; renderSet(); return; }
+      keepAsk = false; forgetKeep(); renderSet(); toast("이 기기에서도 교무수첩을 잠급니다");
+    } });
+  const passIn = h("input", { type: "password", id: "keepPass", autocomplete: "current-password", "aria-label": "교무수첩 비밀번호" });
+  const go = h("button", { class: "btn small", type: "button", id: "keepGo", text: "켜기", onclick: async () => {
+    err.textContent = ""; go.disabled = true;
+    try { await keepWith(passIn.value); keepAsk = false; renderSet(); renderNb(); toast("이 기기에서는 교무수첩을 잠그지 않습니다"); }
+    catch (x) { err.textContent = (x && x.message) || "켜지 못했습니다."; go.disabled = false; }
+  } });
+  passIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go.click(); } });
+  return setLine("잠금",
+    h("label", { class: "check-row" }, box, "이 기기에서는 교무수첩을 잠그지 않기"),
+    keepAsk && !keepOn ? h("div", { class: "set-row" }, passIn, go) : null,
+    err,
+    h("p", { class: "set-state", text: keepOn
+      ? "이 브라우저에 열쇠를 두었습니다. 비밀번호를 묻지 않고, 한참 안 써도 잠그지 않습니다. 나가기를 누르면 지웁니다."
+      : keepAsk ? "교무수첩 비밀번호를 한 번 넣으면 켜집니다. 혼자 쓰는 PC에서만 켜 주세요."
+      : "끄면 열 때마다 비밀번호를 묻고, 아래 시간 동안 안 쓰면 잠급니다." }));
+}
+
 function yearSection() {
   const y = cfg();
   const years = Object.keys(state.year.years).map(Number).sort((a, b) => a - b);
@@ -1862,7 +1910,7 @@ function yearSection() {
           putYear({ classes: got });
         } })),
     ]),
-    setBlock("보안", [setLine("자동 잠금", idleSel)]),
+    setBlock("보안", [keepLine(), keepOn ? null : setLine("자동 잠금", idleSel)]),
     err);
 }
 
@@ -2225,7 +2273,7 @@ function renderNb() {
   if (ks === "offline") { body.replaceChildren(...note("저장소에 연결되지 않아 보호 비밀번호를 만들 수 없습니다. " + (syncNote || "인터넷 연결을 확인해 주세요."))); return; }
   if (ks === "none") { lock(setupView()); return; }
   if (ks === "recovery") { lock(recoveryView()); return; }
-  if (ks === "locked") { lock(unlockView()); return; }
+  if (ks === "locked") { if (tryKeep()) { body.replaceChildren(...note("여는 중입니다.")); return; } lock(unlockView()); return; }
   const rollover = state.year.configured && academicYear() > state.year.current
     ? h("p", { class: "hint", text: `${academicYear()}학년도가 시작됐습니다. '기본 설정'에서 담임 반과 수업 반을 새로 넣어 주세요.` }) : null;
   const banner = warnBanner();

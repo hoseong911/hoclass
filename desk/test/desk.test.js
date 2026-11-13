@@ -103,7 +103,7 @@ function makeFB() {
 /* ---------- 화면 띄우기 ---------- */
 let neisArgs = {};   // 나이스 가짜가 받은 인수를 여기 적어 둔다
 const errs = [], saved = [];
-function device() {
+function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있던 localStorage
   const dom = new JSDOM(fs.readFileSync(path.join(DIR, "index.html"), "utf8"), {
     runScripts: "outside-only", url: "https://hoseong911.github.io/hoclass/desk/", pretendToBeVisual: true,
   });
@@ -158,6 +158,7 @@ function device() {
              "const svgIc = icon;");
   const code = sideCode + "\n" + deskCode;
   if (/^\s*(import|export)\s/m.test(code)) throw new Error("import/export 를 못 걷어냈다");
+  for (const [k, v] of Object.entries(ls)) w.localStorage.setItem(k, v);
   w.eval('"use strict"; ' + code);   // 브라우저처럼 엄격 모드로: 없는 이름에 쓰면 시험에서 걸린다
   const $ = (id) => d.getElementById(id);
   return {
@@ -431,6 +432,35 @@ function checkEntries() {
     return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9" && y.years["2027"].classes.join() === "3-1"; },
     "누르는 즉시 담임 반 3-9, 수업 반 3-1 로 저장된다");
   assert.strictEqual(A.d.querySelector('#setHomeCls [data-grade="3"]').getAttribute("aria-pressed"), "true", "다시 그려도 3학년이 펼쳐져 있다");
+
+  /* ---------- 이 기기에서 교무수첩 잠그지 않기 ---------- */
+  const kept = () => { try { return JSON.parse(A.w.localStorage.getItem("my-desk-v3:keepKey")); } catch (e) { return null; } };
+  assert(!A.$("keepOpen").checked && A.$("setIdle"), "처음에는 꺼져 있고 자동 잠금 칸이 있다");
+  A.$("keepOpen").click();
+  await until(() => A.$("keepPass"), "켜려면 비밀번호 칸이 열린다");
+  A.fill("keepPass", "틀린비밀번호"); A.$("keepGo").click();
+  await until(() => A.$("setPanel").textContent.includes("비밀번호가 맞지 않습니다"), "틀린 비밀번호는 거부");
+  assert(!kept(), "틀리면 열쇠를 두지 않는다");
+  A.fill("keepPass", PASS); A.$("keepGo").click();
+  await until(() => kept() && A.$("keepOpen").checked && !A.$("setIdle"), "켜면 이 브라우저에 열쇠를 두고 자동 잠금 칸을 숨긴다");
+  assert(!allStored().includes(kept()), "열쇠는 저장소(클라우드)로 가지 않는다");
+  A.$("keepOpen").click();
+  await until(() => !kept() && A.$("setIdle"), "끄면 열쇠를 지운다");
+  A.$("keepOpen").click(); A.fill("keepPass", PASS); A.$("keepGo").click();
+  await until(() => kept(), "다시 켠다");
+  {
+    /* 같은 브라우저에서 다시 열면(열쇠가 남아 있으면) 비밀번호를 묻지 않고 열린다 */
+    const B = device({ "my-desk-v3:keepKey": JSON.stringify(kept()) });
+    await until(() => !B.$("gate").hidden, "다시 연 수첩의 로그인 문");
+    B.fill("gateEmail", "ho0911seong@gmail.com"); B.fill("gatePass", "계정비밀번호");
+    B.submit("gateForm");
+    await until(() => B.$("gate").hidden && !B.$("app").hidden, "다시 연 수첩 로그인");
+    B.go("담임");
+    await until(() => B.$("nbSeg") && !B.$("nbSeg").hidden, "비밀번호 없이 교무수첩이 열린다");
+    assert(!B.$("unlockForm"), "잠금 칸이 뜨지 않는다");
+    B.$("lockBtn").click();
+    await until(() => B.$("unlockForm"), "손으로 잠그면 잠긴다(다시 저절로 열지 않는다)");
+  }
   A.$("setClose").click();
 
   /* ---------- 시계 ---------- */
@@ -1014,6 +1044,7 @@ function checkEntries() {
   /* ---------- 나가기 ---------- */
   A.$("signOut").click();
   await until(() => !A.$("gate").hidden, "나가면 로그인 문으로");
+  assert(!JSON.parse(A.w.localStorage.getItem("my-desk-v3:keepKey") || "null"), "나가면 이 기기에 둔 열쇠도 지운다");
   assert(!A.$("classBody").textContent.includes("김지우"), "나간 뒤 화면에 이름이 없다");
 
   await wait(200);
