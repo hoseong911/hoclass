@@ -216,6 +216,32 @@ table.prog { width: 100%; border-collapse: collapse; font-size: 14px; }
 /* 진도 표는 화면을 가로로 다 쓴다 */
 .book-cols > .panel:only-child { grid-column: 1 / -1; }
 
+/* 출결 한 건 고르개: 학생 칸을 누르면 열린다 */
+.att-ed { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--accent); border-radius: 12px; background: var(--surface); }
+.att-ed-head { display: flex; align-items: baseline; gap: 10px; }
+.att-ed-head b { font-size: 15px; }
+.att-ed-head .text-btn { margin-left: auto; }
+.att-ed .muted { color: var(--muted); font-size: 13px; }
+.att-ed-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.att-ed-row .lbl { flex: 0 0 64px; font-size: 13px; color: var(--muted); }
+.att-ed-row > input { flex: 1 1 200px; min-width: 0; }
+.att-pick button { padding: 5px 12px; }
+/* 고른 것이 흰 바탕만으로는 잘 안 보여 칠한다 */
+.att-pick button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.att-pick.att-p button { min-width: 38px; }
+.att-ed-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.att-ed-item { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 6px 10px; border-radius: 8px; background: var(--surface-2); }
+.att-ed-item .del { margin-left: auto; opacity: 1; }
+.att-ed-item.결석 { background: var(--danger-soft); } .att-ed-item.지각 { background: var(--warn-soft); }
+.att-ed-item.조퇴 { background: var(--blue-soft); } .att-ed-item.결과 { background: #EFEAF8; }
+.att-ed-foot { display: flex; justify-content: flex-end; }
+.stu.결과 { background: #EFEAF8; border-color: #CFC2EA; } .stu.결과 .st { color: #6B4FA8; }
+.stu[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.att-sum .outk, .att-sum .outk b { color: #6B4FA8; }
+.att-month td.m.결과 { background: #EFEAF8; color: #6B4FA8; }
+.att-month td.tot.결과 { color: #6B4FA8; font-weight: 700; }
+.att-month td.undecided { outline: 1px dashed var(--faint); outline-offset: -3px; }
+
 /* 출결 날짜 줄과 한 달 표 */
 .att-nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .att-nav .pg-arrow:disabled { opacity: .3; cursor: default; background: none; }

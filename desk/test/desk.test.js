@@ -187,6 +187,17 @@ function device() {
     btn: (where, label) => [...d.querySelectorAll(where + " button")].find(b => b.textContent.includes(label)),
     pick: (c) => [...d.querySelectorAll("#classPick .cpick")].find(x => x.textContent.startsWith(c)).click(),
     stu: () => [...d.querySelectorAll("#classBody .stu")],
+    /* 출결 한 건 적기: 학생 칸을 눌러 고르개를 열고 종류, 사유, 교시(조회 0, 1~7, 종례 8), 메모 */
+    mark: async (i, k, r, ps = [], memo = "") => {
+      [...d.querySelectorAll("#classBody .stu")][i].click();
+      await until(() => $("attEd"), "출결 고르개");
+      d.querySelector('#attEd .att-k [data-v="' + k + '"]').click();
+      d.querySelector('#attEd .att-r [data-v="' + r + '"]').click();
+      for (const p of ps) d.querySelector('#attEd .att-p [data-v="' + p + '"]').click();
+      if (memo) { $("attMemo").value = memo; $("attMemo").dispatchEvent(new w.Event("input", { bubbles: true })); }
+      $("attAdd").click();
+      await until(() => !$("attEd"), "출결 한 건 저장");
+    },
     wg: (id) => d.querySelector('.wg[data-w="' + id + '"]'),
     area: (id) => {
       const el = d.querySelector('.wg[data-w="' + id + '"]');
@@ -326,7 +337,23 @@ function checkHiddenRule() {
     "desk.css 에 [hidden] { display: none !important } 가 있어야 한다. 없으면 로그인 창이 수첩 위를 덮는다");
 }
 
+/* 출결 한 건 읽기: 옛 기록("결석" 글자 하나)은 사유 미정 한 건으로, 새 기록은 배열로 읽는다 */
+function checkEntries() {
+  const src = fs.readFileSync(path.join(DIR, "desk.js"), "utf8");
+  const a = src.indexOf("function marksIn(v)"), b = src.indexOf("function entryText(e)");
+  const c = src.indexOf("\n}", b) + 2;
+  assert(a > 0 && b > a && c > b, "desk.js 에서 출결 읽기 함수를 못 찾았다");
+  const { entriesOf, entryText } = new Function(src.slice(a, c) + "; return { entriesOf, entryText };")();
+  assert.deepStrictEqual(entriesOf({ marks: { s1: "결석" } }, "s1"), [{ k: "결석", r: "", p: [], memo: "" }], "옛 글자 기록");
+  assert.strictEqual(entryText(entriesOf({ marks: { s1: "지각" } }, "s1")[0]), "사유 미정 지각", "옛 기록은 사유 미정");
+  assert.deepStrictEqual(entriesOf({ marks: { s1: "출석" } }, "s1"), [], "모르는 글자는 버린다");
+  const v = { marks: { s1: [{ k: "결과", r: "미인정", p: [3, 2] }, { k: "지각", r: "인정", p: [0] }, { k: "x" }] } };
+  assert.deepStrictEqual(entriesOf(v, "s1").map(entryText), ["미인정 결과(2교시, 3교시)", "출석인정 지각(조회까지)"], "새 기록, 교시 차례");
+  assert.strictEqual(entryText({ k: "조퇴", r: "질병", p: [8], memo: "" }), "질병 조퇴(종례부터)");
+}
+
 (async () => {
+  checkEntries();
   checkHiddenRule();
   checkShrinkRules();
   checkWeatherCodes();
@@ -644,7 +671,7 @@ function checkHiddenRule() {
   assert(A.$("rosterBtn").hidden, "호클래스 반은 명단 편집을 막는다");
 
   /* ---------- 출결은 학번으로 묶인다 ---------- */
-  A.stu()[0].click();
+  await A.mark(0, "결석", "미인정");
   await until(() => A.absent() === 1, "3-1 결석 1명");
   const day = todayKey();
   await until(() => store.has("desk_att/2027_3-1_" + day), "3-1 출결 문서");
@@ -664,8 +691,33 @@ function checkHiddenRule() {
   A.fill("rCount", "2"); A.fill("rNames", "담임하나\n담임둘");
   A.$("rSave").click();
   await until(() => A.stu().length === 2, "3-9 학생 2명");
-  A.stu()[1].click();
+  await A.mark(1, "결석", "질병");
   await until(() => store.has("desk_att/2027_3-9_" + day), "3-9 출결 문서");
+
+  /* ---------- 출결 열두 가지: 종류 넷 x 사유 셋, 교시, 메모, 하루 여러 건 ---------- */
+  await A.mark(0, "결과", "미인정", [2, 3], "보건실");
+  await A.mark(0, "조퇴", "질병", [6]);
+  await until(() => A.stu()[0].textContent.includes("결과 외 1"), "학생 칸에 첫 건과 나머지 수");
+  A.stu()[0].click();
+  await until(() => A.$("attEd"), "고르개를 다시 연다");
+  A.d.querySelector('#attEd .att-k [data-v="결과"]').click(); A.d.querySelector('#attEd .att-p [data-v="5"]').click();
+  if (process.env.DUMP_CLASS) { for (const i of A.d.querySelectorAll("#nb input")) i.setAttribute("value", i.value); fs.writeFileSync(process.env.DUMP_CLASS + "_ed.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML); }
+  A.d.querySelector('#attEd .att-k [data-v="결석"]').click();
+  const edText = () => A.$("attEd").textContent;
+  assert(edText().includes("미인정 결과(2교시, 3교시)") && edText().includes("보건실"), "결과는 빠진 교시 여럿과 메모: " + edText());
+  assert(edText().includes("질병 조퇴(6교시부터)"), "조퇴는 몇 교시부터");
+  A.$("attAdd").click();
+  await until(() => A.$("attEd").querySelector(".form-err").textContent.includes("사유"), "사유 없이는 안 들어간다");
+  A.d.querySelector('#attEd .att-k [data-v="지각"]').click();
+  A.d.querySelector('#attEd .att-r [data-v="인정"]').click();
+  A.$("attAdd").click();
+  await until(() => A.$("attEd").querySelector(".form-err").textContent.includes("몇 교시까지"), "지각은 교시를 골라야 한다");
+  A.d.querySelector("#attEd .att-ed-item .del").click();
+  await until(() => A.d.querySelectorAll("#attEd .att-ed-item").length === 1, "한 건만 지운다");
+  A.btn("#attEd", "닫기").click();
+  await until(() => !A.$("attEd") && A.d.querySelector("#classBody .stu.조퇴"), "남은 조퇴 한 건");
+  await wait(900);
+  assert(!allStored().includes("보건실"), "출결 메모 평문 금지");
 
   /* ---------- 출결: 지난날 고치기와 한 달 표 ---------- */
   const prev = (() => { const d = new Date(); do { d.setDate(d.getDate() - 1); } while (d.getDay() === 0 || d.getDay() === 6);
@@ -674,7 +726,7 @@ function checkHiddenRule() {
   assert(A.d.querySelector('#classBody [aria-label="다음 날"]').disabled, "오늘보다 앞날로는 못 간다");
   A.d.querySelector('#classBody [aria-label="앞 날"]').click();
   await until(() => A.$("attToday") && A.stu().length === 2 && !A.d.querySelector("#classBody .stu.결석"), "앞 평일로 가면 그날 기록(빈 것)이 열린다");
-  A.stu()[0].click(); A.stu()[0].click();          // 1번 지각
+  await A.mark(0, "지각", "미인정", [1]);         // 1번 1교시까지 지각
   await until(() => store.has("desk_att/2027_3-9_" + prev), "지난날 출결도 그날 문서에 저장된다");
   A.$("attToday").click();
   await until(() => A.$("attDate").textContent.includes("오늘") && A.d.querySelectorAll("#classBody .stu.결석").length === 1, "오늘로 돌아오면 오늘 기록");
@@ -803,8 +855,7 @@ function checkHiddenRule() {
   /* ---------- 6단계: 결석 보내기 ---------- */
   A.sub("att");
   await until(() => A.d.querySelectorAll("#classBody .stu").length === 3, "출결 탭");
-  const t2 = A.stu()[1];
-  t2.click(); t2.click();
+  await A.mark(1, "지각", "질병", [0]);
   await until(() => A.d.querySelectorAll("#classBody .stu.지각").length === 1, "2번 지각");
   if (process.env.DUMP_CLASS) {                   // 우리 반 세 보기를 떠 둔다(눈으로 볼 때)
     for (const t of ["att", "col"]) { A.sub(t); await wait(60);
