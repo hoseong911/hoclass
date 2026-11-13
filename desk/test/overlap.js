@@ -397,6 +397,18 @@ function one(name, html, w, h) {
     const over = card.scrollHeight - card.clientHeight;
     if (over > 2) bad.push("칸넘침  " + where + "  굴려야 보이는 높이 " + Math.round(over) + "px");
   }
+  /* ⑤ 옆으로 굴려야 보이는 곳. 스크롤 막대를 숨겨 두어 옆에 뭐가 더 있는 줄 모른다.
+     (2026-11-13에 주간 시간표가 월화수만 보이고 목금은 옆으로 숨어 있었다.) */
+  for (const el of [card, ...card.querySelectorAll("*")]) {
+    const ox = getComputedStyle(el).overflowX;
+    if (ox !== "auto" && ox !== "scroll") continue;
+    const over = el.scrollWidth - el.clientWidth;
+    if (el.clientWidth <= 0 || over <= 2) continue;
+    /* 시간표만 실패로 센다. 다른 칸(바로가기, 수첩, 디데이, 캘린더)은 가로 2칸에서만 몇십 px 넘치는데
+       이 검사를 넣기 전부터 그랬다. 고치기 전까지는 "가로참고"로 보이기만 한다. */
+    const tag = name === "tt" ? "가로넘침 " : "가로참고 ";
+    bad.push(tag + where + "  " + sel(el) + " 옆으로 " + Math.round(over) + "px 숨음");
+  }
 }
 
 for (const [name, html] of Object.entries(DATA)) for (const [w, h] of SIZES) one(name, html, w, h);
@@ -431,7 +443,7 @@ function findChrome() {
       .replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
     const lines = txt.split("\n");
     console.log("\n── " + s + " ──\n" + txt);
-    bad += lines.filter(l => /^(겹침|세로잘림|위로넘침|칸넘침)/.test(l)).length;
+    bad += lines.filter(l => /^(겹침|세로잘림|위로넘침|칸넘침|가로넘침)/.test(l)).length;
   }
   try { fs.unlinkSync(TMP); } catch (e) {}
   if (bad) { console.error("\n글자가 겹치거나 잘리는 곳 " + bad + "군데."); process.exit(1); }

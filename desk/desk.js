@@ -1362,15 +1362,18 @@ const WD5 = ["월", "화", "수", "목", "금"];
 /* 위젯은 보기만, 설정 창 시간표 탭은 고치기. 같은 함수가 둘 다 그린다. */
 function ttRows(edit) {
   const now = new Date(), di = dayIdx(now), m = now.getHours() * 60 + now.getMinutes();
-  const rows = [h("tr", null, h("th", { class: "ph", text: "교시" }),
-    ...WD5.map((d, i) => h("th", { class: !edit && i === di ? "today" : "", text: d + (!edit && i === di ? " (오늘)" : "") })))];
+  /* "교시"와 "(오늘)"을 따로 감싸 둔다. 아주 좁은 칸에서는 desk.css 가 접어 "1", "목"만 남긴다. */
+  const rows = [h("tr", null, h("th", { class: "ph" }, h("span", { class: "pl", text: "교시" })),
+    ...WD5.map((d, i) => !edit && i === di
+      ? h("th", { class: "today" }, d, h("span", { class: "td-lbl", text: " (오늘)" }))
+      : h("th", { text: d })))];
   for (let p = 0; p < 7; p++) {
     const b = state.bells[p];
     const ph = edit
       ? h("th", { class: "ph" }, h("div", null, `${p + 1}교시`), h("div", { class: "bell" },
           h("input", { type: "time", value: b.s, "aria-label": `${p + 1}교시 시작`, onchange: (e) => { b.s = e.target.value; state.ttExample = false; save(); renderTT(); renderPeriods(); } }),
           h("input", { type: "time", value: b.e, "aria-label": `${p + 1}교시 끝`, onchange: (e) => { b.e = e.target.value; state.ttExample = false; save(); renderTT(); renderPeriods(); } })))
-      : h("th", { class: "ph" }, `${p + 1}교시`, h("span", { class: "tm", text: `${b.s}~${b.e}` }));
+      : h("th", { class: "ph" }, `${p + 1}`, h("span", { class: "pl", text: "교시" }), h("span", { class: "tm", text: `${b.s}~${b.e}` }));
     const cells = [0, 1, 2, 3, 4].map((d) => {
       const v = state.tt[d][p];
       if (edit) {

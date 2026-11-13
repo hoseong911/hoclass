@@ -223,7 +223,8 @@ table.tt { width: 100%; border-collapse: separate; border-spacing: 4px; min-widt
 
 /* 칸 높이가 남으면 줄이 늘어 자리를 채우고, 모자라면 지금처럼 굴러간다. */
 .wg[data-w="tt"] .tt-scroll { flex: 1; min-height: 0; overflow: auto; }
-.wg[data-w="tt"] table.tt { height: 100%; }
+/* 위젯은 칸 폭에 늘 맞춘다. 옆으로 굴리지 않는다(스크롤 막대가 숨어 있어 목, 금이 없는 줄 안다). */
+.wg[data-w="tt"] table.tt { height: 100%; min-width: 0; }
 .wg[data-w="tt"] .tt td { height: auto; }
 /* 낮은 칸에서는 종 시간을 접고 줄을 좁힌다. */
 @container (max-height: 320px) {
@@ -233,6 +234,19 @@ table.tt { width: 100%; border-collapse: separate; border-spacing: 4px; min-widt
 @container (max-height: 230px) {
   .wg[data-w="tt"] table.tt { border-spacing: 2px; }
   .wg[data-w="tt"] .tt th { padding: 2px 4px; }
+}
+/* 아주 좁은 칸(가로 두세 칸)에서도 다섯 요일이 다 보이게: "1교시"는 "1", "(오늘)"은 접고 칸 사이를 붙인다. */
+@container (max-width: 300px) {
+  .wg[data-w="tt"] .tt .td-lbl, .wg[data-w="tt"] .tt th.ph .pl { display: none; }
+  .wg[data-w="tt"] .tt th.ph { width: 18px; text-align: center; }
+  .wg[data-w="tt"] table.tt { border-spacing: 2px; }
+  .wg[data-w="tt"] .tt th { padding: 2px 0; }
+  .wg[data-w="tt"] .tt td { padding: 2px 1px; border-radius: 5px; }
+}
+@container (max-width: 200px) {
+  .wg[data-w="tt"] table.tt { border-spacing: 1px; }
+  .wg[data-w="tt"] .tt th.ph { width: 12px; }
+  .wg[data-w="tt"] .tt td, .wg[data-w="tt"] .tt th { font-size: 10px; padding: 1px 0; word-break: break-all; }
 }
 
 /* 메모 */
@@ -830,7 +844,7 @@ body { overflow: hidden; }
 
 /* ── 칸 폭에 따라 최소 폭을 푼다 ── */
 @container (max-width: 520px) {
-  .tt { min-width: 0; border-spacing: 3px; }
+  table.tt { min-width: 0; border-spacing: 3px; }   /* table.tt 로 써야 위의 560px 를 이긴다 */
   .tt th.ph { width: 78px; }
   .tt td { height: 34px; padding: 5px 3px; }
   .students { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); }
