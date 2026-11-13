@@ -25,7 +25,8 @@
   --fs-body: 15px;    /* 본문 */
   --fs-sm: 13px;      /* 보조 */
   --fs-label: 12px;   /* 위젯 제목 */
-  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* 숫자도 수트체로 쓴다(선생님 지시 2026-11-13). 자리를 맞추는 것은 font-variant-numeric 이 한다. */
+  --font-num: var(--font-body);
   --r: 14px;
   color-scheme: light;
 }
@@ -103,7 +104,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .now { background: var(--ink); color: #F2F5F4; border-color: var(--ink); gap: 10px; }
 .now .card-title { color: #A9B6B1; }
 .now .card-aside { color: #A9B6B1; }
-.now-main { font-size: clamp(26px, 3vw, 34px); font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; text-wrap: balance; }
+/* 지금 수업의 큰 글씨는 여기어때 잘난체. 잘난체는 굵기가 하나뿐이라 600 을 주면 가짜 굵기가 된다. */
+.now-main { font-family: var(--font-head); font-size: clamp(26px, 3vw, 34px); font-weight: 400; line-height: 1.2; letter-spacing: -0.01em; text-wrap: balance; }
 .now-main .cls { color: var(--sky); }
 .now-sub { font-size: 14px; color: #C7D1CD; font-variant-numeric: tabular-nums; }
 .now-bar { height: 6px; border-radius: 8px; background: rgba(255,255,255,.14); overflow: hidden; }

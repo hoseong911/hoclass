@@ -247,6 +247,18 @@ function checkIconNames() {
   assert(names.length >= 12, "고를 아이콘이 너무 적다: " + names.length);
 }
 
+/* 글꼴: 지금 수업 큰 글씨는 잘난체, 모노체는 남아 있지 않아야 한다 */
+function checkFonts() {
+  const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
+  assert(css.includes(".now-main { font-family: var(--font-head)"),
+    "지금 수업의 큰 글씨는 여기어때 잘난체(--font-head)여야 한다");
+  assert(css.includes("--font-num: var(--font-body);"), "--font-num 은 수트체(--font-body)를 가리켜야 한다");
+  for (const page of ["desk.css", "widget.html", "index.html"]) {
+    const s = fs.readFileSync(path.join(DIR, page), "utf8");
+    assert(!/monospace|Menlo|IBM Plex Mono/.test(s), page + " 에 모노체가 남아 있다");
+  }
+}
+
 function checkHiddenRule() {
   const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
   assert(/\[hidden\][^{]*\{[^}]*display:\s*none\s*!important/.test(css),
@@ -258,6 +270,7 @@ function checkHiddenRule() {
   checkShrinkRules();
   checkWeatherCodes();
   checkIconNames();
+  checkFonts();
   seedHoclass();
   const A = device();
 
