@@ -454,6 +454,7 @@ function checkHiddenRule() {
   const made = (name) => [...A.d.querySelectorAll("#links .link")].find(a => a.textContent.includes(name));
   const lkRow = (name) => [...A.d.querySelectorAll("#setPanel .lk-row")].find(r => r.textContent.includes(name));
   const type = (id, v) => { A.fill(id, v); A.$(id).dispatchEvent(new A.w.Event("input", { bubbles: true })); };
+  const lkBtn = (name, text) => [...lkRow(name).querySelectorAll("button")].find(b => b.textContent === text);
 
   assert(!A.d.querySelector("#links button"), "위젯에는 누를 타일만 있고 단추는 없다");
   assert(!A.$("editLinks"), "바로가기 편집 단추는 설정 창으로 옮겼다");
@@ -487,12 +488,36 @@ function checkHiddenRule() {
   assert(three.querySelector(".mono-tile") && !three.querySelector(".link-ico"),
     "설정 안 함은 첫 글자 타일만 나온다");
 
+  /* 있는 사이트 고치기: 같은 줄에 되쓰고 새로 생기지 않는다 */
+  const before = [...A.d.querySelectorAll("#links .link")].length;
+  lkBtn("타일 시험", "고치기").click();
+  assert.strictEqual(A.$("linkName").value, "타일 시험", "고치기를 누르면 적힌 이름이 칸에 들어온다");
+  assert.strictEqual(A.$("linkUrl").value, "https://example.org/", "주소도 그대로 들어온다");
+  assert(A.btn("#setPanel", "저장"), "고치는 중에는 단추가 저장이 된다");
+  type("linkName", "고친 이름"); type("linkUrl", "example.net");
+  mode("favicon");
+  A.submit("linkForm");
+  assert.strictEqual([...A.d.querySelectorAll("#links .link")].length, before, "고치면 개수가 늘지 않는다");
+  assert(!made("타일 시험"), "옛 이름은 사라진다");
+  const fixed = made("고친 이름");
+  assert(fixed, "고친 이름으로 바뀐다");
+  assert.strictEqual(fixed.getAttribute("href"), "https://example.net/", "주소도 바뀐다");
+  assert(fixed.querySelector("img.link-ico"), "아이콘 고른 것도 바뀐다");
+  assert(A.btn("#setPanel", "추가"), "저장하면 다시 추가 상태로 돌아온다");
+  assert.strictEqual(A.$("linkName").value, "", "저장하면 적던 칸이 비워진다");
+
+  /* 그만두기를 누르면 아무것도 안 바뀐다 */
+  lkBtn("고친 이름", "고치기").click();
+  type("linkName", "안 쓸 이름");
+  A.btn("#setPanel", "그만두기").click();
+  assert(made("고친 이름") && !made("안 쓸 이름"), "그만두기를 누르면 고치기 전 그대로다");
+  assert(A.btn("#setPanel", "추가"), "그만두면 추가 상태로 돌아온다");
+
   /* 업무포털과 나이스도 설정 창에서 지울 수 있다 */
   assert(made("업무포털") && made("나이스"), "업무포털과 나이스도 보통 바로가기다");
-  for (const name of ["업무포털", "나이스", "이모지 시험", "파비콘 시험", "타일 시험"]) {
-    const row = lkRow(name);
-    assert(row, "설정 창에 " + name + " 줄이 있다");
-    row.querySelector("button").click();
+  for (const name of ["업무포털", "나이스", "이모지 시험", "파비콘 시험", "고친 이름"]) {
+    assert(lkRow(name), "설정 창에 " + name + " 줄이 있다");
+    lkBtn(name, "삭제").click();
   }
   assert(!made("업무포털") && !made("나이스") && !made("이모지 시험"), "설정 창에서 지우면 위젯에서도 없어진다");
   /* officials 표가 저장돼야 다음에 열 때 업무포털과 나이스가 되살아나지 않는다 */

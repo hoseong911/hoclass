@@ -1505,7 +1505,18 @@ function ttSection() {
 }
 
 /* ---------- 설정: 바로가기 ---------- */
-const linkDraft = { name: "", url: "", mode: "icon", ic: ICON_PICK[0] };
+const linkDraft = { id: null, name: "", url: "", mode: "icon", ic: ICON_PICK[0] };
+const LINK_DRAFT0 = { ...linkDraft };
+const resetDraft = () => Object.assign(linkDraft, LINK_DRAFT0);
+/* 있는 사이트를 고치러 들어간다. 아래 넣는 칸을 그대로 쓰고, 다 하면 같은 자리에 되쓴다. */
+function editDraft(l) {
+  Object.assign(linkDraft, {
+    id: l.id, name: l.name || "", url: l.url,
+    mode: l.icon === "favicon" ? "favicon" : l.icon ? "icon" : "none",
+    ic: l.icon && l.icon !== "favicon" ? resolveIcon(l.icon) : ICON_PICK[0],
+  });
+  renderSet();
+}
 function draftIcon() {
   if (linkDraft.mode === "none") return "";
   if (linkDraft.mode === "favicon") return "favicon";
@@ -1515,8 +1526,11 @@ function linksSection() {
   const rows = state.links.map(l => h("div", { class: "lk-row" },
     linkIcon(l, linkLabel(l)),
     h("div", { class: "lk-txt" }, h("b", { text: linkLabel(l) }), h("span", { text: l.url })),
+    h("button", { class: "btn secondary small", type: "button", text: "고치기",
+      "aria-pressed": String(linkDraft.id === l.id), onclick: () => editDraft(l) }),
     h("button", { class: "btn secondary small", type: "button", text: "삭제", onclick: () => {
       state.links = state.links.filter(x => x.id !== l.id);
+      if (linkDraft.id === l.id) resetDraft();
       save(); renderLinks(); renderSet();
     } })));
   const seg = (key, label) => h("button", {
@@ -1527,13 +1541,16 @@ function linksSection() {
     setBlock("지금 있는 사이트", [rows.length
       ? h("div", { class: "lk-list", id: "lkList" }, ...rows)
       : h("p", { class: "set-state", text: "아직 없습니다" })]),
-    setBlock("사이트 추가", [
+    setBlock(linkDraft.id ? "사이트 고치기" : "사이트 추가", [
       h("form", { class: "set-form", id: "linkForm", onsubmit: (e) => {
         e.preventDefault();
         const url = normalizeUrl($("linkUrl").value);
         if (!url) { $("linkUrl").setCustomValidity("주소를 다시 넣어 주세요."); $("linkUrl").reportValidity(); return; }
-        state.links.push({ id: uid(), name: linkDraft.name.trim().slice(0, 30), url, icon: draftIcon() });
-        linkDraft.name = ""; linkDraft.url = "";
+        const made = { name: linkDraft.name.trim().slice(0, 30), url, icon: draftIcon() };
+        const at = linkDraft.id ? state.links.findIndex(x => x.id === linkDraft.id) : -1;
+        if (at >= 0) state.links[at] = { ...state.links[at], ...made };
+        else state.links.push({ id: uid(), ...made });
+        resetDraft();
         save(); renderLinks(); renderSet();
       } },
         h("div", { class: "set-grid" },
@@ -1549,7 +1566,10 @@ function linksSection() {
         }))) : null,
         linkDraft.mode === "favicon" ? h("p", { class: "set-state", text: "사이트가 쓰는 그림을 가져옵니다. 그림이 없는 사이트는 첫 글자가 나옵니다." }) : null,
         linkDraft.mode === "none" ? h("p", { class: "set-state", text: "이름의 첫 글자가 나옵니다." }) : null,
-        h("div", { class: "set-row" }, h("button", { class: "btn", type: "submit", text: "추가" }))),
+        h("div", { class: "set-row" },
+          h("button", { class: "btn", type: "submit", text: linkDraft.id ? "저장" : "추가" }),
+          linkDraft.id ? h("button", { class: "btn secondary", type: "button", text: "그만두기",
+            onclick: () => { resetDraft(); renderSet(); } }) : null)),
     ]),
   ]);
 }
