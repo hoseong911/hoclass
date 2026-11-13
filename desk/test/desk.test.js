@@ -543,14 +543,14 @@ function checkHiddenRule() {
 
   A.setTab("grid");
   await until(() => A.$("setCols"), "화면 탭 열림");
-  A.btn("#setPanel", "장 더하기").click();
+  A.btn("#setPanel", "장 추가").click();
   await until(() => dots().length === 3, "세 장이 됐다");
   await until(() => JSON.parse(store.get("desk_grid/all")).state.pages === 3, "세 장으로 저장");
-  A.btn("#setPanel", "이 장 지우기").click();
+  A.btn("#setPanel", "장 삭제").click();
   await until(() => dots().length === 2, "빈 장은 지워진다");
   dots()[0].click();
   await until(() => !A.wg("class").hidden, "1장");
-  A.btn("#setPanel", "이 장 지우기").click();
+  A.btn("#setPanel", "장 삭제").click();
   await wait(120);
   assert.strictEqual(dots().length, 2, "위젯이 있는 장은 안 지워진다");
 
@@ -586,7 +586,7 @@ function checkHiddenRule() {
   ttBox().click();
   await until(() => ttBox().checked, "다시 체크하면 2장으로 돌아온다");
 
-  A.btn("#setPanel", "장 더하기").click();
+  A.btn("#setPanel", "장 추가").click();
   await until(() => pageSel().options.length === 3, "장을 더하면 고를 수 있는 장도 늘어난다");
   await goPage(3);
   ttBox().click();
@@ -597,7 +597,7 @@ function checkHiddenRule() {
   await until(() => ttBox().checked, "2장으로 되돌린다");
   dots()[2].click();
   await until(() => A.wg("class").hidden, "3장으로 넘어간다");
-  A.btn("#setPanel", "이 장 지우기").click();
+  A.btn("#setPanel", "장 삭제").click();
   await until(() => dots().length === 2, "빈 3장은 지워진다");
   dots()[0].click();
 

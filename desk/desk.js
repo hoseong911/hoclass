@@ -813,8 +813,8 @@ function renderPagebar() {
   ];
   if (arranging) {
     kids.push(h("span", { class: "pg-name", text: pageName(curPage) }));
-    if (n < MAX_PAGES) kids.push(h("button", { class: "pg-add", type: "button", "aria-label": "장 더하기", text: "+", onclick: () => addPage() }));
-    if (n > 1) kids.push(h("button", { class: "pg-del", type: "button", "aria-label": "이 장 지우기", text: "×", onclick: () => delPage() }));
+    if (n < MAX_PAGES) kids.push(h("button", { class: "pg-add", type: "button", "aria-label": "장 추가", text: "+", onclick: () => addPage() }));
+    if (n > 1) kids.push(h("button", { class: "pg-del", type: "button", "aria-label": "장 삭제", text: "×", onclick: () => delPage() }));
   }
   bar.replaceChildren(...kids);
 }
@@ -1009,8 +1009,8 @@ function gridSection() {
     ]),
     setBlock("장마다 넣을 위젯", [
       h("div", { class: "set-row" }, pgSel,
-        h("button", { class: "btn small secondary", type: "button", text: "장 더하기", onclick: () => addPage() }),
-        h("button", { class: "btn small secondary", type: "button", text: "이 장 지우기", onclick: () => delPage() })),
+        h("button", { class: "btn small secondary", type: "button", text: "장 추가", onclick: () => addPage() }),
+        h("button", { class: "btn small secondary", type: "button", text: "장 삭제", onclick: () => delPage() })),
       ...pageList,
     ]),
   ], err, [
@@ -1654,7 +1654,7 @@ function classSel(id, value, onRemove) {
   const g = numIn(m ? m[1] : "", "학년"), r = numIn(m ? m[2] : "", "반");
   const box = h("div", { class: "cls-pick", id: id || false },
     g, h("span", { text: "학년" }), r, h("span", { text: "반" }),
-    onRemove ? h("button", { class: "x", type: "button", title: "이 반 빼기", "aria-label": "이 반 빼기", text: "×", onclick: onRemove }) : null);
+    onRemove ? h("button", { class: "x", type: "button", title: "반 삭제", "aria-label": "반 삭제", text: "×", onclick: onRemove }) : null);
   box.read = () => {
     const a = parseInt(g.value, 10), b = parseInt(r.value, 10);
     return a > 0 && b > 0 ? a + "-" + b : "";
@@ -1712,7 +1712,7 @@ function yearSection() {
     return row;
   };
   (y.classes || []).forEach(addRow);
-  const addClsBtn = h("button", { class: "btn small secondary", type: "button", id: "setClassAdd", text: "반 더하기",
+  const addClsBtn = h("button", { class: "btn small secondary", type: "button", id: "setClassAdd", text: "반 추가",
     onclick: () => { addRow(""); } });
 
   const schoolIn = h("input", { type: "text", id: "setSchool", value: state.school || "", maxlength: "40", autocomplete: "off" });
@@ -2255,7 +2255,7 @@ function collectView() {
     h("div", { class: "students" }, ...tiles),
     h("div", { class: "row" },
       h("button", { class: "btn small", type: "button", text: "미제출 명단 복사", onclick: () => copyText(missText) }),
-      h("button", { class: "btn small secondary", type: "button", text: "이 항목 삭제", onclick: (e) => {
+      h("button", { class: "btn small secondary", type: "button", text: "삭제", onclick: (e) => {
         if (e.currentTarget.dataset.armed) { D.value.items = items.filter(x => x.id !== c.id); activeCollect = null; saveEnc(D); renderClass(); return; }
         e.currentTarget.dataset.armed = "1"; e.currentTarget.textContent = "한 번 더 누르면 삭제";
       } })),
@@ -2829,7 +2829,7 @@ function consultPage() {
       h("label", { class: "field wide" }, "내용", bodyIn),
       h("label", { class: "field wide" }, "조치", actIn)),
     err,
-    h("div", { class: "row" }, h("button", { class: "btn small", type: "submit", text: "기록 추가" })));
+    h("div", { class: "row" }, h("button", { class: "btn small", type: "submit", text: "추가" })));
 
   const items = D.value.items.slice().sort((a, b) => (a.done === b.done ? b.at.localeCompare(a.at) : a.done ? 1 : -1));
   const open = items.filter(x => !x.done).length;
@@ -2878,7 +2878,7 @@ function lessonPage() {
       h("label", { class: "field wide" }, "내용", bodyIn),
       h("label", { class: "field wide" }, "과제", hwIn)),
     err,
-    h("div", { class: "row" }, h("button", { class: "btn small", type: "submit", text: "수업 기록 추가" })));
+    h("div", { class: "row" }, h("button", { class: "btn small", type: "submit", text: "추가" })));
 
   const lines = mine.map(x => h("li", { class: "line" },
     h("div", { class: "top" },
@@ -2998,7 +2998,7 @@ function workPage() {
       field("기한", dueIn), field("출처", fromIn),
       h("label", { class: "field wide" }, "메모", memoIn)),
     err,
-    h("div", { class: "row" }, h("button", { class: "btn small", type: "submit", text: "업무 추가" })));
+    h("div", { class: "row" }, h("button", { class: "btn small", type: "submit", text: "추가" })));
 
   const sorted = items.slice().sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
