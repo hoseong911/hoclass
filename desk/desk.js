@@ -1788,7 +1788,8 @@ function neisSection() {
   const myClasses = () => {
     const c = (cfg().classes || []).slice();
     if (cfg().homeroom && !c.includes(cfg().homeroom)) c.push(cfg().homeroom);
-    return c;
+    // 학년이 섞이면 적은 차례가 뒤죽박죽이다. 학년, 반 차례로 세운다.
+    return c.sort((x, y) => x.localeCompare(y, "ko", { numeric: true }));
   };
   // 옛 자료는 과목 칸 하나였다. 탭을 열 때 줄 하나로 옮기고 수업 반을 다 켜 둔다.
   if (!N.subjects.length && N.subject) {
