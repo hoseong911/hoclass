@@ -133,27 +133,37 @@ export async function loadClassDay(school, ay, sem, ymd, grade, room, key) {
 
 /* 과목마다 가르치는 반이 다르다(역사는 1~6반, 사회는 3~6반 같은 식). 그래서 과목 줄을 받는다.
    subjects = [{ name: "역사", classes: ["3-1", "3-2"] }, ...]
-   같은 과목을 다른 선생님도 가르치면 그 칸까지 들어오므로 뒤에 손으로 고친다. */
-export async function loadMyWeek(school, ay, sem, mondayYmd, subjects, key) {
+   같은 과목을 다른 선생님도 가르치면 그 칸까지 들어오므로 뒤에 손으로 고친다.
+   homeroom 을 주면 담임 반의 창체 시간(진로활동, 동아리활동 같은 것)을 빈칸에 그 이름으로 넣는다.
+   진로테마학습 같은 날은 하루가 다 창체라 내 과목으로는 한 칸도 안 잡힌다. */
+export const CC_RE = /진로|자율|자치|동아리|봉사/;
+export async function loadMyWeek(school, ay, sem, mondayYmd, subjects, key, homeroom) {
   const tt = Array.from({ length: 5 }, () => Array.from({ length: 7 }, () => ""));
-  const got = new Map();   // 같은 날 같은 반을 두 번 받지 않는다(과목 줄끼리 반이 겹친다)
+  const got = new Map();   // 같은 날 같은 반을 두 번 받지 않는다(과목 줄끼리, 담임 반과 반이 겹친다)
+  const classDay = async (ymd, cls) => {
+    const m = /^(\d+)-(\d+)$/.exec(cls || "");
+    if (!m) return [];
+    const k = ymd + " " + cls;
+    if (!got.has(k)) got.set(k, await loadClassDay(school, ay, sem, ymd, m[1], m[2], key));
+    const rows = got.get(k);
+    if (rows.short) tt.short = true;
+    return rows;
+  };
   for (let day = 0; day < 5; day++) {
     const ymd = addDays(mondayYmd, day);
     for (const s of subjects || []) {
       const want = String(s.name || "").trim();
       if (!want) continue;
       for (const cls of s.classes || []) {
-        const m = /^(\d+)-(\d+)$/.exec(cls);
-        if (!m) continue;
-        const k = ymd + " " + cls;
-        if (!got.has(k)) got.set(k, await loadClassDay(school, ay, sem, ymd, m[1], m[2], key));
-        const rows = got.get(k);
-        if (rows.short) tt.short = true;
-        for (const x of rows) {
+        for (const x of await classDay(ymd, cls)) {
           if (!x.subject.includes(want)) continue;
           if (!tt[day][x.period - 1]) tt[day][x.period - 1] = cls;
         }
       }
+    }
+    // 내 수업이 먼저다. 창체는 빈칸에만 넣는다.
+    for (const x of await classDay(ymd, homeroom)) {
+      if (CC_RE.test(x.subject) && !tt[day][x.period - 1]) tt[day][x.period - 1] = x.subject;
     }
   }
   return tt;

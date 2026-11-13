@@ -1875,7 +1875,7 @@ function neisSection() {
           if (!subjects.length) { err.textContent = "내 과목과 그 과목을 가르치는 반을 먼저 넣어 주세요."; return; }
           // 나이스가 아는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도와 다를 수 있다.
           const tt = await Neis.loadMyWeek(school, academicYear(now), Neis.semesterOf(now),
-            Neis.mondayOf(now), subjects, N.key);
+            Neis.mondayOf(now), subjects, N.key, cfg().homeroom);
           const n = tt.flat().filter(Boolean).length;
           if (!n) {
             err.textContent = tt.short
