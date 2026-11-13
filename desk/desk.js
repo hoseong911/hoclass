@@ -2241,7 +2241,7 @@ function renderNb() {
     cols(workPage()); return;
   }
   if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "담임 반과 수업 반을 넣어 주세요" }), h("div", { class: "row" }, openSetBtn()))]); return; }
-  ensureAtt(todayKey(), pick);
+  ensureAtt(attDate(), pick);
   if (!pick) {
     wrap([h("div", { class: "lock-panel" }, h("h3", { text: nb.key === "home" ? "담임 반이 없습니다" : "수업 반이 없습니다" }),
       h("p", { text: "'기본 설정'에서 " + (nb.key === "home" ? "담임 반을" : "수업 반을") + " 고르면 쓸 수 있습니다." }), h("div", { class: "row" }, openSetBtn()))]);
@@ -2255,7 +2255,7 @@ function renderNb() {
         : "오른쪽 위 '명단 편집'에서 학생 이름을 붙여 넣으면 출결과 수합을 쓸 수 있습니다." }))]);
     return;
   }
-  if (tab === "att") wrap(attView());
+  if (tab === "att") wrap(attMode === "month" ? attMonthView() : attView());
   else if (tab === "col") wrap(collectView());
   else if (tab === "ann") wrap(noticeView());
   else cols(tab === "student" ? studentPage() : tab === "consult" ? consultPage() : lessonPage());
@@ -2277,8 +2277,31 @@ const armBtn = (label, again, fn) => h("button", { class: "text-btn danger", typ
   if (e.currentTarget.dataset.armed) { fn(); return; }
   e.currentTarget.dataset.armed = "1"; e.currentTarget.textContent = again;
 } });
+/* 출결은 날짜를 골라 지난날도 고친다. 한 달 보기는 학생 줄, 날짜 칸으로 쌓아 본다(선생님 지적 2026-11-13:
+   "결석은 매일 기록하는 거 아니면 의미 없다"). 기본은 전원 출석이고 결석, 지각, 조퇴만 누른다. */
+let attPick = "", attMode = "day", attYm = "";
+const attDate = () => attPick || todayKey();
+const isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const mdw = (iso) => { const d = parseDate(iso); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})`; };
+/* 학사 일정에서 쉬는 날(휴업일, 방학, 공휴일). 한 달 표에서 그 날 칸을 흐리게 한다. */
+const OFF_RE = /휴업|방학|휴일|공휴|대체|추석|설날|신정|삼일절|어린이날|부처님|현충일|광복절|개천절|한글날|성탄/;
+const offName = (iso) => { const e = (state.cal || []).find(x => x.d === iso && OFF_RE.test(x.name)); return e ? e.name : ""; };
+function shiftDay(n) {
+  const d = parseDate(attDate());
+  do { d.setDate(d.getDate() + n); } while (d.getDay() === 0 || d.getDay() === 6);
+  const iso = isoOf(d);
+  if (iso > todayKey()) return;                       // 앞날 출결은 적지 않는다
+  attPick = iso === todayKey() ? "" : iso;
+  renderNb();
+}
+function attModeSeg() {
+  return h("div", { class: "seg att-mode", id: "attMode" }, ...[["day", "하루"], ["month", "한 달"]].map(([k, t]) => h("button", {
+    type: "button", "data-mode": k, "aria-pressed": String(attMode === k), text: t,
+    onclick: () => { attMode = k; if (k === "month") attYm = ymOf(attDate()); renderNb(); } })));
+}
+const navBtn = (label, svg, fn, off) => h("button", { class: "pg-arrow", type: "button", "aria-label": label, html: svg, disabled: off ? true : null, onclick: fn });
 function attView() {
-  const now = new Date(), A = docs.att, list = roster();
+  const A = docs.att, list = roster(), when = attDate();
   const day = attMarks();
   const by = (s) => list.filter(st => day[st.id] === s);
   const absent = by("결석"), late = by("지각"), early = by("조퇴");
@@ -2297,18 +2320,77 @@ function attView() {
     if (absent.length) parts.push(`결석 ${absent.length}명(${absent.map(who).join(", ")})`);
     if (late.length) parts.push(`지각 ${late.length}명(${late.map(who).join(", ")})`);
     if (early.length) parts.push(`조퇴 ${early.length}명(${early.map(who).join(", ")})`);
-    return `${now.getMonth() + 1}월 ${now.getDate()}일 ${label} 출결: 재적 ${list.length}명, 출석 ${present}명` + (parts.length ? ", " + parts.join(", ") : ", 전원 출석");
+    return `${mdw(when).replace(/ \(.\)$/, "")} ${label} 출결: 재적 ${list.length}명, 출석 ${present}명` + (parts.length ? ", " + parts.join(", ") : ", 전원 출석");
   };
   // 0 인 것은 칠하지 않는다. 아무 일 없는 날 화면이 시끄럽지 않게.
   const sum = (k, arr, cls) => h("span", { class: "k" + (arr.length ? " " + cls : "") }, k + " ", h("b", { text: String(arr.length) }));
+  const isToday = when === todayKey(), off = offName(when);
   return [
+    h("div", { class: "cls-line" },
+      h("div", { class: "att-nav" },
+        navBtn("앞 날", CHEV_L, () => shiftDay(-1)),
+        h("span", { class: "att-date" + (isToday ? " today" : ""), id: "attDate", text: mdw(when) + (isToday ? " 오늘" : "") }),
+        navBtn("다음 날", CHEV_R, () => shiftDay(1), isToday),
+        isToday ? null : h("button", { class: "text-btn", type: "button", id: "attToday", text: "오늘로", onclick: () => { attPick = ""; renderNb(); } }),
+        off ? h("span", { class: "att-off", text: off }) : null),
+      attModeSeg()),
     h("div", { class: "cls-line" },
       h("div", { class: "att-sum", id: "attSum" },
         h("span", { class: "k" }, "출석 ", h("b", { text: `${present}/${list.length}` })),
         sum("결석", absent, "absent"), sum("지각", late, "late"), sum("조퇴", early, "early")),
       h("button", { class: "text-btn", type: "button", id: "attCopy", text: "요약 복사", onclick: () => copyText(report()) })),
     h("div", { class: "students" }, ...tiles),
-    Object.keys(day).length ? foot(armBtn("오늘 기록 비우기", "한 번 더 누르면 초기화", () => { A.value.marks = {}; saveEnc(A); renderClass(); })) : null,
+    Object.keys(day).length ? foot(armBtn(isToday ? "오늘 기록 비우기" : "이 날 기록 비우기", "한 번 더 누르면 초기화", () => { A.value.marks = {}; saveEnc(A); renderClass(); })) : null,
+  ];
+}
+/* 한 달 출결표: 그달 평일마다 그 반 출결 문서를 받아(loadMonth) 학생 줄, 날짜 칸으로 놓는다.
+   칸을 누르면 그날 하루 보기로 가서 고친다. 끝에 결석, 지각, 조퇴 합계. */
+function attMonthView() {
+  const cls = picked(), list = roster(), ym = attYm || ymOf(todayKey()), today = todayKey();
+  if (attLoaded !== ym + "|" + cls && !attBusy) loadMonth(ym, cls);
+  const days = monthDays(ym);
+  const markOf = (d, sid) => { const v = attValueOf(d, cls); return v ? (marksIn(v)[sid] || "") : ""; };
+  const [y, m] = ym.split("-").map(Number);
+  const goYm = (n) => { const d = new Date(y, m - 1 + n, 1); attYm = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; renderNb(); };
+  const KS = ["결석", "지각", "조퇴"];
+  const rows = list.map(st => {
+    const cnt = { 결석: [], 지각: [], 조퇴: [] };
+    const cells = days.map(d => {
+      const k = d > today ? "" : markOf(d, st.id);
+      if (cnt[k]) cnt[k].push(d);
+      const off = offName(d);
+      return h("td", { class: [k ? "m " + k : "", off ? "off" : "", d === today ? "today" : ""].filter(Boolean).join(" "),
+        title: `${mdw(d)} ${k || (off ? off : d > today ? "" : "출석")}`, text: k ? k[0] : "",
+        onclick: d > today ? null : () => { attPick = d === today ? "" : d; attMode = "day"; renderNb(); } });
+    });
+    return { st, cnt, tr: h("tr", null, h("th", { class: "who", text: who(st) }), ...cells,
+      ...KS.map(k => h("td", { class: "tot" + (cnt[k].length ? " " + k : ""), text: String(cnt[k].length) }))) };
+  });
+  const copy = () => {
+    const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
+    const lines = rows.filter(r => KS.some(k => r.cnt[k].length))
+      .map(r => who(r.st) + " " + KS.filter(k => r.cnt[k].length).map(k => `${k} ${r.cnt[k].length}(${r.cnt[k].map(md).join(", ")})`).join(", "));
+    return `${y}년 ${m}월 ${classLabel(cls)} 출결\n` + (lines.length ? lines.join("\n") : "결석, 지각, 조퇴 없음");
+  };
+  const totals = KS.map(k => rows.reduce((a, r) => a + r.cnt[k].length, 0));
+  return [
+    h("div", { class: "cls-line" },
+      h("div", { class: "att-nav" },
+        navBtn("앞 달", CHEV_L, () => goYm(-1)),
+        h("span", { class: "att-date", id: "attYm", text: `${y}년 ${m}월` }),
+        navBtn("다음 달", CHEV_R, () => goYm(1), ym >= ymOf(today))),
+      attModeSeg()),
+    h("div", { class: "cls-line" },
+      h("div", { class: "att-sum" }, ...KS.map((k, i) => h("span", { class: "k" + (totals[i] ? " " + ["absent", "late", "early"][i] : "") }, k + " ", h("b", { text: totals[i] + "번" })))),
+      attBusy ? h("span", { class: "tip", text: "기록을 모으는 중입니다" })
+        : h("button", { class: "text-btn", type: "button", id: "attMonthCopy", text: "한 달 요약 복사", onclick: () => copyText(copy()) })),
+    h("div", { class: "att-month-scroll" }, h("table", { class: "att-month", id: "attMonth" },
+      h("thead", null, h("tr", null, h("th", { class: "who", text: "학생" }),
+        ...days.map(d => { const off = offName(d); return h("th", { class: [off ? "off" : "", d === today ? "today" : ""].filter(Boolean).join(" "),
+          title: off || mdw(d), text: String(+d.slice(8)) }); }),
+        ...KS.map(k => h("th", { class: "tot", text: k[0] })))),
+      h("tbody", null, ...rows.map(r => r.tr)))),
+    h("p", { class: "tip", text: "칸을 누르면 그날로 가서 고칠 수 있습니다. 흐린 칸은 학사 일정의 쉬는 날입니다." }),
   ];
 }
 

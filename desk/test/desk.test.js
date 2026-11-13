@@ -667,6 +667,36 @@ function checkHiddenRule() {
   A.stu()[1].click();
   await until(() => store.has("desk_att/2027_3-9_" + day), "3-9 출결 문서");
 
+  /* ---------- 출결: 지난날 고치기와 한 달 표 ---------- */
+  const prev = (() => { const d = new Date(); do { d.setDate(d.getDate() - 1); } while (d.getDay() === 0 || d.getDay() === 6);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
+  assert(A.$("attDate").textContent.includes("오늘"), "출결은 오늘부터 연다");
+  assert(A.d.querySelector('#classBody [aria-label="다음 날"]').disabled, "오늘보다 앞날로는 못 간다");
+  A.d.querySelector('#classBody [aria-label="앞 날"]').click();
+  await until(() => A.$("attToday") && A.stu().length === 2 && !A.d.querySelector("#classBody .stu.결석"), "앞 평일로 가면 그날 기록(빈 것)이 열린다");
+  A.stu()[0].click(); A.stu()[0].click();          // 1번 지각
+  await until(() => store.has("desk_att/2027_3-9_" + prev), "지난날 출결도 그날 문서에 저장된다");
+  A.$("attToday").click();
+  await until(() => A.$("attDate").textContent.includes("오늘") && A.d.querySelectorAll("#classBody .stu.결석").length === 1, "오늘로 돌아오면 오늘 기록");
+  if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_day.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
+  A.d.querySelector('#attMode [data-mode="month"]').click();
+  await until(() => A.$("attMonth") && A.$("attMonthCopy"), "한 달 표");
+  const monthRows = () => [...A.$("attMonth").querySelectorAll("tbody tr")];
+  assert.strictEqual(monthRows().length, 2, "학생 줄 둘");
+  await until(() => monthRows()[1].textContent.includes("결"), "오늘 결석이 표에 찍힌다");
+  if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_month.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
+  if (prev.slice(0, 7) === day.slice(0, 7)) {
+    await until(() => monthRows()[0].textContent.includes("지"), "지난날 지각도 표에 찍힌다");
+    const cell = [...monthRows()[0].querySelectorAll("td.m")].find(td => td.textContent === "지");
+    cell.click();
+    await until(() => A.$("attToday") && A.d.querySelectorAll("#classBody .stu.지각").length === 1, "표의 칸을 누르면 그날 하루 보기로 간다");
+    A.$("attToday").click();
+    await until(() => A.$("attDate").textContent.includes("오늘"), "다시 오늘");
+  } else {
+    A.d.querySelector('#attMode [data-mode="day"]').click();
+    await until(() => A.$("attDate"), "하루 보기로");
+  }
+
   /* ---------- 교무수첩 장의 기록 화면 ---------- */
   for (const p of ["student", "consult", "lesson", "work"]) {
     A.tab(p); await wait(40);

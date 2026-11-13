@@ -175,6 +175,31 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .att-sum .early, .att-sum .early b { color: var(--blue); }
 .att-sum .done b { color: var(--pass); }
 .cls-foot { display: flex; justify-content: flex-end; gap: 8px; }
+/* 출결 날짜 줄과 한 달 표 */
+.att-nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.att-nav .pg-arrow:disabled { opacity: .3; cursor: default; background: none; }
+.att-date { font-size: 15px; font-weight: 600; min-width: 7.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.att-date.today { color: var(--accent); }
+.att-off { font-size: 12px; color: var(--warn); background: var(--warn-soft); border-radius: 6px; padding: 2px 8px; }
+.att-mode button { padding: 4px 12px; }
+.att-month-scroll { overflow-x: auto; flex: none; }
+table.att-month { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.att-month th, .att-month td { border: 1px solid var(--line); text-align: center; padding: 0; min-width: 26px; height: 28px; }
+.att-month thead th { font-weight: 500; color: var(--muted); background: var(--surface-2); }
+.att-month th.who { text-align: left; padding: 0 10px; white-space: nowrap; font-weight: 500; color: var(--ink); background: var(--surface); position: sticky; left: 0; z-index: 1; }
+.att-month thead th.who { background: var(--surface-2); }
+.att-month td { cursor: pointer; font-weight: 600; }
+.att-month td:hover { background: var(--surface-2); }
+.att-month .off { background: repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 3px, transparent 3px, transparent 6px); color: var(--faint); }
+.att-month th.today { color: var(--accent); font-weight: 700; }
+.att-month td.m.결석 { background: var(--danger-soft); color: var(--danger); }
+.att-month td.m.지각 { background: var(--warn-soft); color: var(--warn); }
+.att-month td.m.조퇴 { background: var(--blue-soft); color: var(--blue); }
+.att-month .tot { min-width: 32px; cursor: default; font-weight: 500; color: var(--faint); background: var(--surface); }
+.att-month thead .tot { background: var(--surface-2); color: var(--muted); }
+.att-month td.tot.결석 { color: var(--danger); font-weight: 700; }
+.att-month td.tot.지각 { color: var(--warn); font-weight: 700; }
+.att-month td.tot.조퇴 { color: var(--blue); font-weight: 700; }
 .text-btn.danger { color: var(--danger); }
 .col-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
 .col-add .grow { flex: 1 1 160px; min-width: 0; }
