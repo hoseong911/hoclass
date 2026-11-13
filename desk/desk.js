@@ -109,6 +109,7 @@ const state = {
   lunchAfter: 4,
   tt: EXAMPLE_TT.map(r => [...r]),
   ttExample: true,
+  ttAuto: "",                   // 시간표를 저절로 받은 날(하루 한 번)
   idleMin: 15,
   year: { configured: false, current: academicYear(), years: {} },
   grid: { ...DEFAULT_GRID },
@@ -184,7 +185,7 @@ const SPECS = [
   { key: "desk_settings",
     /* 주간 시간표는 5×7 이지만 **한 줄로 펴서** 담는다.
        파이어스토어는 배열 안에 배열을 담지 못한다(넣으려 들면 저장이 통째로 막힌다). */
-    pick: () => ({ links: state.links, officials: true, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, idleMin: state.idleMin, school: state.school, neis: state.neis }),
+    pick: () => ({ links: state.links, officials: true, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, ttAuto: state.ttAuto, idleMin: state.idleMin, school: state.school, neis: state.neis }),
     put: (s) => {
       if (arr(s.links)) {
         state.links = s.links.filter(l => l && typeof l.url === "string")
@@ -205,6 +206,7 @@ const SPECS = [
         state.tt = Array.from({ length: 5 }, (_, d) => Array.from({ length: 7 }, (_, p) => String(flat[d * 7 + p] || "")));
       }
       state.ttExample = !!s.ttExample;
+      if (typeof s.ttAuto === "string") state.ttAuto = s.ttAuto.slice(0, 10);
       if ([5, 15, 30, 60].includes(s.idleMin)) state.idleMin = s.idleMin;
       if (typeof s.school === "string") state.school = s.school.slice(0, 40);
       if (s.neis && typeof s.neis === "object") {
@@ -576,6 +578,7 @@ function afterPlain() {
   openYearDocs();
   if (booted) renderAll();
   if (signedIn && state.year.configured && !hc && !hcBusy) loadHc();
+  autoWeek();
 }
 
 /* ---------- 잠금 ---------- */
@@ -1365,7 +1368,7 @@ function tick() {
   if (k !== lastDay) {
     lastDay = k;
     $("dateMain").textContent = `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 (${WD[now.getDay()]})`;
-    ensureAtt(k); renderDdays(); renderClass(); loadMeal();
+    ensureAtt(k); renderDdays(); renderClass(); loadMeal(); autoWeek();
   }
   if (dataKey && Date.now() - lastActive > state.idleMin * 60000) lockNow();
   renderNow(now);
@@ -1414,15 +1417,15 @@ function ttRows(edit) {
   for (let p = 0; p < 7; p++) {
     const b = state.bells[p];
     const ph = edit
-      ? h("th", { class: "ph" }, h("div", null, `${p + 1}교시`), h("div", { class: "bell" },
-          h("input", { type: "time", value: b.s, "aria-label": `${p + 1}교시 시작`, onchange: (e) => { b.s = e.target.value; state.ttExample = false; save(); renderTT(); renderPeriods(); } }),
-          h("input", { type: "time", value: b.e, "aria-label": `${p + 1}교시 끝`, onchange: (e) => { b.e = e.target.value; state.ttExample = false; save(); renderTT(); renderPeriods(); } })))
+      ? h("th", { class: "ph" }, h("div", { class: "pn", text: `${p + 1}교시` }), h("div", { class: "bell" },
+          hmIn(b, "s", `${p + 1}교시 시작`), h("span", { text: "~" }), hmIn(b, "e", `${p + 1}교시 끝`)))
       : h("th", { class: "ph" }, `${p + 1}`, h("span", { class: "pl", text: "교시" }), h("span", { class: "tm", text: `${b.s}~${b.e}` }));
     const cells = [0, 1, 2, 3, 4].map((d) => {
       const v = state.tt[d][p];
       if (edit) {
-        return h("td", null, h("input", { type: "text", value: v, maxlength: "12", "aria-label": `${WD5[d]} ${p + 1}교시`,
-          oninput: (e) => { state.tt[d][p] = e.target.value; state.ttExample = false; save(); renderTT(); } }));
+        const td = h("td", { class: cellKind(v) }, h("input", { type: "text", value: v, maxlength: "12", "aria-label": `${WD5[d]} ${p + 1}교시`,
+          oninput: (e) => { state.tt[d][p] = e.target.value; td.className = cellKind(e.target.value); state.ttExample = false; save(); renderTT(); } }));
+        return td;
       }
       const cls = [];
       if (!v.trim()) cls.push("empty-cell");
@@ -1435,6 +1438,18 @@ function ttRows(edit) {
   return rows;
 }
 function renderTT() { $("tt").replaceChildren(...ttRows(false)); }
+/* 설정 창 칸 색: 수업(반)은 칠하고, 진로활동 같은 창체는 옅게, 빈칸은 그대로 */
+const cellKind = (v) => !String(v).trim() ? "" : Neis.CC_RE.test(v) ? "cc" : "on";
+/* 종 시간 칸. type=time 은 좁으면 "오전" 만 보이고 시각이 잘려서 08:50 글자로 받는다(선생님 지적 2026-11-13). */
+function hmIn(b, k, label) {
+  return h("input", { type: "text", inputmode: "numeric", maxlength: "5", value: b[k], "aria-label": label,
+    onchange: (e) => {
+      const m = /^(\d{1,2}):?(\d{2})$/.exec(e.target.value.trim());
+      if (!m || +m[1] > 23 || +m[2] > 59) { e.target.value = b[k]; toast("시각은 08:50 처럼 넣어 주세요"); return; }
+      b[k] = pad(+m[1]) + ":" + m[2]; e.target.value = b[k];
+      state.ttExample = false; save(); renderTT(); renderPeriods();
+    } });
+}
 const fmtHM = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 function makeBells(start, cls, brk, lunch, lunchAfter) {
   let t = toMin(start);
@@ -1451,11 +1466,11 @@ function bellForm() {
   const ok = (n, lo, hi) => Number.isFinite(n) && n >= lo && n <= hi;
   const pick = (n, lo, hi, dflt) => ok(n, lo, hi) ? n : dflt;
   const num = (v, label) => h("input", { type: "text", inputmode: "numeric", maxlength: "3", value: String(v), "aria-label": label });
-  const startIn = h("input", { type: "time", value: /^d{1,2}:d{2}$/.test(B[0].s) ? B[0].s : "08:50", "aria-label": "1교시 시작" });
+  const startIn = h("input", { type: "text", inputmode: "numeric", maxlength: "5", value: /^\d{1,2}:\d{2}$/.test(B[0].s) ? B[0].s : "08:50", "aria-label": "1교시 시작" });
   const clsIn = num(pick(toMin(B[0].e) - toMin(B[0].s), 1, 120, 45), "수업 시간");
   const brkIn = num(pick(toMin(B[1].s) - toMin(B[0].e), 0, 60, 5), "쉬는 시간");
   const lunchIn = num(pick(toMin(B[la].s) - toMin(B[la - 1].e), 0, 180, 60), "점심시간");
-  const fill = h("button", { class: "btn small", type: "button", text: "채우기", onclick: () => {
+  const fill = h("button", { class: "btn small secondary", type: "button", id: "bellFill", text: "시간 채우기", onclick: () => {
     const cls = Number(clsIn.value), brk = Number(brkIn.value), lunch = Number(lunchIn.value);
     if (!ok(toMin(startIn.value), 0, 1439) || !ok(cls, 1, 120) || !ok(brk, 0, 60) || !ok(lunch, 0, 180)) {
       toast("시정을 확인해 주세요"); return;
@@ -1465,11 +1480,13 @@ function bellForm() {
     renderTT(); renderPeriods(); renderNow(new Date()); renderSet();
     toast("시정을 채웠습니다");
   } });
+  const unit = (el, u) => h("span", { class: "unit" }, el, u ? h("span", { text: u }) : null);
   return h("div", { class: "tt-bells" },
-    startIn, h("span", { text: "시작" }),
-    clsIn, h("span", { text: "분 수업" }),
-    brkIn, h("span", { text: "분 쉬는 시간" }),
-    lunchIn, h("span", { text: "분 점심시간" }), fill);
+    setField("1교시 시작", unit(startIn)),
+    setField("수업", unit(clsIn, "분")),
+    setField("쉬는 시간", unit(brkIn, "분")),
+    setField("점심", unit(lunchIn, "분")),
+    fill);
 }
 /* ---------- 바로가기 ---------- */
 const linksEl = $("links");
@@ -1516,7 +1533,7 @@ function renderLinks() {
 function ttSection() {
   return setSec("주간 시간표", [
     setBlock("시정", [bellForm()]),
-    setBlock("시간표", [h("div", { class: "tt-scroll" }, h("table", { class: "tt", id: "ttSet" }, ...ttRows(true)))]),
+    setBlock("시간표", [h("div", { class: "tt-scroll" }, h("table", { class: "tt tt-edit", id: "ttSet" }, ...ttRows(true)))]),
   ]);
 }
 
@@ -1841,12 +1858,12 @@ function neisSection() {
   const subjRow = (s, i) => h("div", { class: "nsub" },
     h("input", { type: "text", class: "nsub-nm", maxlength: "20", autocomplete: "off", value: s.name,
       "aria-label": "과목 이름",
-      onchange: (e) => { s.name = e.target.value.trim().slice(0, 20); save(true); } }),
+      onchange: (e) => { s.name = e.target.value.trim().slice(0, 20); save(true); autoWeek(); } }),
     h("div", { class: "nsub-cls" }, ...myClasses().map(c => h("button", {
       class: "cpick", type: "button", text: c, "aria-pressed": String(s.classes.includes(c)),
       onclick: () => {
         s.classes = s.classes.includes(c) ? s.classes.filter(x => x !== c) : [...s.classes, c];
-        save(true); renderSet();
+        save(true); renderSet(); autoWeek();
       } }))),
     h("button", { class: "btn secondary small", type: "button", text: "삭제",
       "aria-label": (s.name || "이 과목") + " 지우기",
@@ -1889,22 +1906,8 @@ function neisSection() {
           note.textContent = list.length + "건을 받았습니다." + (list.short ? " " + Neis.KEY_HINT : "");
         }),
         doBtn("neisTT", "이번 주 시간표", async () => {
-          // 과목이 비면 거를 것이 없어 첫 반이 35칸을 다 먹는다.
-          const subjects = N.subjects.filter(s => s.name && s.classes.length);
-          if (!subjects.length) { err.textContent = "내 과목과 그 과목을 가르치는 반을 먼저 넣어 주세요."; return; }
-          // 나이스가 아는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도와 다를 수 있다.
-          const tt = await Neis.loadMyWeek(school, academicYear(now), Neis.semesterOf(now),
-            Neis.mondayOf(now), subjects, N.key, cfg().homeroom);
-          const n = tt.flat().filter(Boolean).length;
-          if (!n) {
-            err.textContent = tt.short
-              ? "인증키가 없어 1~5교시만 받았습니다. 설정에 인증키를 넣고 다시 받아 주세요."
-              : "그 주에 내 과목 수업을 찾지 못했습니다. 과목 이름을 확인해 주세요.";
-            return;
-          }
-          state.tt = tt; state.ttExample = false;
-          save(true); renderTT(); renderPeriods(); renderNow(new Date());
-          note.textContent = n + "칸을 채웠습니다." + (tt.short ? " " + Neis.KEY_HINT : "");
+          const r = await fetchWeek(now);
+          note.textContent = r.n + "칸을 채웠습니다." + (r.short ? " " + Neis.KEY_HINT : "");
         }),
         doBtn("neisMeal", "오늘 급식", async () => {
           const list = await Neis.loadMeal(school, todayKey().replace(/-/g, ""), N.key);
@@ -2713,6 +2716,42 @@ function todayPage() {
   })());
 
   return [classes, attToday, jobs, notes, cons, meal];
+}
+
+/* 나이스에서 그 주 시간표를 받아 주간 시간표에 넣는다. 단추와 자동 받기가 같이 쓴다.
+   과목이 비면 거를 것이 없어 첫 반이 35칸을 다 먹으므로 막는다. 한 칸도 못 찾으면 덮지 않는다. */
+async function fetchWeek(now = new Date()) {
+  const N = state.neis;
+  const subjects = N.subjects.filter(s => s.name && s.classes.length);
+  if (!subjects.length) throw new Error("내 과목과 그 과목을 가르치는 반을 먼저 넣어 주세요.");
+  // 나이스가 아는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도와 다를 수 있다.
+  const tt = await Neis.loadMyWeek(N.school, academicYear(now), Neis.semesterOf(now),
+    Neis.mondayOf(now), subjects, N.key, cfg().homeroom);
+  const n = tt.flat().filter(Boolean).length;
+  if (!n) throw new Error(tt.short
+    ? "인증키가 없어 1~5교시만 받았습니다. 설정에 인증키를 넣고 다시 받아 주세요."
+    : "그 주에 내 과목 수업을 찾지 못했습니다. 과목 이름을 확인해 주세요.");
+  state.tt = tt; state.ttExample = false;
+  save(true); renderTT(); renderPeriods(); renderNow(new Date());
+  return { n, short: !!tt.short };
+}
+/* 시간표는 하루 한 번 저절로 받고 토스트로 알린다(선생님 지시 2026-11-13).
+   클라우드 설정을 받은 뒤에만 한다: 옛 사본 위에서 받으면 다른 기기 것을 덮는다.
+   주말에는 다음 주를 받는다. 손으로 고친 칸은 다음 날 다시 덮인다. */
+let weekBusy = false;
+async function autoWeek() {
+  const sd = settingsDoc(), day = todayKey();
+  if (weekBusy || !sd || !sd.confirmed || !state.neis.school || state.ttAuto === day) return;
+  if (!state.neis.subjects.some(s => s.name && s.classes.length)) return;
+  weekBusy = true;
+  state.ttAuto = day;                     // 못 받아도 오늘은 다시 묻지 않는다
+  const now = new Date(), w = now.getDay();
+  if (w === 6 || w === 0) now.setDate(now.getDate() + (w === 6 ? 2 : 1));
+  try {
+    await fetchWeek(now);
+    toast((w === 6 || w === 0 ? "다음 주" : "이번 주") + " 시간표를 나이스에서 받았습니다");
+  } catch (e) { save(true); }
+  weekBusy = false;
 }
 
 /* 오늘 급식은 하루 한 번만 받는다. */

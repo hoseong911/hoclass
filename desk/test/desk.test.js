@@ -137,7 +137,7 @@ function device() {
               ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]]; },
     loadClassDay: async () => [],
     loadRoomCounts: async () => ({ 1: 10, 2: 10, 3: 10 }),
-    mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "",
+    mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "", CC_RE: /진로|자율|자치|동아리|봉사/,
   };
   w.URL.createObjectURL = (blob) => { saved.push(blob); return "blob:fake/" + saved.length; };
   w.URL.revokeObjectURL = () => {};
@@ -810,6 +810,11 @@ async function checkHomeroomCC() {
     return sj && sj.length === 2 && sj[0].name === "역사" && sj[1].name === "사회"
       && sj[0].classes.includes("3-1") && !sj[1].classes.includes("3-1"); },
     "과목 줄이 반까지 저장된다");
+  /* 시간표는 하루 한 번 저절로 받는다. 받은 날이 설정에 남아 같은 날 되풀이하지 않는다. */
+  await until(() => { const st = JSON.parse(store.get("desk_settings/general") || "{}").state;
+    const d = new Date(), day = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    return st && st.ttAuto === day; }, "시간표를 저절로 받고 그날을 적어 둔다");
+  await until(() => A.$("tt").textContent.includes("3-1"), "저절로 받은 시간표가 주간 시간표에 들어온다");
 
   A.$("neisTT").click();
   await until(() => A.$("tt").textContent.includes("3-1"), "시간표가 주간 시간표에 들어온다");
@@ -836,10 +841,12 @@ async function checkHomeroomCC() {
   assert(!A.d.querySelector('.wg[data-w="tt"] input'), "위젯의 시간표는 보기만 한다");
   A.setTab("tt");
   await until(() => A.$("ttSet"), "시간표 탭");
+  if (process.env.DUMP_TT) { for (const i of A.d.querySelectorAll("#setPanel input")) i.setAttribute("value", i.value);
+    fs.writeFileSync(process.env.DUMP_TT, A.$("setPanel").outerHTML); }
   /* 채우면 패널을 다시 그리므로 칸을 그때그때 다시 찾는다 */
   const bells = () => [...A.d.querySelectorAll("#setPanel .tt-bells input")];
   const fillBtn = () => A.btn("#setPanel", "채우기");
-  const times = () => [...A.d.querySelectorAll("#ttSet input[type=\"time\"]")].map(i => i.value);
+  const times = () => [...A.d.querySelectorAll("#ttSet .bell input")].map(i => i.value);
   const b1 = bells();
   b1[0].value = "09:00"; b1[1].value = "40"; b1[2].value = "10"; b1[3].value = "50";
   fillBtn().click();
@@ -851,7 +858,7 @@ async function checkHomeroomCC() {
   await wait(40);
   assert(times()[0] === "09:00" && times()[1] === "09:40", "말이 안 되는 값으로는 채우지 않는다");
   /* 설정 창에서 고치면 위젯 표도 따라 바뀐다 */
-  const cell = A.d.querySelector('#ttSet input[type="text"]');
+  const cell = A.d.querySelector('#ttSet td input[type="text"]');
   cell.value = "3-7"; cell.dispatchEvent(new A.w.Event("input", { bubbles: true }));
   await until(() => A.$("tt").textContent.includes("3-7"), "설정 창에서 고치면 위젯에 바로 보인다");
   A.$("setClose").click();

@@ -122,7 +122,7 @@ function device() {
   /* 나이스는 바깥 인터넷이라 시험에서는 부르지 않는다 */
   w.__NEIS__ = {
     findSchools: async () => [], loadSchedule: async () => [], loadMeal: async () => [],
-    loadMyWeek: async () => [], loadClassDay: async () => [], loadRoomCounts: async () => ({}),
+    loadMyWeek: async () => [], loadClassDay: async () => [], loadRoomCounts: async () => ({}), CC_RE: /진로|자율|자치|동아리|봉사/,
     mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "",
   };
   w.URL.createObjectURL = () => "blob:fake";

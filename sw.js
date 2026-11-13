@@ -83,7 +83,9 @@ self.addEventListener('fetch', (e) => {
   if (FRESH.test(url.pathname) || req.destination === 'image' || IMAGE.test(url.pathname)) {
     e.respondWith((async () => {
       try {
-        const fresh = await fetch(req);
+        // 그냥 fetch 하면 브라우저 HTTP 캐시(GitHub Pages max-age=600)가 10분 묵은 것을 준다.
+        // 수첩은 desk.js 만 새것이고 neis.js 는 옛것인 채로 돈 일이 있다(2026-11-13). 늘 서버에 묻는다.
+        const fresh = await fetch(req, FRESH.test(url.pathname) ? { cache: 'no-cache' } : undefined);
         if (fresh && fresh.status === 200 && (fresh.type === 'basic' || fresh.type === 'cors')) {
           const cache = await caches.open(CACHE);
           cache.put(req, fresh.clone());
