@@ -151,6 +151,8 @@ async function dumpWidgets() {
   submit("gateForm");
   await until(() => A.$("gate").hidden && !A.$("app").hidden, "로그인");
 
+  const go = (name) => [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === name).click();
+  go("담임");                                     // 잠금은 교무수첩 장에서만 뜬다
   await until(() => A.$("setupForm"), "수첩 비밀번호 만들기");
   fill("setupPass", "수첩비밀번호2027"); fill("setupPass2", "수첩비밀번호2027");
   submit("setupForm");
@@ -173,10 +175,13 @@ async function dumpWidgets() {
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
 
+  go("수업");
   await until(() => [...d.querySelectorAll("#classPick .cpick")].length >= 2, "반 고르기");
   const pick = [...d.querySelectorAll("#classPick .cpick")].find(x => x.textContent.startsWith("3-1"));
   if (pick) pick.click();
+  d.querySelector('#nbSeg [data-tab="att"]').click();
   await until(() => d.querySelectorAll("#classBody .stu").length > 5, "학생 명단");
+  go("대시보드");
 
   A.$("memo").value = "교무회의 2시 — 생활기록부 마감 안내\n3학년 수련회 답사 보고서\n학부모 상담 주간 일정 조정";
   A.$("memo").dispatchEvent(new w.Event("input", { bubbles: true }));
@@ -211,11 +216,7 @@ async function dumpWidgets() {
     copy.querySelector("#nowAside").textContent = "오늘 수업 7시간";
     widgets["now:긴글"] = copy.innerHTML;
   }
-  for (const p of ["today", "student", "consult", "lesson", "work"]) {
-    [...d.querySelectorAll("#bookSeg button")].find(x => x.dataset.page === p).click();
-    await wait(80);
-    widgets["book:" + p] = d.querySelector('.wg[data-w="book"]').innerHTML;
-  }
+  // 교무수첩(수업, 담임, 업무)은 위젯이 아니라 화면 하나를 통째로 쓰는 장이라 칸 크기별로 재지 않는다.
   return widgets;
 }
 

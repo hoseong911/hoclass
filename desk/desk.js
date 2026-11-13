@@ -167,8 +167,16 @@ function cardClasses() {
   return out;
 }
 let pickedCls = "";
+/* 수업 장에서 고를 반: 호클래스 강의실 반과 수업 반(담임 반도 수업 반에 넣었으면 들어온다) */
+function lessonClasses() {
+  const out = [];
+  for (const x of [...hcClasses(), ...(cfg().classes || [])]) if (x && !out.includes(x)) out.push(x);
+  return out.sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
+}
+/* 지금 보는 반: 담임 장은 담임 반, 그 밖에는 수업 장에서 고른 반 */
 function picked() {
-  const list = cardClasses();
+  if (nbKey() === "home") return cfg().homeroom || "";
+  const list = lessonClasses();
   if (!list.includes(pickedCls)) pickedCls = list[0] || "";
   return pickedCls;
 }
@@ -236,8 +244,20 @@ const SPECS = [
     pick: () => ({ grid: state.grid, pages: state.pages, layout: state.layout }),
     put: (s) => {
       state.grid = okGrid(s.grid);
-      state.pages = okPages(s.pages || pagesIn(s.layout));
-      state.layout = normalize(s.layout, state.grid, state.pages);
+      const L = s.layout && typeof s.layout === "object" ? { ...s.layout } : s.layout;
+      const moved = !!(L && (L.class || L.book));
+      if (moved) {
+        // 우리 반, 교무수첩 위젯은 교무수첩 장으로 빠졌다(2026-11-13). 우리 반이 1장에 있었으면 주간 시간표가 그 자리로.
+        if (L.class && L.class.on !== false && (L.class.pg || 1) === 1 && L.tt && (L.tt.pg || 1) !== 1) L.tt = { ...L.class, on: true };
+        delete L.class; delete L.book;
+        gridMoved = true;
+      }
+      state.pages = okPages(s.pages || pagesIn(L));
+      state.layout = normalize(L, state.grid, state.pages);
+      if (moved) {
+        const used = Math.max(1, ...Object.values(state.layout).filter(b => b.on).map(b => b.pg));
+        if (state.pages > used) { state.pages = used; state.layout = normalize(state.layout, state.grid, used); }
+      }
     } },
   { key: "desk_calendar",
     pick: () => ({ school: state.calSchool, at: state.calAt, items: state.cal }),
@@ -565,10 +585,16 @@ function openYearDocs() {
   ensureAtt(todayKey());
 }
 let addOfficials = false;
+let gridMoved = false;         // 옛 배치(우리 반, 교무수첩 위젯)를 옮겼다: 한 번 저장해 다른 기기도 새 배치를 읽게
 const settingsDoc = () => plainDocs[SPECS.findIndex(s => s.key === "desk_settings")] || null;
 function afterPlain() {
   /* apply() 가 put() 바로 뒤에 sliceJson 을 새로 적어 "이미 저장됨"으로 봐 버린다.
      끼워 넣은 업무포털과 나이스를 남기려면 그 값을 비우고 save() 를 불러야 한다. */
+  if (gridMoved) {
+    gridMoved = false;
+    const d = plainDocs[SPECS.findIndex(s => s.key === "desk_grid")];
+    if (d) { d.sliceJson = ""; save(true); }
+  }
   if (addOfficials) {
     addOfficials = false;
     const d = settingsDoc();
@@ -742,6 +768,19 @@ function renderGcal() {
 const deck = $("deck");
 let arranging = false, curPage = 1;
 
+/* 교무수첩 장(선생님 지시 2026-11-13): 1장은 대시보드, 그 뒤로 수업, 담임, 업무가 각각 화면 하나.
+   장마다 위에서 작은 페이지(탭)를 넘긴다. 위젯 배치(장 추가, 끌어 옮기기)는 대시보드 장에서만 한다. */
+const NB = [
+  { key: "lesson", name: "수업", tabs: [["lesson", "수업 기록"], ["att", "출결"], ["col", "수합"]] },
+  { key: "home", name: "담임", tabs: [["att", "출결"], ["col", "수합"], ["ann", "전달사항"], ["student", "학생"], ["consult", "상담 민원"]] },
+  { key: "work", name: "업무", tabs: [["todo", "할 일"], ["work", "업무 기록"]] },
+];
+const nbTab = { lesson: "lesson", home: "att", work: "todo" };
+const dashPages = () => okPages(state.pages);
+const allPages = () => dashPages() + NB.length;
+const nbOf = (p) => NB[p - dashPages() - 1] || null;
+const nbKey = () => { const n = nbOf(curPage); return n ? n.key : ""; };
+
 function pageName(p) {
   const on = WIDGETS.filter(d => state.layout[d.id].on && state.layout[d.id].pg === p);
   if (!on.length) return p + "장 (빈 장)";
@@ -752,7 +791,7 @@ function pageName(p) {
   return p + "장 " + big.name + (on.length > 1 ? " 외 " + (on.length - 1) : "");
 }
 function gotoPage(p) {
-  const next = Math.max(1, Math.min(okPages(state.pages), p));
+  const next = Math.max(1, Math.min(allPages(), p));
   if (next === curPage) return;
   curPage = next;
   applyGrid(); renderPagebar();
@@ -760,7 +799,8 @@ function gotoPage(p) {
 function applyGrid() {
   const g = okGrid(state.grid);
   state.pages = okPages(state.pages);
-  if (curPage > state.pages) curPage = state.pages;
+  if (curPage > allPages()) curPage = allPages();
+  deck.hidden = !!nbOf(curPage);
   deck.style.setProperty("--cols", String(g.cols));
   deck.style.setProperty("--rows", String(g.rows));
   state.layout = normalize(state.layout, g, state.pages);
@@ -778,6 +818,7 @@ function applyGrid() {
   if (stacked) stackOrder();
   if (two) fitSpans();
   renderPagebar();
+  renderNb();
   fitCards(true);
 }
 
@@ -817,13 +858,17 @@ function renderPagebar() {
   if (!bar) return;
   const n = okPages(state.pages);
   bar.classList.toggle("show", arranging);
+  // 대시보드는 한 장이면 이름 단추, 여러 장이면 점(위젯을 끌어다 놓는 자리). 교무수첩 세 장은 늘 이름 단추.
+  const named = (p, text) => h("button", { class: "pg-nb" + (p === curPage ? " cur" : ""), type: "button",
+    "data-page": String(p), "aria-pressed": String(p === curPage), text, onclick: () => gotoPage(p) });
   const kids = [
     h("button", { class: "pg-arrow", type: "button", "aria-label": "앞 장", html: CHEV_L, onclick: () => gotoPage(curPage - 1) }),
-    h("div", { class: "pg-dots" }, ...Array.from({ length: n }, (_, i) => h("button", {
+    n === 1 ? named(1, "대시보드") : h("div", { class: "pg-dots" }, ...Array.from({ length: n }, (_, i) => h("button", {
       class: "pg-dot" + (i + 1 === curPage ? " cur" : ""), type: "button",
       "data-page": String(i + 1), "aria-label": pageName(i + 1),
       title: pageName(i + 1), onclick: () => gotoPage(i + 1),
     }))),
+    ...NB.map((b, i) => named(n + i + 1, b.name)),
     h("button", { class: "pg-arrow", type: "button", "aria-label": "다음 장", html: CHEV_R, onclick: () => gotoPage(curPage + 1) }),
   ];
   if (arranging) {
@@ -881,6 +926,7 @@ const dropHandles = () => deck.querySelectorAll(".wg-tag, .wg-off, .rz").forEach
 
 function setArrange(on) {
   arranging = !!on;
+  if (arranging && nbOf(curPage)) gotoPage(1);   // 배치는 대시보드에서만
   deck.classList.toggle("arranging", arranging);
   $("tools").classList.toggle("show", arranging);
   $("arrange").classList.toggle("on", arranging);
@@ -1946,7 +1992,7 @@ function passSection() {
 }
 
 /* ---------- 우리 반 ---------- */
-let classTab = "att", activeCollect = null, rosterOpen = false, recoverMode = false;
+let activeCollect = null, rosterOpen = false, recoverMode = false;
 let hideNames = false;
 try { hideNames = localStorage.getItem(LS_PREFIX + "hideNames") === "1"; } catch (e) {}
 const STATUSES = ["", "결석", "지각", "조퇴"];
@@ -2002,11 +2048,6 @@ const roster = () => rosterOf(picked());
 const shownName = (st) => hideNames ? "" : st.name;
 const who = (st) => shownName(st) ? `${st.n}번 ${st.name}` : `${st.n}번`;
 
-document.querySelectorAll("#classSeg button").forEach(b => b.addEventListener("click", () => {
-  classTab = b.dataset.tab;
-  document.querySelectorAll("#classSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
-  renderClass();
-}));
 $("calPaste").addEventListener("click", () => { calOpen = !calOpen; renderCalBox(); });
 $("rosterBtn").addEventListener("click", () => { rosterOpen = !rosterOpen; renderRoster(); });
 $("lockBtn").addEventListener("click", () => { lockNow(); });
@@ -2120,8 +2161,8 @@ function unlockView() {
     await unlock($("unlockPass").value);
     renderClass();
   }) },
-    h("h3", { text: "잠겨 있습니다" }),
-    h("p", { text: "명단과 출결을 보려면 비밀번호를 넣어 주세요." }),
+    h("h3", { text: "교무수첩이 잠겨 있습니다" }),
+    h("p", { text: "학생 명단과 기록을 보려면 비밀번호를 넣어 주세요." }),
     passField("unlockPass", "비밀번호", "current-password"),
     err,
     h("div", { class: "row" }, btn, h("button", { class: "text-btn", type: "button", id: "recoverLink", text: "비밀번호를 잊었습니다", onclick: () => { recoverMode = true; renderClass(); } })))];
@@ -2131,40 +2172,61 @@ const openSetBtn = () => h("button", { class: "btn small", type: "button", text:
 function softClass() {
   if (!booted) return;
   const a = document.activeElement;
-  const typing = (id) => a && $(id).contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
+  const typing = a && $("classBody").contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
   const ks = keyStateNow();
-  if (!typing("classBody") && !(ks === lastKs && (ks === "none" || ks === "locked" || ks === "recovery"))) renderClass();
-  if (!typing("bookBody")) renderBook();
+  if (!typing && !(ks === lastKs && (ks === "none" || ks === "locked" || ks === "recovery"))) renderNb();
 }
 let lastKs = "";
 function renderPick(list, pick) {
-  const home = cfg().homeroom;
   $("classPick").replaceChildren(...list.map(c => h("button", {
     class: "cpick", type: "button", "aria-pressed": String(c === pick),
     onclick: () => goClass(c),
-  }, c, c === home ? h("span", { class: "hr", text: "담임" }) : null)));
+  }, c)));
 }
-function renderClass() {
-  const ks = keyStateNow(), open = ks === "open", home = cfg().homeroom;
-  const list = cardClasses(), pick = picked(), tabs = open && !!pick;
+/* 할 일은 위젯 하나를 대시보드와 업무 장이 같이 쓴다(선생님 지시 2026-11-13).
+   업무 장의 할 일 탭을 열면 카드를 옮겨 오고, 다른 데를 보면 대시보드 칸으로 되돌린다. 두 벌을 만들지 않는다. */
+const TODO_CARD = document.querySelector(".wg-todo");
+function homeTodos() {
+  const wg = deck.querySelector('.wg[data-w="todos"]');
+  if (wg && TODO_CARD && TODO_CARD.parentElement !== wg) wg.append(TODO_CARD);
+}
+/* 교무수첩 장 그리기. 잠겨 있으면 장 가운데 잠금 카드 하나만 뜬다
+   (전에는 우리 반, 교무수첩 위젯마다 좁은 칸에 따로 떴다. 선생님 지적 2026-11-13). */
+function renderNb() {
+  if (!booted) return;
+  const nb = nbOf(curPage);
+  $("nb").hidden = !nb;
+  if (!nb) { homeTodos(); return; }
+  const ks = keyStateNow(), open = ks === "open";
   lastKs = ks;
-  $("classTitle").textContent = pick && pick !== home ? "수업 반" : "우리 반";
-  $("className").textContent = pick ? classLabel(pick) : state.year.configured ? "반 없음" : "설정 전";
+  const tab = nbTab[nb.key], usesCls = nb.key !== "work";
+  const pick = usesCls ? picked() : "";
+  $("nbTitle").textContent = nb.name;
+  $("className").textContent = open && usesCls ? (pick ? classLabel(pick) : nb.key === "home" ? "담임 반 없음" : "수업 반 없음") : "";
+  const list = nb.key === "lesson" ? lessonClasses() : [];
   $("classPick").hidden = !(open && list.length > 1);
   if (open && list.length > 1) renderPick(list, pick);
-  $("classSeg").hidden = !tabs;
-  $("rosterBtn").hidden = !tabs || hcHas(pick);
-  $("hideBtn").hidden = !open;
+  const seg = $("nbSeg");
+  seg.hidden = !open;
+  seg.parentElement.hidden = !open;   // 잠겨 있으면 탭 줄(과 그 밑줄)째 숨긴다
+  seg.replaceChildren(...nb.tabs.map(([k, name]) => h("button", {
+    type: "button", "data-tab": k, "aria-pressed": String(k === tab), text: name,
+    onclick: () => { nbTab[nb.key] = k; rosterOpen = false; renderRoster(); renderNb(); },
+  })));
+  $("rosterBtn").hidden = !open || !usesCls || !pick || hcHas(pick);
+  $("hideBtn").hidden = !open || !usesCls;
   $("lockBtn").hidden = !open;
   $("hideBtn").textContent = hideNames ? "이름 보이기" : "이름 가리기";
   const body = $("classBody");
+  if (!(open && nb.key === "work" && tab === "todo")) homeTodos();
   const note = (text) => [h("p", { class: "empty", text })];
+  const lock = (kids) => body.replaceChildren(h("div", { class: "nb-lock" }, ...kids));
   if (ks === "loading") { body.replaceChildren(...note("저장소를 확인하는 중입니다.")); return; }
-  if (ks === "unsupported") { body.replaceChildren(...note("이 화면에서는 암호화를 쓸 수 없습니다. 학생 정보를 저장하지 않도록 명단과 출결을 닫아 두었습니다. 다른 브라우저에서 열어 주세요.")); return; }
+  if (ks === "unsupported") { body.replaceChildren(...note("이 화면에서는 암호화를 쓸 수 없습니다. 학생 정보를 저장하지 않도록 교무수첩을 닫아 두었습니다. 다른 브라우저에서 열어 주세요.")); return; }
   if (ks === "offline") { body.replaceChildren(...note("저장소에 연결되지 않아 보호 비밀번호를 만들 수 없습니다. " + (syncNote || "인터넷 연결을 확인해 주세요."))); return; }
-  if (ks === "none") { body.replaceChildren(...setupView()); return; }
-  if (ks === "recovery") { body.replaceChildren(...recoveryView()); return; }
-  if (ks === "locked") { body.replaceChildren(...unlockView()); return; }
+  if (ks === "none") { lock(setupView()); return; }
+  if (ks === "recovery") { lock(recoveryView()); return; }
+  if (ks === "locked") { lock(unlockView()); return; }
   const rollover = state.year.configured && academicYear() > state.year.current
     ? h("p", { class: "hint", text: `${academicYear()}학년도가 시작됐습니다. '기본 설정'에서 담임 반과 수업 반을 새로 넣어 주세요.` }) : null;
   const banner = warnBanner();
@@ -2172,21 +2234,35 @@ function renderClass() {
     : (hcBusy && !hc) ? h("p", { class: "tip", text: "호클래스 명단을 읽는 중입니다." }) : null;
   const head = [rollover, banner, hcNote].filter(Boolean);
   const wrap = (kids) => body.replaceChildren(...[...head, ...kids].filter(Boolean));   // 빈 자리(null)가 "null" 글자로 찍히지 않게
+  const cols = (kids) => wrap([h("div", { class: "book-cols" }, ...kids.filter(Boolean))]);
+  if (nb.key === "work") {
+    if (tab === "todo") { wrap([]); if (TODO_CARD) body.append(TODO_CARD); return; }
+    if (!bookReady()) { wrap(note("기록을 여는 중입니다.")); return; }
+    cols(workPage()); return;
+  }
   if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "담임 반과 수업 반을 넣어 주세요" }), h("div", { class: "row" }, openSetBtn()))]); return; }
   ensureAtt(todayKey(), pick);
-  if (!pick) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "이 학년도에 들어가는 반이 없습니다" }), h("p", { text: "'기본 설정'에서 담임 반이나 수업 반을 넣으면 출결과 수합을 쓸 수 있습니다." }), h("div", { class: "row" }, openSetBtn()))]); return; }
+  if (!pick) {
+    wrap([h("div", { class: "lock-panel" }, h("h3", { text: nb.key === "home" ? "담임 반이 없습니다" : "수업 반이 없습니다" }),
+      h("p", { text: "'기본 설정'에서 " + (nb.key === "home" ? "담임 반을" : "수업 반을") + " 고르면 쓸 수 있습니다." }), h("div", { class: "row" }, openSetBtn()))]);
+    return;
+  }
   if (encDocs().some(d => d.broken)) { wrap(note("일부 기록을 풀지 못했습니다. 페이지를 새로고침한 뒤 다시 열어 주세요. 기록은 그대로 있습니다.")); return; }
   if (encDocs().some(d => !d.ready)) { wrap(note("기록을 여는 중입니다.")); return; }
-  if (!roster().length) {
+  if (!roster().length && tab !== "lesson") {
     wrap([h("div", { class: "lock-panel" }, h("h3", { text: "학생 명단이 비어 있습니다" }),
       h("p", { text: hcHas(pick) ? "호클래스 이 강의실에 학생이 아직 없습니다. 호클래스 어드민의 학생 관리에서 넣어 주세요."
         : "오른쪽 위 '명단 편집'에서 학생 이름을 붙여 넣으면 출결과 수합을 쓸 수 있습니다." }))]);
     return;
   }
-  if (classTab === "att") wrap(attView());
-  else if (classTab === "col") wrap(collectView());
-  else wrap(noticeView());
+  if (tab === "att") wrap(attView());
+  else if (tab === "col") wrap(collectView());
+  else if (tab === "ann") wrap(noticeView());
+  else cols(tab === "student" ? studentPage() : tab === "consult" ? consultPage() : lessonPage());
 }
+/* 여러 곳에서 부르던 옛 이름. 둘 다 교무수첩 장을 다시 그린다. */
+function renderClass() { renderNb(); }
+function renderBook() { renderNb(); }
 
 function stuTile(st, cls, label, statusText, onclick, pressed) {
   const nm = shownName(st);
@@ -2515,15 +2591,11 @@ function backupSection() {
 }
 
 /* ---------- 교무수첩 ---------- */
-let bookPage = "today", bookSid = "", attLoaded = "", attBusy = false;
+let bookSid = "", attLoaded = "", attBusy = false;
 const attCache = new Map();
 const KINDS = ["상담", "민원"];
 const WHOS = ["학생", "학부모", "교직원", "기타"];
 
-document.querySelectorAll("#bookSeg button").forEach(b => b.addEventListener("click", () => {
-  bookPage = b.dataset.page;
-  renderBook();
-}));
 
 const bCls = () => picked();
 function goClass(c) {
@@ -2582,17 +2654,6 @@ async function loadMonth(ym, cls) {
     attLoaded = ym + "|" + cls;
   } finally { attBusy = false; renderBook(); }
 }
-let todayAttLoaded = "";
-async function loadTodayAtt() {
-  const day = todayKey(), want = day + "|" + cardClasses().join(",");
-  if (todayAttLoaded === want || attBusy || !cloud || !dataKey) return;
-  todayAttLoaded = want;
-  for (const c of cardClasses()) {
-    if (attDay === day && attCls === c) continue;
-    await fetchAtt(attKeyOf(day, c));
-  }
-  renderBook();
-}
 function countFor(cls, sid, ym) {
   const out = { 결석: 0, 지각: 0, 조퇴: 0, days: 0 };
   for (const day of monthDays(ym)) {
@@ -2610,14 +2671,6 @@ function countFor(cls, sid, ym) {
 function panel(title, ...kids) { return h("section", { class: "panel" }, h("h3", { text: title }), ...kids); }
 function noneLine(text) { return h("p", { class: "empty", text }); }
 function field(label, el) { return h("label", { class: "field" }, label, el); }
-function clsRow(current, onpick) {
-  const list = cardClasses(), home = cfg().homeroom;
-  if (list.length < 2) return null;
-  return h("div", { class: "class-pick" }, ...list.map(c => h("button", {
-    class: "cpick", type: "button", "aria-pressed": String(c === current),
-    onclick: () => onpick(c),
-  }, c, c === home ? h("span", { class: "hr", text: "담임" }) : null)));
-}
 function armed(btn, text, run) {
   return h("button", { class: "btn small secondary", type: "button", text, onclick: (e) => {
     if (e.currentTarget.dataset.armed) { run(); return; }
@@ -2625,114 +2678,7 @@ function armed(btn, text, run) {
   } });
 }
 
-function renderBook() {
-  if (!booted) return;
-  const body = $("bookBody");
-  document.querySelectorAll("#bookSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.page === bookPage)));
-  const ks = keyStateNow();
-  if (ks !== "open") {
-    body.replaceChildren(noneLine(ks === "locked" || ks === "recovery" ? "수첩은 잠겨 있습니다. 위 '우리 반'에서 비밀번호를 넣으면 열립니다."
-      : ks === "none" ? "비밀번호를 먼저 만들면 수첩을 쓸 수 있습니다."
-      : "수첩을 여는 중입니다."));
-    return;
-  }
-  if (!state.year.configured) { body.replaceChildren(noneLine("'기본 설정'에서 담임 반과 수업 반을 넣으면 수첩을 쓸 수 있습니다.")); return; }
-  if (!bookReady()) { body.replaceChildren(noneLine("기록을 여는 중입니다.")); return; }
-  const kids = bookPage === "today" ? todayPage()
-    : bookPage === "student" ? studentPage()
-    : bookPage === "consult" ? consultPage()
-    : bookPage === "lesson" ? lessonPage()
-    : workPage();
-  body.replaceChildren(h("div", { class: "book-cols" }, ...kids.filter(Boolean)));
-}
-
-/* ---------- 오늘 ---------- */
-function todayPage() {
-  const now = new Date(), st = status(now), row = todayRow(now), today = todayKey();
-  const goCls = (c) => { goClass(c); toast(classLabel(c) + "으로 옮겼습니다"); };
-
-  const classes = panel("오늘 수업", (() => {
-    if (!row) return noneLine("주말에는 수업이 없습니다.");
-    const kids = [];
-    for (let i = 0; i < 7; i++) {
-      const c = row[i].trim();
-      const isNow = (st.kind === "class" || st.kind === "free") && st.i === i;
-      kids.push(h("span", { class: "p", text: (i + 1) + "교시" }));
-      kids.push(h("div", { class: "c" + (c ? "" : " free") + (isNow ? " now" : "") },
-        h("span", { text: c || "공강" }),
-        c && cardClasses().includes(c) ? h("div", { class: "row" },
-          h("button", { type: "button", text: "이 반 보기", onclick: () => goCls(c) }),
-          h("button", { type: "button", text: "수업 기록", onclick: () => { goClass(c); bookPage = "lesson"; renderBook(); } })) : null));
-    }
-    return h("div", { class: "timeline" }, ...kids);
-  })());
-
-  loadTodayAtt();
-  const attToday = panel("오늘 출결", (() => {
-    const rows = cardClasses().map(c => {
-      const marks = marksIn(attValueOf(today, c)), list = rosterOf(c);
-      const by = (s) => list.filter(x => marks[x.id] === s);
-      const a = by("결석"), l = by("지각"), e = by("조퇴");
-      if (!list.length) return null;
-      const parts = [];
-      if (a.length) parts.push("결석 " + a.map(who).join(", "));
-      if (l.length) parts.push("지각 " + l.map(who).join(", "));
-      if (e.length) parts.push("조퇴 " + e.map(who).join(", "));
-      return h("li", { class: "line" },
-        h("div", { class: "top" },
-          h("span", { class: "ttl" }, h("span", { class: "tag cls", text: c }), " " + classLabel(c)),
-          h("span", { class: "when", text: (list.length - a.length) + "/" + list.length })),
-        parts.length ? h("div", { class: "body", text: parts.join(", ") }) : h("div", { class: "body", text: "전원 출석" }),
-        h("div", { class: "marks" }, h("button", { class: "btn small secondary", type: "button", text: "이 반 보기", onclick: () => goCls(c) })));
-    }).filter(Boolean);
-    return rows.length ? h("ul", { class: "lines" }, ...rows) : noneLine("명단을 넣은 반이 아직 없습니다.");
-  })());
-
-  const notes = panel("오늘 전달사항", (() => {
-    const items = docs.notices.value.items.filter(n => !n.done);
-    if (!items.length) return noneLine("전달할 내용이 없습니다.");
-    return h("ul", { class: "lines" }, ...items.map(n => h("li", { class: "line" },
-      h("div", { class: "top" },
-        h("span", { class: "ttl", text: n.text }),
-        h("span", { class: "tag cls", text: itemCls(n) || "반 없음" })))));
-  })());
-
-  const jobs = panel("오늘 할 일과 마감", (() => {
-    const todos = state.todos.filter(t => !t.done).sort((a, b) => todoQ(a) - todoQ(b)).slice(0, 6);
-    const works = docs.works.value.items.filter(w => !w.done && w.due && dnum(w.due) <= 7)
-      .sort((a, b) => a.due.localeCompare(b.due));
-    if (!todos.length && !works.length) return noneLine("급한 일이 없습니다.");
-    return h("ul", { class: "lines" },
-      ...works.map(w => {
-        const n = dnum(w.due);
-        return h("li", { class: "line" }, h("div", { class: "top" },
-          h("span", { class: "ttl", text: w.title }),
-          h("span", { class: "due " + dueCls(n), text: dLabel(n) })));
-      }),
-      ...todos.map(t => h("li", { class: "line" }, h("div", { class: "top" }, h("span", { class: "ttl", text: t.text }), h("span", { class: "when", text: QUADS[todoQ(t)].name })))));
-  })());
-
-  const cons = panel("오늘 상담 민원", (() => {
-    const items = docs.consults.value.items.filter(x => x.at === today);
-    const addBtn = h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "상담 민원 적기", onclick: () => { bookPage = "consult"; renderBook(); } }));
-    if (!items.length) return h("div", { class: "panel-body" }, noneLine("오늘 적은 기록이 없습니다."), addBtn);
-    return h("div", null, h("ul", { class: "lines" }, ...items.map(consultLine)), addBtn);
-  })());
-
-  const meal = panel("오늘 급식", (() => {
-    if (!state.neis.school) return h("div", { class: "panel-body" }, noneLine("설정의 나이스 탭에서 학교를 정하면 급식이 보입니다."));
-    const list = mealToday && mealToday.day === today ? mealToday.list : null;
-    if (!list) return h("div", { class: "panel-body" }, noneLine("급식을 받는 중입니다."));
-    if (!list.length) return h("div", { class: "panel-body" }, noneLine("오늘 급식이 없습니다."));
-    return h("ul", { class: "lines" }, ...list.map(m => h("li", { class: "line" },
-      h("span", { class: "ttl", text: m.kind }),
-      h("span", { class: "body", text: m.dishes.join(", ") }),
-      m.kcal ? h("span", { class: "when", text: m.kcal }) : null)));
-  })());
-
-  return [classes, attToday, jobs, notes, cons, meal];
-}
-
+/* ---------- 나이스 시간표, 급식 ---------- */
 /* 나이스에서 그 주 시간표를 받아 주간 시간표에 넣는다. 단추와 자동 받기가 같이 쓴다.
    과목이 비면 거를 것이 없어 첫 반이 35칸을 다 먹으므로 막는다. 한 칸도 못 찾으면 덮지 않는다. */
 async function fetchWeek(now = new Date()) {
@@ -2769,6 +2715,20 @@ async function autoWeek() {
   weekBusy = false;
 }
 
+/* 오늘 급식 위젯 */
+function renderMeal() {
+  const box = $("mealBody");
+  if (!box) return;
+  const today = todayKey();
+  const list = mealToday && mealToday.day === today ? mealToday.list : null;
+  box.replaceChildren(!state.neis.school ? noneLine("설정의 기본 탭에서 학교를 정하면 급식이 보입니다.")
+    : !list ? noneLine("급식을 받는 중입니다.")
+    : !list.length ? noneLine("오늘 급식이 없습니다.")
+    : h("ul", { class: "lines" }, ...list.map(m => h("li", { class: "line" },
+        h("span", { class: "ttl", text: m.kind }),
+        h("span", { class: "body", text: m.dishes.join(", ") }),
+        m.kcal ? h("span", { class: "when", text: m.kcal }) : null))));
+}
 /* 오늘 급식은 하루 한 번만 받는다. */
 let mealBusy = false;
 async function loadMeal() {
@@ -2778,24 +2738,24 @@ async function loadMeal() {
   try {
     const list = await Neis.loadMeal(state.neis.school, day.replace(/-/g, ""), state.neis.key);
     mealToday = { day, list };
-    renderBook();
+    renderMeal();
   } catch (e) {
     mealToday = { day, list: [] };
   }
   mealBusy = false;
 }
 
+
 /* ---------- 학생 ---------- */
 function studentPage() {
   const cls = bCls(), list = rosterOf(cls), ym = ymOf(todayKey());
-  const pickRow = clsRow(cls, goClass);
-  if (!list.length) return [panel("학생", pickRow, noneLine("이 반은 명단이 비어 있습니다. 위 카드의 '명단 편집'에서 넣어 주세요."))];
+  if (!list.length) return [panel("학생", noneLine("이 반은 명단이 비어 있습니다. 위 카드의 '명단 편집'에서 넣어 주세요."))];
   if (!list.find(s => s.id === bookSid)) bookSid = "";
   const grid = h("div", { class: "stu-pick" }, ...list.map(s => h("button", {
     type: "button", "aria-pressed": String(s.id === bookSid), "aria-label": who(s),
     onclick: () => { bookSid = s.id === bookSid ? "" : s.id; renderBook(); },
   }, h("span", { class: "n", text: String(s.n) }), shownName(s) ? h("span", { class: "nm", text: s.name }) : null)));
-  const left = panel("학생 고르기", pickRow, grid);
+  const left = panel("학생 고르기", grid);
   if (!bookSid) return [left, panel("학생 기록", noneLine("학생을 골라 주세요."))];
 
   const st = stuOf(cls, bookSid);
@@ -2825,7 +2785,7 @@ function studentPage() {
   const mine = docs.consults.value.items.filter(x => x.sid === bookSid);
   const cons = panel("이 학생 상담 민원",
     mine.length ? h("ul", { class: "lines" }, ...mine.slice().sort((a, b) => b.at.localeCompare(a.at)).map(consultLine)) : noneLine("기록이 없습니다."),
-    h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "이 학생 상담 적기", onclick: () => { bookPage = "consult"; renderBook(); } })));
+    h("div", { class: "row" }, h("button", { class: "btn small", type: "button", text: "이 학생 상담 적기", onclick: () => { nbTab.home = "consult"; renderNb(); } })));
 
   const noteEl = h("textarea", { id: "stuNote", value: rec.note || "" });
   const note = panel("학생 메모", noteEl,
@@ -2914,7 +2874,6 @@ function consultPage() {
 /* ---------- 수업 ---------- */
 function lessonPage() {
   const D = docs.lessons, cls = bCls();
-  const pickRow = clsRow(cls, goClass);
   const now = new Date(), row = todayRow(now);
   const lessons = lessonsOf(cls);
   const mine = D.value.items.filter(x => x.cls === cls).slice().sort((a, b) => b.at.localeCompare(a.at) || b.period - a.period);
@@ -2965,7 +2924,7 @@ function lessonPage() {
       armed("삭제", "삭제", () => { D.value.items = D.value.items.filter(y => y.id !== x.id); saveEnc(D); renderBook(); }))));
 
   return [
-    panel("새 수업 기록", pickRow, form),
+    panel("새 수업 기록", form),
     panel(classLabel(cls) + " 기록 " + mine.length + "건", lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("기록이 없습니다.")),
     hcPanel(cls, lessons),
   ];
@@ -3005,7 +2964,7 @@ async function planSend(cls, x) {
   const absent = list.filter(st => marks[st.id] === "결석");
   const other = list.filter(st => marks[st.id] === "지각" || marks[st.id] === "조퇴");
   sendPlan = { cls, x, day, absent, other, picked: new Set(absent.map(st => st.id)) };
-  bookPage = "lesson"; renderBook();
+  nbTab.lesson = "lesson"; renderNb();
 }
 function sendConfirm() {
   const p = sendPlan;
@@ -3265,7 +3224,7 @@ function renderAll() {
   const now = new Date();
   applyGrid();
   renderGcal();
-  renderLinks(); renderTodos(); renderDdays(); renderMemo(); softClass(); renderBook(); renderCalBox(); if (!rosterOpen) renderRoster();
+  renderLinks(); renderTodos(); renderDdays(); renderMemo(); renderMeal(); softClass(); renderCalBox(); if (!rosterOpen) renderRoster();
   renderPeriods(now); renderTT(); renderNow(now);
   fitCards(true);
 }

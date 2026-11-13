@@ -84,46 +84,6 @@ window.__deskLog = [];
     </section>
   </section>
 
-  <section class="wg" data-w="class">
-    <section class="card" aria-labelledby="classTitle">
-      <div class="card-head">
-        <h2 class="card-title" id="classTitle">우리 반</h2>
-        <div class="row">
-          <button class="text-btn" type="button" id="rosterBtn" hidden>명단 편집</button>
-          <button class="text-btn" type="button" id="hideBtn" hidden>이름 가리기</button>
-          <button class="text-btn" type="button" id="lockBtn" hidden>잠그기</button>
-        </div>
-      </div>
-      <div class="row" style="justify-content:space-between">
-        <p class="class-name" id="className">우리 반</p>
-        <div class="seg" id="classSeg" role="group" aria-label="우리 반 보기" hidden>
-          <button type="button" data-tab="att" aria-pressed="true">출결</button>
-          <button type="button" data-tab="col" aria-pressed="false">수합</button>
-          <button type="button" data-tab="ann" aria-pressed="false">전달사항</button>
-        </div>
-      </div>
-      <div class="class-pick" id="classPick" hidden></div>
-      <div id="rosterEditor" hidden></div>
-      <div id="classBody"></div>
-    </section>
-  </section>
-
-  <section class="wg" data-w="book">
-    <section class="card" id="bookCard" aria-labelledby="bookTitle">
-      <div class="book-head">
-        <h2 class="card-title" id="bookTitle">교무수첩</h2>
-        <div class="book-seg" id="bookSeg" role="group" aria-label="수첩 보기">
-          <button type="button" data-page="today" aria-pressed="true">오늘</button>
-          <button type="button" data-page="student" aria-pressed="false">학생</button>
-          <button type="button" data-page="consult" aria-pressed="false">상담 민원</button>
-          <button type="button" data-page="lesson" aria-pressed="false">수업</button>
-          <button type="button" data-page="work" aria-pressed="false">업무</button>
-        </div>
-      </div>
-      <div id="bookBody"></div>
-    </section>
-  </section>
-
   <section class="wg" data-w="gcal">
     <section class="card" aria-labelledby="gcalTitle">
       <div class="card-head">
@@ -182,6 +142,15 @@ window.__deskLog = [];
     </section>
   </section>
 
+  <section class="wg" data-w="meal">
+    <section class="card" aria-labelledby="mealTitle">
+      <div class="card-head">
+        <h2 class="card-title" id="mealTitle">오늘 급식</h2>
+      </div>
+      <div id="mealBody"></div>
+    </section>
+  </section>
+
 </div><!-- /deck -->
 
 <div class="tools" id="tools">
@@ -193,6 +162,25 @@ window.__deskLog = [];
   <button class="tool" type="button" id="signOut" title="수첩에서 나가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>나가기</button>
 </div>
 
+<!-- 교무수첩: 대시보드 장 뒤에 수업, 담임, 업무 세 장. 장마다 위에서 작은 페이지를 넘긴다(desk.js renderNb) -->
+<section class="nb" id="nb" hidden aria-labelledby="nbTitle">
+  <div class="nb-head">
+    <h2 class="nb-title" id="nbTitle">교무수첩</h2>
+    <p class="class-name" id="className"></p>
+  </div>
+  <div class="class-pick" id="classPick" hidden></div>
+  <!-- 오른쪽 위는 떠 있는 도구 줄(설정, 나가기)과 겹치므로 명단 편집 같은 것은 탭 줄 오른쪽에 둔다 -->
+  <div class="nb-bar">
+    <div class="seg nb-seg" id="nbSeg" role="group" aria-label="교무수첩 보기" hidden></div>
+    <div class="row nb-tools">
+      <button class="text-btn" type="button" id="rosterBtn" hidden>명단 편집</button>
+      <button class="text-btn" type="button" id="hideBtn" hidden>이름 가리기</button>
+      <button class="text-btn" type="button" id="lockBtn" hidden>잠그기</button>
+    </div>
+  </div>
+  <div id="rosterEditor" hidden></div>
+  <div id="classBody"></div>
+</section>
 <div class="pagebar" id="pagebar"></div>
 
 <div class="scrim" id="setScrim" hidden></div>

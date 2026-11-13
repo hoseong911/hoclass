@@ -3,7 +3,7 @@ export const GAP = 10, PAD = 12;                 // desk.css 의 .deck 과 같�
 export const GRID_MIN = { cols: 6, rows: 4 };
 export const GRID_MAX = { cols: 48, rows: 32 };
 export const DEFAULT_GRID = { cols: 24, rows: 16 };
-export const DEFAULT_PAGES = 2;
+export const DEFAULT_PAGES = 1;               // 대시보드 장 수. 교무수첩(수업, 담임, 업무)은 그 뒤에 붙는다(desk.js NB)
 export const MAX_PAGES = 8;
 
 /* 더 작게 줄일 수 없는 칸 수 [가로, 세로] */
@@ -14,13 +14,12 @@ export const WIDGETS = [
   { id: "links",   name: "바로가기",    min: [1, 1] },
   { id: "now",     name: "지금 수업",   min: MIN_SIZE },
   { id: "periods", name: "오늘 시간표", min: MIN_SIZE },
-  { id: "class",   name: "우리 반",     min: MIN_SIZE },
-  { id: "book",    name: "교무수첩",    min: MIN_SIZE },
   { id: "gcal",    name: "구글 캘린더", min: MIN_SIZE },
   { id: "todos",   name: "할 일",       min: MIN_SIZE },
   { id: "ddays",   name: "학사 일정",   min: MIN_SIZE },
   { id: "memo",    name: "메모",        min: MIN_SIZE },
   { id: "tt",      name: "주간 시간표", min: MIN_SIZE },
+  { id: "meal",    name: "오늘 급식",   min: MIN_SIZE },
 ];
 export const widgetDef = (id) => WIDGETS.find(w => w.id === id) || null;
 
@@ -29,13 +28,12 @@ export const DEFAULT_LAYOUT = {
   links:   { pg: 1, x: 1,  y: 5,  w: 6,  h: 4,  on: true },
   now:     { pg: 1, x: 1,  y: 9,  w: 6,  h: 4,  on: true },
   periods: { pg: 1, x: 1,  y: 13, w: 6,  h: 4,  on: true },
-  class:   { pg: 1, x: 7,  y: 1,  w: 6,  h: 16, on: true },
   gcal:    { pg: 1, x: 13, y: 1,  w: 6,  h: 8,  on: true },
   todos:   { pg: 1, x: 13, y: 9,  w: 6,  h: 8,  on: true },
   ddays:   { pg: 1, x: 19, y: 1,  w: 6,  h: 8,  on: true },
   memo:    { pg: 1, x: 19, y: 9,  w: 6,  h: 8,  on: true },
-  book:    { pg: 2, x: 1,  y: 1,  w: 18, h: 16, on: true },
-  tt:      { pg: 2, x: 19, y: 1,  w: 6,  h: 16, on: true },
+  tt:      { pg: 1, x: 7,  y: 1,  w: 6,  h: 16, on: true },   // 우리 반 위젯이 교무수첩 장으로 빠진 자리
+  meal:    { pg: 1, x: 19, y: 13, w: 6,  h: 4,  on: false },  // 1장이 꽉 차 있어 꺼 두고 설정 화면 탭에서 켠다
 };
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(n) || 0)));

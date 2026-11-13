@@ -165,8 +165,15 @@ function device() {
     fill: (id, v) => { $(id).value = v; },
     submit: (id) => $(id).dispatchEvent(new w.Event("submit", { bubbles: true, cancelable: true })),
     text: () => $("classBody").textContent,
-    book: () => $("bookBody").textContent,
-    tab: (p) => [...d.querySelectorAll("#bookSeg button")].find(b => b.dataset.page === p).click(),
+    book: () => $("classBody").textContent,
+    /* 교무수첩 장으로 가기(아래 장 이름 단추)와 장 안 작은 페이지 고르기 */
+    go: (name) => [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === name).click(),
+    sub: (k) => d.querySelector('#nbSeg [data-tab="' + k + '"]').click(),
+    tab: (p) => {
+      const page = { student: "담임", consult: "담임", ann: "담임", lesson: "수업", work: "업무", todo: "업무" }[p];
+      [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === page).click();
+      d.querySelector('#nbSeg [data-tab="' + p + '"]').click();
+    },
     setTab: (k) => {
       if ($("setPanel").hidden) $("toolSet").click();
       const b = d.querySelector('#setPanel .set-tab[data-tab="' + k + '"]');
@@ -337,14 +344,26 @@ function checkHiddenRule() {
   A.submit("gateForm");
   await until(() => A.$("gateErr").textContent.includes("맞지 않습니다"), "틀린 계정 비밀번호 거부");
   assert(![...store.keys()].some(k => k.startsWith("desk_")), "로그인 전에는 수첩 자료를 저장하지 않는다");
+  /* 옛 배치(2026-11-13 전): 1장 가운데 우리 반, 2장 교무수첩과 주간 시간표. 교무수첩 장으로 옮긴 뒤에도
+     기본 배치와 똑같이 풀려야 한다(주간 시간표가 우리 반 자리로, 빈 2장은 걷는다). 아래 배치 시험이 이를 확인한다. */
+  put("desk_grid/all", { at: 1, state: { grid: { cols: 24, rows: 16 }, pages: 2, layout: {
+    clock: { pg: 1, x: 1, y: 1, w: 6, h: 4, on: true }, links: { pg: 1, x: 1, y: 5, w: 6, h: 4, on: true },
+    now: { pg: 1, x: 1, y: 9, w: 6, h: 4, on: true }, periods: { pg: 1, x: 1, y: 13, w: 6, h: 4, on: true },
+    class: { pg: 1, x: 7, y: 1, w: 6, h: 16, on: true }, gcal: { pg: 1, x: 13, y: 1, w: 6, h: 8, on: true },
+    todos: { pg: 1, x: 13, y: 9, w: 6, h: 8, on: true }, ddays: { pg: 1, x: 19, y: 1, w: 6, h: 8, on: true },
+    memo: { pg: 1, x: 19, y: 9, w: 6, h: 8, on: true }, book: { pg: 2, x: 1, y: 1, w: 18, h: 16, on: true },
+    tt: { pg: 2, x: 19, y: 1, w: 6, h: 16, on: true } } } });
 
   A.fill("gateEmail", "ho0911seong@gmail.com"); A.fill("gatePass", "계정비밀번호");
   A.submit("gateForm");
   await until(() => A.$("gate").hidden && !A.$("app").hidden, "로그인하면 수첩이 열린다");
 
   /* ---------- 수첩 비밀번호 ---------- */
+  assert(!A.$("setupForm"), "대시보드는 잠금 없이 보인다");
+  A.go("담임");
   await until(() => A.$("setupForm"), "수첩 비밀번호 만들기");
-  assert(A.book().includes("비밀번호를 먼저 만들면"), "수첩은 아직 잠겨 있다");
+  assert(A.$("deck").hidden && A.d.querySelector("#classBody > .nb-lock #setupForm"), "교무수첩 장 가운데 잠금 카드 하나");
+  if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_lock.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
   A.fill("setupPass", PASS); A.fill("setupPass2", PASS);
   A.submit("setupForm");
   await until(() => A.$("recoveryCode"), "복구 키 화면");
@@ -357,6 +376,8 @@ function checkHiddenRule() {
     await until(() => store.has(p), p);
   }
   assert(!allStored().includes(rec.replace(/-/g, "")), "복구 키 평문 저장 금지");
+  A.go("대시보드");
+  await until(() => !A.$("deck").hidden && A.$("nb").hidden, "대시보드로 돌아온다");
 
   /* ---------- 올해 설정: 2027, 담임 반은 호클래스에 없는 3-9 ---------- */
   A.$("toolSet").click();
@@ -434,22 +455,22 @@ function checkHiddenRule() {
   /* ---------- 칸(그리드) 배치 ---------- */
   const deck = A.$("deck");
   const dots = () => [...A.d.querySelectorAll("#pagebar .pg-dot")];
+  const named = () => [...A.d.querySelectorAll("#pagebar .pg-nb")].map(b => b.textContent);
   assert.strictEqual(deck.style.getPropertyValue("--cols"), "24", "가로 24칸");
   assert.strictEqual(deck.style.getPropertyValue("--rows"), "16", "세로 16칸");
   assert.strictEqual(A.area("clock"), "1 / 1 / span 4 / span 6", "1단 머리: " + A.area("clock"));
-  assert.strictEqual(A.area("class"), "1 / 7 / span 16 / span 6", "2단 우리 반");
+  assert.strictEqual(A.area("tt"), "1 / 7 / span 16 / span 6", "2단 주간 시간표(옛 우리 반 자리)");
   assert.strictEqual(A.area("gcal"), "1 / 13 / span 8 / span 6", "3단 구글 캘린더");
   assert.strictEqual(A.area("ddays"), "1 / 19 / span 8 / span 6", "4단 학사 일정");
-  assert.strictEqual(A.area("book"), "1 / 1 / span 16 / span 18", "2장 교무수첩");
-  assert(A.wg("book").hidden, "1장에서는 교무수첩이 안 보인다");
-  assert(A.wg("tt").hidden, "1장에서는 주간 시간표가 안 보인다");
-  assert(!A.wg("class").hidden, "1장에서는 우리 반이 보인다");
-  assert.strictEqual(dots().length, 2, "페이지 점 두 개");
+  assert(!A.wg("class") && !A.wg("book"), "우리 반, 교무수첩 위젯은 없다(교무수첩 장으로 갔다)");
+  assert(!A.wg("tt").hidden, "1장에 주간 시간표가 보인다");
+  assert(A.wg("meal").hidden, "급식 위젯은 꺼진 채로 시작한다");
+  assert.deepStrictEqual(named(), ["대시보드", "수업", "담임", "업무"], "장 이름 단추");
   const spanOf = (id) => {
     const parts = A.area(id).split(" / ");
     return { y: +parts[0], x: +parts[1], h: +String(parts[2]).replace("span ", ""), w: +String(parts[3]).replace("span ", "") };
   };
-  for (const id of ["clock", "links", "now", "periods", "class", "book", "gcal", "todos", "ddays", "memo", "tt"]) {
+  for (const id of ["clock", "links", "now", "periods", "gcal", "todos", "ddays", "memo", "tt"]) {
     const g = spanOf(id);
     assert(g.w >= 4 && g.h >= 4, id + " 가 4×4 보다 작다: " + g.w + "×" + g.h);
   }
@@ -459,14 +480,17 @@ function checkHiddenRule() {
     "바로가기는 min 이 [1, 1] 이어야 한 칸으로 줄일 수 있다");
   assert(/export const MIN_SIZE = \[2, 2\];/.test(gridSrc), "다른 칸은 2×2 가 한계로 남아야 한다");
   await until(() => store.has("desk_grid/all"), "desk_grid/all 저장");
-  assert.strictEqual(JSON.parse(store.get("desk_grid/all")).state.pages, 2, "두 장으로 저장");
+  assert.strictEqual(JSON.parse(store.get("desk_grid/all")).state.pages, 1, "대시보드 한 장으로 저장");
 
-  dots()[1].click();
-  await until(() => !A.wg("book").hidden, "2장으로 넘기면 교무수첩이 보인다");
-  assert(!A.wg("tt").hidden, "2장에 주간 시간표도 있다");
-  assert(A.wg("class").hidden, "2장에서는 우리 반이 숨는다");
+  A.go("담임");
+  await until(() => A.$("deck").hidden && !A.$("nb").hidden && A.$("nbTitle").textContent === "담임", "담임 장");
   A.d.querySelector('#pagebar [aria-label="앞 장"]').click();
-  await until(() => !A.wg("class").hidden, "앞 장으로 돌아온다");
+  await until(() => A.$("nbTitle").textContent === "수업", "앞 장은 수업");
+  A.go("업무");
+  await until(() => A.$("nbTitle").textContent === "업무" && A.$("classBody").querySelector("#todoQuad"), "업무 장 할 일은 대시보드 할 일 위젯 그대로");
+  assert(!A.wg("todos").querySelector("#todoQuad"), "할 일 카드는 한 벌만(업무 장으로 옮겨 왔다)");
+  A.go("대시보드");
+  await until(() => !A.$("deck").hidden && A.wg("todos").querySelector("#todoQuad"), "대시보드로 오면 할 일 카드가 제자리로");
 
   /* 바로가기: 위젯에는 타일만, 더하고 지우는 것은 설정 창에서 */
   const picks = () => [...A.d.querySelectorAll("#setPanel .emoji-pick button")];
@@ -547,21 +571,20 @@ function checkHiddenRule() {
   A.setTab("grid");
   await until(() => A.$("setCols"), "화면 탭 열림");
   A.btn("#setPanel", "장 추가").click();
-  await until(() => dots().length === 3, "세 장이 됐다");
-  await until(() => JSON.parse(store.get("desk_grid/all")).state.pages === 3, "세 장으로 저장");
+  await until(() => dots().length === 2, "대시보드가 두 장이 됐다");
+  await until(() => JSON.parse(store.get("desk_grid/all")).state.pages === 2, "두 장으로 저장");
+  assert.deepStrictEqual(named(), ["수업", "담임", "업무"], "대시보드가 여러 장이면 점, 교무수첩은 이름 단추");
   A.btn("#setPanel", "장 삭제").click();
-  await until(() => dots().length === 2, "빈 장은 지워진다");
-  dots()[0].click();
-  await until(() => !A.wg("class").hidden, "1장");
+  await until(() => dots().length === 0 && named()[0] === "대시보드", "빈 장은 지워진다");
   A.btn("#setPanel", "장 삭제").click();
   await wait(120);
-  assert.strictEqual(dots().length, 2, "위젯이 있는 장은 안 지워진다");
+  assert.strictEqual(named()[0], "대시보드", "위젯이 있는 장은 안 지워진다");
 
   A.fill("setCols", "12"); A.fill("setRows", "8");
   A.btn("#setPanel", "바꾸기").click();
   await until(() => deck.style.getPropertyValue("--cols") === "12", "가로 12칸으로");
   assert.strictEqual(deck.style.getPropertyValue("--rows"), "8", "세로 8칸으로");
-  for (const id of ["clock", "class", "book", "gcal", "todos", "ddays", "memo", "tt"]) {
+  for (const id of ["clock", "gcal", "todos", "ddays", "memo", "tt"]) {
     const m = /^(\d+) \/ (\d+) \/ span (\d+) \/ span (\d+)$/.exec(A.area(id));
     assert(m, id + " 자리 모양: " + A.area(id));
     const [y, x, h, w] = m.slice(1).map(Number);
@@ -576,38 +599,32 @@ function checkHiddenRule() {
     pageSel().dispatchEvent(new A.w.Event("change", { bubbles: true }));
     await until(() => pageSel().value === String(n), n + "장 고르기");
   };
-  assert.strictEqual(pageSel().options.length, 2, "장 수만큼 고를 수 있다");
-  await goPage(2);
-  assert(ttBox().checked, "주간 시간표는 2장에 있다");
-  await goPage(1);
-  assert(!ttBox().checked, "1장에는 없다");
-
-  await goPage(2);
+  assert.strictEqual(pageSel().options.length, 1, "대시보드 장 수만큼 고를 수 있다");
+  assert(ttBox().checked, "주간 시간표는 1장에 있다");
   ttBox().click();
   await until(() => !ttBox().checked, "체크를 풀면 꺼진다");
   assert(A.wg("tt").hidden, "꺼진 위젯은 화면에서 사라진다");
   ttBox().click();
-  await until(() => ttBox().checked, "다시 체크하면 2장으로 돌아온다");
+  await until(() => ttBox().checked, "다시 체크하면 1장으로 돌아온다");
 
   A.btn("#setPanel", "장 추가").click();
-  await until(() => pageSel().options.length === 3, "장을 더하면 고를 수 있는 장도 늘어난다");
-  await goPage(3);
-  ttBox().click();
-  await until(() => ttBox().checked, "3장에서 체크하면 그 장으로 옮겨진다");
+  await until(() => pageSel().options.length === 2, "장을 더하면 고를 수 있는 장도 늘어난다");
   await goPage(2);
-  assert(!ttBox().checked, "2장에서는 빠졌다");
   ttBox().click();
-  await until(() => ttBox().checked, "2장으로 되돌린다");
-  dots()[2].click();
-  await until(() => A.wg("class").hidden, "3장으로 넘어간다");
+  await until(() => ttBox().checked, "2장에서 체크하면 그 장으로 옮겨진다");
+  await goPage(1);
+  assert(!ttBox().checked, "1장에서는 빠졌다");
+  ttBox().click();
+  await until(() => ttBox().checked, "1장으로 되돌린다");
+  dots()[1].click();
+  await until(() => A.wg("tt").hidden, "2장으로 넘어간다");
   A.btn("#setPanel", "장 삭제").click();
-  await until(() => dots().length === 2, "빈 3장은 지워진다");
-  dots()[0].click();
+  await until(() => dots().length === 0, "빈 2장은 지워진다");
 
   const back = () => A.btn("#setPanel", "기본 배치로 되돌리기") || A.btn("#setPanel", "한 번 더 누르면 되돌리기");
   back().click(); back().click();
   await until(() => deck.style.getPropertyValue("--cols") === "24", "되돌리면 24칸");
-  assert.strictEqual(A.area("class"), "1 / 7 / span 16 / span 6", "되돌린 2단 자리");
+  assert.strictEqual(A.area("tt"), "1 / 7 / span 16 / span 6", "되돌린 2단 자리");
   A.d.dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await until(() => A.$("setPanel").hidden, "ESC 로 닫힌다");
   A.setTab("grid");
@@ -616,10 +633,12 @@ function checkHiddenRule() {
   await until(() => !A.$("setCols") && A.$("setScrim").hidden, "가림막으로 닫힌다");
 
   /* ---------- 호클래스 명단이 저절로 들어온다 ---------- */
-  await until(() => [...A.d.querySelectorAll("#classPick .cpick")].length === 3, "담임 반 + 호클래스 두 반");
+  A.go("수업");
+  await until(() => [...A.d.querySelectorAll("#classPick .cpick")].length === 2, "수업 장: 호클래스 두 반");
   assert.deepStrictEqual([...A.d.querySelectorAll("#classPick .cpick")].map(x => x.textContent),
-    ["3-9담임", "3-1", "3-2"], "담임 반이 맨 앞, 그 뒤로 호클래스 반");
+    ["3-1", "3-2"], "수업 장에는 담임 반(3-9)이 없다. 수업 반에 넣지 않았다");
   A.pick("3-1");
+  A.sub("att");
   await until(() => A.stu().length === 3, "3-1 학생 3명이 호클래스에서 들어온다");
   assert(A.text().includes("김지우") && A.text().includes("박세찌"), "호클래스 이름: " + A.text().slice(0, 80));
   assert(A.$("rosterBtn").hidden, "호클래스 반은 명단 편집을 막는다");
@@ -636,8 +655,9 @@ function checkHiddenRule() {
   for (const nm of ["김지우", "이주서", "박세찌"]) assert(!allStored().includes(nm), "수첩 쪽에 평문 금지: " + nm);
 
   /* ---------- 담임 반은 손으로 넣고, 학번을 만들어 준다 ---------- */
-  A.pick("3-9");
-  await until(() => A.text().includes("학생 명단이 비어"), "3-9는 명단이 없다");
+  A.go("담임");
+  await until(() => A.$("className").textContent.includes("9반") && A.text().includes("학생 명단이 비어"), "담임 장은 3-9, 명단이 없다");
+  assert(A.$("classPick").hidden, "담임 장에는 반 고르기가 없다");
   assert(!A.$("rosterBtn").hidden, "호클래스에 없는 반은 명단 편집을 쓸 수 있다");
   A.$("rosterBtn").click();
   await until(() => A.$("rNames"), "3-9 명단 편집");
@@ -647,14 +667,11 @@ function checkHiddenRule() {
   A.stu()[1].click();
   await until(() => store.has("desk_att/2027_3-9_" + day), "3-9 출결 문서");
 
-  /* ---------- 수첩 다섯 화면 ---------- */
-  for (const p of ["today", "student", "consult", "lesson", "work"]) {
+  /* ---------- 교무수첩 장의 기록 화면 ---------- */
+  for (const p of ["student", "consult", "lesson", "work"]) {
     A.tab(p); await wait(40);
-    assert(A.d.querySelectorAll("#bookBody .panel").length > 0, p + " 화면이 비었다");
+    assert(A.d.querySelectorAll("#classBody .panel").length > 0, p + " 화면이 비었다");
   }
-  A.tab("today");
-  await until(() => A.book().includes("3-1") && A.book().includes("3-9"), "오늘 출결에 반들이 보인다");
-  await until(() => A.book().includes("1번 김지우"), "오늘 출결에 결석 학생");
 
   A.tab("consult");
   await wait(40);
@@ -681,7 +698,7 @@ function checkHiddenRule() {
   assert.deepStrictEqual(hcWrites, [], "단추를 누르기 전에는 호클래스에 쓰지 않는다");
 
   /* ---------- 5단계: 차시와 제출 현황 ---------- */
-  A.pick("3-1");
+  A.go("수업"); A.pick("3-1"); A.sub("att");
   await until(() => A.stu().length === 3, "3-1로 돌아옴");
   A.tab("lesson");
   await until(() => A.book().includes("호클래스 차시"), "차시 칸이 보인다");
@@ -696,12 +713,12 @@ function checkHiddenRule() {
   A.submit("leForm");
   await until(() => A.book().includes("3단원 조선의 성립"), "수업 기록 저장");
 
-  A.btn("#bookBody", "오늘 날짜 넣기").click();
+  A.btn("#classBody", "오늘 날짜 넣기").click();
   await until(() => !A.book().includes("날짜 없음"), "2차시에 날짜가 들어간다", 30000);
   assert.strictEqual(JSON.parse(store.get("hoclass_course_lessons/cl2")).date, TODAY, "2차시 날짜");
   assert(hcWrites.includes("hoclass_course_lessons/cl2"), "차시 문서에 썼다");
 
-  [...A.d.querySelectorAll("#classSeg button")].find(b => b.dataset.tab === "col").click();
+  A.sub("col");
   await until(() => A.$("colName"), "수합 칸");
   A.fill("colName", "1차시 미션");
   A.$("colCl").value = "cl1"; A.$("colPart").value = "mission";
@@ -710,25 +727,24 @@ function checkHiddenRule() {
   assert(A.text().includes("미제출 1명"), "미제출 1명: " + A.text().slice(0, 120));
 
   /* ---------- 6단계: 결석 보내기 ---------- */
-  [...A.d.querySelectorAll("#classSeg button")].find(b => b.dataset.tab === "att").click();
+  A.sub("att");
   await until(() => A.d.querySelectorAll("#classBody .stu").length === 3, "출결 탭");
   const t2 = A.stu()[1];
   t2.click(); t2.click();
   await until(() => A.d.querySelectorAll("#classBody .stu.지각").length === 1, "2번 지각");
   if (process.env.DUMP_CLASS) {                   // 우리 반 세 보기를 떠 둔다(눈으로 볼 때)
-    const seg = (t) => [...A.d.querySelectorAll("#classSeg button")].find(b => b.dataset.tab === t).click();
-    for (const t of ["att", "col", "ann"]) { seg(t); await wait(60);
-      fs.writeFileSync(process.env.DUMP_CLASS + "_" + t + ".html", A.wg("class").outerHTML); }
-    seg("att"); await wait(60);
+    for (const t of ["att", "col"]) { A.sub(t); await wait(60);
+      fs.writeFileSync(process.env.DUMP_CLASS + "_" + t + ".html", A.$("nb").outerHTML + A.$("pagebar").outerHTML); }
+    A.sub("att"); await wait(60);
   }
 
   A.tab("lesson");
   await until(() => A.book().includes("호클래스 차시"), "차시 칸");
-  A.btn("#bookBody", "결석 보내기").click();
+  A.btn("#classBody", "결석 보내기").click();
   await until(() => A.book().includes("결석 보내기 확인"), "확인 화면", 30000);
   assert(A.book().includes("지각, 조퇴"), "지각은 안 보낸다고 알려 준다");
   assert(A.book().includes("결석 1명 보내기"), "결석 1명: " + A.book().slice(0, 200));
-  A.btn("#bookBody", "결석 1명 보내기").click();
+  A.btn("#classBody", "결석 1명 보내기").click();
   await until(() => !A.book().includes("결석 보내기 확인"), "보내고 나면 확인 화면이 닫힌다", 30000);
 
   const g = JSON.parse(store.get("hoclass_course_grades/cl1_30101"));
@@ -812,8 +828,7 @@ function checkHiddenRule() {
     return st && st.neis && st.neis.school && st.neis.school.code === "7331219"; }, "학교가 저장된다");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
-  A.tab("today");
-  await until(() => A.book().includes("흑미밥"), "오늘 급식이 수첩 오늘 화면에 보인다");
+  await until(() => A.$("mealBody").textContent.includes("흑미밥"), "오늘 급식이 급식 위젯에 보인다");
 
   /* ---------- 시정 채우기 (설정 창 시간표 탭) ---------- */
   assert(!A.$("ttEdit"), "위젯의 편집 단추는 설정 창으로 옮겼다");
