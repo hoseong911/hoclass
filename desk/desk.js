@@ -739,14 +739,14 @@ async function gcalLoad(tokenMaybe) {
 /* 설정 업무 탭: 위젯의 연결 단추와 같은 일을 한다 */
 function gcalSection() {
   const linked = !!GCal.savedToken(), n = gcalDays.reduce((a, d) => a + d.items.length, 0);
-  return setSec("구글 캘린더", [setBlock("연결", [
-    h("p", { class: "set-state", id: "gcalSetNote", text: !signedIn ? "로그인하면 쓸 수 있습니다."
-      : gcalErr || (linked ? `연결되어 있습니다. 앞으로 3주 일정 ${n}건이 위젯과 주간 계획에 보입니다.` : "연결하면 위젯과 주간 계획에 내 일정이 보입니다.") }),
-    signedIn ? h("div", { class: "set-row" }, h("button", { class: "btn small secondary", type: "button", id: "gcalSet",
+  const note = h("p", { class: "set-state", id: "gcalSetNote", text: !signedIn ? "로그인하면 쓸 수 있습니다."
+    : gcalErr || (linked ? `연결되어 있습니다. 앞으로 3주 일정 ${n}건이 위젯과 주간 계획에 보입니다.` : "연결하면 위젯과 주간 계획에 내 일정이 보입니다.") });
+  return setSec("구글 캘린더", [setBlock(null, [
+    !signedIn ? note : h("div", { class: "set-row" }, h("button", { class: "btn small secondary", type: "button", id: "gcalSet",
       text: gcalBusy ? "연결 중…" : linked ? "새로 받기" : "연결", disabled: gcalBusy, onclick: async () => {
         if (linked) { await gcalLoad(); renderGcal(); } else await gcalConnect();
         renderSet();
-      } })) : null,
+      } }), note),
   ])]);
 }
 function renderGcal() {
@@ -1091,10 +1091,7 @@ function gridSection() {
     })));
   }
   const off = WIDGETS.filter(def => !state.layout[def.id].on);
-  if (off.length) {
-    pageList.push(h("h4", { class: "set-sub", text: "쓰지 않는 위젯" }));
-    pageList.push(h("p", { class: "set-state", text: off.map(d => d.name).join(", ") }));
-  }
+  if (off.length) pageList.push(h("p", { class: "set-state", text: "쓰지 않는 위젯: " + off.map(d => d.name).join(", ") }));
   return setSec("화면 배치", [
     setBlock("칸 수", [
       h("div", { class: "set-grid" },
@@ -1729,8 +1726,9 @@ function setHistory() {
 window.addEventListener("popstate", () => { if (setHist) { setHist = false; setOpen = false; renderSet(); } });
 const setField = (name, el) => h("label", { class: "field" }, name, el);
 /* 묶음마다 소제목과 테두리를 둬서 빽빽하지 않게 (선생님 지시 2026-11-12) */
+// 제목이 카드 제목과 겹치면 null 로 둔다(나이스 > 인증키 > 나이스 인증키처럼 세 번 쓰지 않게)
 const setBlock = (title, kids) => h("div", { class: "set-block" },
-  h("h4", { class: "set-sub", text: title }), ...kids.filter(Boolean));
+  title ? h("h4", { class: "set-sub", text: title }) : null, ...kids.filter(Boolean));
 function setSec(title, body, err, foot) {
   return h("section", { class: "set-sec" },
     h("h3", { text: title }),
@@ -1749,15 +1747,18 @@ function renderSet() {
   if (!SET_TABS.some(t => t.key === setTab)) setTab = "year";
   const cur = SET_TABS.find(t => t.key === setTab);
   const old = p.querySelector(".set-main"), keepTop = old && old.dataset.tab === setTab ? old.scrollTop : 0;
-  const secs = setTab === "screen" ? [gridSection(), linksSection()]
-    : setTab === "lesson" ? [yearSection("lesson"), neisSection("lesson"), ttSection()]
-    : setTab === "home" ? [yearSection("home")]
-    : setTab === "work" ? [neisSection("work"), gcalSection()]
-    : [yearSection(), neisSection("year"), C.body && C.body.pass ? passSection() : null, backupSection()];
+  /* 2단(선생님 지시 2026-11-14: 늘어지지 않게). [왼쪽, 오른쪽, 아래 전체 폭]. 좁으면 왼쪽, 오른쪽, 아래 차례로 한 줄. */
+  const [left, right, full] = setTab === "screen" ? [[gridSection()], [linksSection()], []]
+    : setTab === "lesson" ? [[yearSection("lesson"), rosterSec("lesson")], [neisSection("lesson")], [ttSection()]]
+    : setTab === "home" ? [[yearSection("home")], [rosterSec("home")], []]
+    : setTab === "work" ? [[neisSection("work")], [gcalSection()], []]
+    : [[yearSection(), C.body && C.body.pass ? passSection() : null], [neisSection("year"), backupSection()], []];
+  const col = (list) => h("div", { class: "set-col" }, ...list.filter(Boolean));
   const main = h("div", { class: "set-main", "data-tab": setTab },
     h("div", { class: "set-inner" },
       h("div", { class: "set-lead" }, h("h2", { class: "set-page", text: cur.name }), h("p", { text: cur.desc })),
-      ...secs.filter(Boolean)));
+      h("div", { class: "set-cols" }, col(left), col(right)),
+      ...full.filter(Boolean)));
   p.replaceChildren(
     h("div", { class: "set-head" },
       h("h2", { class: "set-title", id: "setTitle", text: "설정" }),
@@ -1923,13 +1924,12 @@ function yearSection(part) {
   idleSel.value = String(state.idleMin);
 
   if (part === "home") return h("section", { class: "set-sec", id: "setHomeSec" },
-    h("h3", { text: "담임 반" }),
-    setBlock(state.year.current + "학년도", [setLine("담임", ...homeVal)]),
-    y.homeroom ? rosterBlock("home", [y.homeroom]) : null,
+    h("h3", { text: state.year.current + "학년도 담임 반" }),
+    setBlock(null, homeVal),
     err);
   if (part === "lesson") return h("section", { class: "set-sec", id: "setLessonSec" },
-    h("h3", { text: "수업 반" }),
-    setBlock(state.year.current + "학년도에 가르치는 반", [
+    h("h3", { text: state.year.current + "학년도 수업 반" }),
+    setBlock(null, [
       roomPicker("setClasses", classes,
         (c) => putYear({ classes: classes.includes(c) ? classes.filter(x => x !== c) : [...classes, c].sort(byClass) })),
       h("div", { class: "set-row" },
@@ -1941,12 +1941,11 @@ function yearSection(part) {
           putYear({ classes: got });
         } })),
     ]),
-    lessonClasses().length ? rosterBlock("lesson", lessonClasses()) : null,
     err);
 
   return h("section", { class: "set-sec", id: "setForm" },
     h("h3", { text: "내 정보" }),
-    setBlock("학교와 학년도", [
+    setBlock(null, [
       setLine("학교", ...schoolVal),
       setLine("학년도", h("div", { class: "set-row" }, ...yearVal)),
     ]),
@@ -1974,7 +1973,7 @@ function neisSection(part) {
   };
 
   /* 인증키 */
-  const keyIn = h("input", { type: "text", id: "neisKey", value: N.key || "", autocomplete: "off", spellcheck: "false" });
+  const keyIn = h("input", { type: "text", id: "neisKey", value: N.key || "", autocomplete: "off", spellcheck: "false", "aria-label": "나이스 인증키" });
 
   /* 과목마다 가르치는 반이 다르다. 그래서 과목은 줄 여럿이고 줄마다 반을 고른다. */
   const myClasses = () => {
@@ -2027,7 +2026,7 @@ function neisSection(part) {
     ]) : noSchool,
     note], err);
   if (part === "work") return setSec("학사 일정", [
-    school ? setBlock("나이스", [
+    school ? setBlock(null, [
       h("div", { class: "set-row" }, doBtn("neisCal", "학사 일정 받기", async () => {
         const list = await Neis.loadSchedule(school, state.year.current, N.key);
         if (!list.length) { err.textContent = "그 학년도의 학사 일정이 없습니다."; return; }
@@ -2036,16 +2035,14 @@ function neisSection(part) {
         state.calAt = new Date().toISOString();
         save(true); renderDdays(); renderCalBox();
         note.textContent = list.length + "건을 받았습니다." + (list.short ? " " + Neis.KEY_HINT : "");
-      })),
-      h("p", { class: "set-state", text: state.cal.length
+      }), h("p", { class: "set-state", text: state.cal.length
         ? `${state.calSchool || school.name} 일정 ${state.cal.length}건이 있습니다. D-day 와 주간 계획에 들어갑니다.`
-        : "받으면 D-day 와 주간 계획에 들어갑니다." }),
+        : "받으면 D-day 와 주간 계획에 들어갑니다." })),
     ]) : noSchool,
     note], err);
   return setSec("나이스", [
     setBlock("인증키", [
-      h("div", { class: "set-grid" }, setField("나이스 인증키", keyIn)),
-      h("div", { class: "set-row" },
+      h("div", { class: "set-row" }, keyIn,
         h("button", { class: "btn small", type: "button", id: "neisSave", text: "저장", onclick: () => {
           state.neis = { ...state.neis, key: keyIn.value.trim() };
           save(true); renderSet(); toast("저장했습니다");
@@ -2081,8 +2078,8 @@ function passSection() {
       setField("현재 비밀번호 또는 복구 키", cur),
       passField("chgNew", "새 비밀번호", "new-password"),
       passField("chgNew2", "새 비밀번호 확인", "new-password")),
-    err,
-    h("div", { class: "set-foot" }, btn));
+    h("div", { class: "set-row" }, btn),
+    err);
   return h("section", { class: "set-sec" }, h("h3", { text: "비밀번호" }), form);
 }
 
@@ -2299,9 +2296,14 @@ function rosterTemplate(kind, classes) {
   }
   return rows;
 }
+/* 설정 수업, 담임 탭의 학생 명단 카드 */
+function rosterSec(kind) {
+  const classes = kind === "home" ? (cfg().homeroom ? [cfg().homeroom] : []) : lessonClasses();
+  return classes.length ? setSec("학생 명단", [rosterBlock(kind, classes)]) : null;
+}
 function rosterBlock(kind, classes) {
   const open = keyStateNow() === "open" && docs.roster && docs.roster.ready;
-  if (!open) return setBlock("학생 명단", [h("p", { class: "set-state", text: "교무수첩을 열면 명단을 올릴 수 있습니다. 교무수첩 장에서 비밀번호를 넣어 주세요." })]);
+  if (!open) return setBlock(null, [h("p", { class: "set-state", text: "교무수첩을 열면 명단을 올릴 수 있습니다. 교무수첩 장에서 비밀번호를 넣어 주세요." })]);
   const mine = classes.filter(c => !hcHas(c));
   const err = h("p", { class: "form-err", role: "alert", text: rosterErr });
   const fail = (e) => { rosterErr = (e && e.message) || "처리하지 못했습니다."; err.textContent = rosterErr; };
@@ -2355,7 +2357,7 @@ function rosterBlock(kind, classes) {
     h("div", { class: "set-row" },
       h("button", { class: "btn small", type: "button", id: "rsApply", text: "적용", disabled: !okN, onclick: applyRosterPlan }),
       h("button", { class: "btn small secondary", type: "button", id: "rsCancel", text: "취소", onclick: () => { rosterPlan = null; renderSet(); } }))) : null;
-  return setBlock("학생 명단", [
+  return setBlock(null, [
     lines,
     mine.length ? btns : null,
     h("p", { class: "set-state", text: mine.length
@@ -2945,7 +2947,8 @@ function backupSection() {
     } finally { bkBusy = false; expBtn.disabled = false; expBtn.textContent = "백업 파일 내보내기"; }
   });
 
-  const fileIn = h("input", { type: "file", id: "bkFile", accept: ".json,application/json" });
+  const fileIn = h("input", { type: "file", id: "bkFile", accept: ".json,application/json", hidden: true });
+  const fileBtn = h("button", { class: "btn small secondary", type: "button", text: "백업 파일 고르기", onclick: () => { fileIn.value = ""; fileIn.click(); } });
   const pickNote = h("p", { class: "set-state", text: bkPicked ? bkPickedNote() : "" });
   const impBtn = h("button", { class: "btn small secondary", type: "button", id: "bkLoad", text: "이 파일로 되돌리기" });
   const resetArm = () => { delete impBtn.dataset.armed; impBtn.textContent = "이 파일로 되돌리기"; };
@@ -2978,13 +2981,8 @@ function backupSection() {
   });
 
   return setSec("백업", [
-    h("h4", { class: "set-sub", text: "내보내기" }),
-    h("div", { class: "set-row" }, expBtn),
-    note,
-    h("h4", { class: "set-sub", text: "되돌리기" }),
-    h("div", { class: "file-row" }, fileIn),
-    pickNote,
-    h("div", { class: "set-row" }, impBtn),
+    setBlock("내보내기", [h("div", { class: "set-row" }, expBtn), note]),
+    setBlock("되돌리기", [h("div", { class: "set-row" }, fileBtn, impBtn, fileIn), pickNote]),
   ], err);
 }
 

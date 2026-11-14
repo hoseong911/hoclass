@@ -1098,6 +1098,12 @@ function checkEntries() {
   assert(A.$("rsList").textContent.includes("호클래스 강의실"), "강의실 반은 호클래스 명단을 쓴다고 보인다");
   await wait(900);
   for (const nm of ["새친구", "명부하나"]) assert(!allStored().includes(nm), "올린 명단 평문 금지: " + nm);
+  // 눈으로 볼 때: DUMP_TABS=폴더 npm test 하면 설정 탭 다섯을 탭이름.html 로 떠 둔다.
+  if (process.env.DUMP_TABS) for (const k of ["year", "screen", "lesson", "home", "work"]) {
+    A.setTab(k); await wait(60);
+    for (const i of A.d.querySelectorAll("#setPanel input")) i.setAttribute("value", i.value);
+    fs.writeFileSync(path.join(process.env.DUMP_TABS, k + ".html"), A.$("setPanel").outerHTML);
+  }
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
 

@@ -660,7 +660,12 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .set-tab:hover { background: var(--surface-2); color: var(--ink); }
 .set-tab[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .set-main { overflow-y: auto; min-height: 0; min-width: 0; }
-.set-inner { max-width: 1120px; margin: 0 auto; padding: 36px 48px 72px; display: flex; flex-direction: column; gap: 20px; }
+.set-inner { max-width: 1280px; margin: 0 auto; padding: 36px 48px 72px; display: flex; flex-direction: column; gap: 20px; }
+/* 2단: 왼쪽, 오른쪽 기둥을 따로 쌓는다(한 줄 높이를 맞추면 짧은 카드 아래가 빈다). 좁으면 한 기둥. */
+.set-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.set-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.set-col:empty { display: none; }
+@media (max-width: 1180px) { .set-cols { grid-template-columns: minmax(0, 1fr); } }
 .set-lead { padding: 0 4px 4px; }
 .set-page { font-family: var(--font-title); font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.02em; }
 .set-lead p { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
@@ -685,12 +690,16 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .set-sec > h3 + .set-block { border-top: 0; padding-top: 0; }
 .set-block > .set-sub { margin: 0 0 2px; }
 /* .set-state 는 줄(row) 안에서 늘어나라고 flex-basis 140px 이다. 세로 묶음 안에서는 그게 높이가 된다. */
-.set-block > .set-state, .set-val > .set-state { flex: none; }
+/* 고르개(.seg)는 칸 폭만큼 늘어나지 않게 */
+.set-block > .seg, .set-form > .seg, .set-val > .seg { align-self: flex-start; }
+.set-row > input[type="text"], .set-row > input[type="password"] { flex: 1 1 200px; min-width: 0; }
 .set-sec > h3 { font-size: var(--fs-strong); font-weight: 700; margin: 0; }
 .set-sub { font-size: 12px; font-weight: 600; color: var(--muted); margin: 2px 0 -4px; }
 .set-form { display: contents; }
 .set-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.set-state { font-size: 13px; color: var(--muted); margin: 0; flex: 1 1 140px; }
+/* 늘어나는 것은 줄(row) 안에서만. 세로 묶음에서 flex-basis 가 높이가 되어 큰 빈칸이 생겼다(백업). */
+.set-state { font-size: 13px; color: var(--muted); margin: 0; flex: none; }
+.set-row > .set-state { flex: 1 1 140px; }
 .set-state:empty { display: none; }
 .set-foot { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); }
 .set-grid .field > .btn { align-self: flex-start; }
@@ -738,11 +747,11 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .rz-sw { left: -6px; bottom: -6px; width: 16px; height: 16px; cursor: nesw-resize; }
 .rz-nw { left: -6px; top: -6px; width: 16px; height: 16px; cursor: nwse-resize; }
 
-.wg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 6px; }
+.wg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
 .wg-check {
   border: 1px solid var(--line); background: var(--surface); border-radius: 8px;
   padding: 7px 10px; font-size: 13px; cursor: pointer; text-align: left;
-  display: flex; gap: 8px; align-items: center;
+  display: flex; gap: 8px; align-items: center; white-space: nowrap;   /* 위젯 이름이 두 줄로 꺾이지 않게 */
 }
 .wg-check.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .wg-check input { flex: none; accent-color: var(--accent); margin: 0; }
