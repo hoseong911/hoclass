@@ -1176,3 +1176,26 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .wg[data-w="periods"] .period.lunch .p { display: none; }
   .wg[data-w="periods"] .period.lunch { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ══════════ 아이콘 단추(추가, 삭제, 고치기, 저장, 취소, 닫기) ══════════ */
+/* h() 가 글자를 보고 SVG 로 바꾼다(iconize). 크기는 원래 단추 종류(.btn, .del, .text-btn)를 따른다. */
+.icon-btn { display: inline-grid; place-items: center; flex: none; }
+.icon-btn svg { width: 16px; height: 16px; display: block; }
+.btn.icon-btn { width: 34px; height: 34px; padding: 0; }
+.btn.small.icon-btn { width: 30px; height: 30px; }
+.text-btn.icon-btn { padding: 4px; border-radius: 6px; }
+.del.icon-btn, .wg-off.icon-btn, .pg-del.icon-btn { padding: 4px; }
+.del.icon-btn svg, .wg-off.icon-btn svg, .pg-del.icon-btn svg { width: 14px; height: 14px; }
+
+/* 설정 카드, 묶음 제목 끝의 단추(단추 하나만 따로 한 줄에 두지 않는다) */
+.set-hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
+.set-acts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+.set-hd > h3 { font-family: var(--font-title); font-size: var(--fs-strong); font-weight: 700; margin: 0; }
+.set-hd > .set-sub { margin: 0; }
+.set-sec > .set-hd + .set-block { border-top: 0; padding-top: 0; }
+
+/* 설정 학생 명단: 반 줄 아래 펼치는 편집 칸 */
+.rs-list .rs-edit { border-radius: 0; border-top: 1px solid var(--line); }
+.rs-cnt { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); }
+.rs-cnt input { width: 72px; }
+.calpaste textarea, #calText { min-height: 120px; }

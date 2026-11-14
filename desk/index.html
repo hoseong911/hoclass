@@ -108,9 +108,7 @@ window.__deskLog = [];
     <section class="card" aria-labelledby="ddayTitle">
       <div class="card-head">
         <h2 class="card-title" id="ddayTitle">학사 일정 D-day</h2>
-        <button class="text-btn" type="button" id="calPaste">일정 붙여넣기</button>
       </div>
-      <div id="calBox" hidden></div>
       <ul class="dday-list" id="ddayList"></ul>
       <form class="dday-form" id="ddayForm">
         <label class="sr" for="ddayName">일정 이름</label>
@@ -169,16 +167,14 @@ window.__deskLog = [];
     <p class="class-name" id="className"></p>
   </div>
   <div class="class-pick" id="classPick" hidden></div>
-  <!-- 오른쪽 위는 떠 있는 도구 줄(설정, 나가기)과 겹치므로 명단 편집 같은 것은 탭 줄 오른쪽에 둔다 -->
+  <!-- 오른쪽 위는 떠 있는 도구 줄(설정, 나가기)과 겹치므로 이름 가리기 같은 것은 탭 줄 오른쪽에 둔다 -->
   <div class="nb-bar">
     <div class="seg nb-seg" id="nbSeg" role="group" aria-label="교무수첩 보기" hidden></div>
     <div class="row nb-tools">
-      <button class="text-btn" type="button" id="rosterBtn" hidden>명단 편집</button>
       <button class="text-btn" type="button" id="hideBtn" hidden>이름 가리기</button>
       <button class="text-btn" type="button" id="lockBtn" hidden>잠그기</button>
     </div>
   </div>
-  <div id="rosterEditor" hidden></div>
   <div id="classBody"></div>
 </section>
 <div class="pagebar" id="pagebar"></div>

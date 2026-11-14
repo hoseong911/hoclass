@@ -185,7 +185,8 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
       d.querySelector("#" + id + ' [data-grade="' + g + '"]').click();
       d.querySelector("#" + id + ' .cpick[data-cls="' + g + "-" + r + '"]').click();
     },
-    btn: (where, label) => [...d.querySelectorAll(where + " button")].find(b => b.textContent.includes(label)),
+    // 아이콘 단추는 글자가 없어 aria-label 로 찾는다
+    btn: (where, label) => [...d.querySelectorAll(where + " button")].find(b => b.textContent.includes(label) || (b.getAttribute("aria-label") || "").includes(label)),
     pick: (c) => [...d.querySelectorAll("#classPick .cpick")].find(x => x.textContent.startsWith(c)).click(),
     stu: () => [...d.querySelectorAll("#classBody .stu")],
     /* 출결 한 건 적기: 학생 칸을 눌러 고르개를 열고 종류, 사유, 교시(조회 0, 1~7, 종례 8), 메모 */
@@ -577,7 +578,7 @@ function checkEntries() {
   const made = (name) => [...A.d.querySelectorAll("#links .link")].find(a => a.textContent.includes(name));
   const lkRow = (name) => [...A.d.querySelectorAll("#setPanel .lk-row")].find(r => r.textContent.includes(name));
   const type = (id, v) => { A.fill(id, v); A.$(id).dispatchEvent(new A.w.Event("input", { bubbles: true })); };
-  const lkBtn = (name, text) => [...lkRow(name).querySelectorAll("button")].find(b => b.textContent === text);
+  const lkBtn = (name, text) => [...lkRow(name).querySelectorAll("button")].find(b => b.textContent === text || b.getAttribute("aria-label") === text);
 
   assert(!A.d.querySelector("#links button"), "위젯에는 누를 타일만 있고 단추는 없다");
   assert(!A.$("editLinks"), "바로가기 편집 단추는 설정 창으로 옮겼다");
@@ -660,7 +661,7 @@ function checkEntries() {
   assert.strictEqual(named()[0], "대시보드", "위젯이 있는 장은 안 지워진다");
 
   A.fill("setCols", "12"); A.fill("setRows", "8");
-  A.btn("#setPanel", "바꾸기").click();
+  A.btn("#setPanel", "칸 수 적용").click();
   await until(() => deck.style.getPropertyValue("--cols") === "12", "가로 12칸으로");
   assert.strictEqual(deck.style.getPropertyValue("--rows"), "8", "세로 8칸으로");
   for (const id of ["clock", "gcal", "todos", "ddays", "memo", "tt"]) {
@@ -720,7 +721,7 @@ function checkEntries() {
   A.sub("att");
   await until(() => A.stu().length === 3, "3-1 학생 3명이 호클래스에서 들어온다");
   assert(A.text().includes("김지우") && A.text().includes("박세찌"), "호클래스 이름: " + A.text().slice(0, 80));
-  assert(A.$("rosterBtn").hidden, "호클래스 반은 명단 편집을 막는다");
+  assert(!A.$("rosterBtn") && !A.$("rosterEditor"), "교무수첩 장에는 명단 편집이 없다(설정으로 옮겼다)");
 
   /* ---------- 출결은 학번으로 묶인다 ---------- */
   await A.mark(0, "결석", "미인정");
@@ -737,11 +738,18 @@ function checkEntries() {
   A.go("담임");
   await until(() => A.$("className").textContent.includes("9반") && A.text().includes("학생 명단이 비어"), "담임 장은 3-9, 명단이 없다");
   assert(A.$("classPick").hidden, "담임 장에는 반 고르기가 없다");
-  assert(!A.$("rosterBtn").hidden, "호클래스에 없는 반은 명단 편집을 쓸 수 있다");
-  A.$("rosterBtn").click();
+  /* 명단 편집은 설정의 담임 탭으로 옮겼다. 빈 명단 안내의 「설정 열기」가 그리로 바로 간다. */
+  A.btn("#classBody", "설정 열기").click();
+  await until(() => A.$("rsList") && A.d.querySelector('#setPanel .set-tab[data-tab="home"][aria-pressed="true"]'), "담임 탭 학생 명단으로 바로 간다");
+  A.btn("#rsList", "3학년 9반 명단 편집").click();
   await until(() => A.$("rNames"), "3-9 명단 편집");
+  assert(A.$("rSave").classList.contains("icon-btn") && A.$("rSave").getAttribute("aria-label") === "저장" && A.$("rSave").querySelector("svg"),
+    "저장은 SVG 아이콘 단추");
   A.fill("rCount", "2"); A.fill("rNames", "담임하나\n담임둘");
   A.$("rSave").click();
+  await until(() => !A.$("rNames") && A.$("rsList").textContent.includes("2명"), "설정에서 저장");
+  A.$("setClose").click();
+  await until(() => A.$("setPanel").hidden, "설정 닫기");
   await until(() => A.stu().length === 2, "3-9 학생 2명");
   await A.mark(1, "결석", "질병");
   await until(() => store.has("desk_att/2027_3-9_" + day), "3-9 출결 문서");
@@ -1098,6 +1106,13 @@ function checkEntries() {
   assert(A.$("rsList").textContent.includes("호클래스 강의실"), "강의실 반은 호클래스 명단을 쓴다고 보인다");
   await wait(900);
   for (const nm of ["새친구", "명부하나"]) assert(!allStored().includes(nm), "올린 명단 평문 금지: " + nm);
+  /* 학사 일정 붙여넣기는 D-day 위젯에서 설정 업무 탭으로 옮겼다 */
+  assert(!A.$("calPaste") && !A.$("calBox"), "D-day 위젯에는 일정 붙여넣기가 없다");
+  A.setTab("work");
+  await until(() => A.$("calText"), "업무 탭 일정 붙여넣기");
+  A.fill("calText", "12.24 붙여넣은 방학식");
+  A.$("calAdd").click();
+  await until(() => A.$("ddayList").textContent.includes("붙여넣은 방학식"), "붙여 넣은 일정이 D-day 에 들어온다");
   // 눈으로 볼 때: DUMP_TABS=폴더 npm test 하면 설정 탭 다섯을 탭이름.html 로 떠 둔다.
   if (process.env.DUMP_TABS) for (const k of ["year", "screen", "lesson", "home", "work"]) {
     A.setTab(k); await wait(60);
