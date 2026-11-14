@@ -153,6 +153,8 @@ export async function loadRoomCounts(school, ay, key) {
    내가 안 들어가는 시간까지 들어와서 뺐다(선생님 지시 2026-11-13 "수업 시간표에서는 창체활동 빼라"). */
 export async function loadMyWeek(school, ay, sem, mondayYmd, subjects, key) {
   const tt = Array.from({ length: 5 }, () => Array.from({ length: 7 }, () => ""));
+  // 같은 반을 두 과목 가르치면(역사, 사회) 반 이름만으로는 못 가른다. 칸마다 과목을 tt.subj 에 같이 둔다(선생님 지적 2026-11-14).
+  tt.subj = Array.from({ length: 5 }, () => Array.from({ length: 7 }, () => ""));
   const got = new Map();   // 같은 날 같은 반을 두 번 받지 않는다(과목 줄끼리 반이 겹친다)
   for (let day = 0; day < 5; day++) {
     const ymd = addDays(mondayYmd, day);
@@ -168,7 +170,7 @@ export async function loadMyWeek(school, ay, sem, mondayYmd, subjects, key) {
         if (rows.short) tt.short = true;
         for (const x of rows) {
           if (!x.subject.includes(want)) continue;
-          if (!tt[day][x.period - 1]) tt[day][x.period - 1] = cls;
+          if (!tt[day][x.period - 1]) { tt[day][x.period - 1] = cls; tt.subj[day][x.period - 1] = want; }
         }
       }
     }

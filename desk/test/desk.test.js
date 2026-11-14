@@ -147,8 +147,11 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
       if (!subjects.length || subjects.some(x => !x.name || !x.classes.length)) {
         throw new Error("과목과 반 없이 받아오면 첫 반이 모든 칸을 먹는다");
       }
-      return [["3-1", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
-              ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]]; },
+      const tt = [["3-1", "", "", "", "3-9", "", ""], ["", "", "", "", "", "", ""],
+              ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]];
+      // 월요일 1교시 3-1 역사, 5교시 3-9 사회(3-9 는 역사, 사회 둘 다 가르친다)
+      tt.subj = [["역사", "", "", "", "사회", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]];
+      return tt; },
     loadClassDay: async () => [],
     loadRoomCounts: async () => ({ 1: 10, 2: 10, 3: 10 }),
     mondayOf: () => "20261109", semesterOf: () => 2, addDays: (y) => y, KEY_HINT: "",
@@ -1087,6 +1090,12 @@ function checkEntries() {
 
   /* ---------- 나이스 시간표로 진도 계획 만들기(수업 장 진도 「전체」) ---------- */
   A.go("수업"); A.sub("prog");
+  await until(() => A.$("nbSubj") && !A.$("nbSubj").hidden, "수업 장 머리줄에 과목");
+  assert.deepStrictEqual([...A.$("nbSubj").querySelectorAll("button")].map(b => b.textContent), ["역사", "사회"], "내 과목 둘");
+  assert(A.$("nbSubj").nextElementSibling === A.$("nbSeg"), "제목, 과목, 탭 차례로 한 줄");
+  A.d.querySelector('#nbSubj [data-subj="역사"]').click();
+  await until(() => A.d.querySelector('#nbSubj [data-subj="역사"][aria-pressed="true"]'), "역사");
+  assert.deepStrictEqual([...A.d.querySelectorAll("#classPick .cpick")].map(x => x.textContent), ["전체", "3-1", "3-9"], "둘째 줄: 역사를 가르치는 반");
   A.d.querySelector("#classPick .cpick").click();   // 전체
   await until(() => A.$("genPlan"), "전체: 진도 계획 만들기 단추");
   assert(A.$("genFrom").value.endsWith("-01") && A.$("genTo").value > A.$("genFrom").value, "기본은 이번 달 1일부터 다음 달 끝");
@@ -1094,7 +1103,9 @@ function checkEntries() {
   await until(() => A.$("genNote") && A.$("genNote").textContent.includes("넣었습니다"), "진도 계획을 만든다", 30000);
   const paRows = () => [...A.$("progAll").querySelectorAll("tbody tr")];
   assert(paRows().length >= 6, "월요일 1교시 3-1 수업이 주마다 들어가 차시가 여럿: " + paRows().length);
-  assert.deepStrictEqual([...A.$("progAll").querySelectorAll("thead .pa-cls")].map(x => x.textContent), ["3-1", "3-2"], "열은 반");
+  assert.deepStrictEqual([...A.$("progAll").querySelectorAll("thead .pa-cls")].map(x => x.textContent), ["3-1", "3-9"], "열은 역사 반");
+  assert(![...A.$("progAll").querySelectorAll('td.pa-cell[data-cls="3-9"]')].some(td => !td.classList.contains("na") && td.textContent.includes("5교시")),
+    "3-9 사회 수업(5교시)은 역사 표에 안 들어온다");
   const paBefore = paRows().length;
   A.$("genPlan").click();
   await until(() => A.$("genNote").textContent.includes("수업 0개"), "두 번 만들어도 겹치지 않는다", 30000);
@@ -1102,8 +1113,15 @@ function checkEntries() {
   if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_progall.html", A.$("nb").outerHTML);
   const paCell = A.d.querySelector('#progAll td.pa-cell[data-cls="3-1"]');
   paCell.click();
-  await until(() => A.$("leEd") && A.$("className").textContent.includes("1반"), "칸을 누르면 그 반 진도표의 그 수업");
+  await until(() => A.$("leEd") && A.d.querySelector('#classPick .cpick[aria-pressed="true"]').textContent === "3-1", "칸을 누르면 그 반 진도표의 그 수업");
   if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_progcls.html", A.$("nb").outerHTML);
+  /* 사회로 바꾸면 3-9 사회 수업만(나이스가 준 과목대로) */
+  A.d.querySelector('#nbSubj [data-subj="사회"]').click();
+  await until(() => A.$("pcList") && A.d.querySelector('#nbSubj [data-subj="사회"][aria-pressed="true"]'), "사회 진도표");
+  assert(A.$("classPick").hidden, "사회는 3-9 한 반이라 반 고르기가 없다");
+  assert([...A.d.querySelectorAll("#pcList .pc-row")].every(r => r.textContent.includes("5교시")), "사회 진도표는 3-9 5교시 수업만");
+  A.d.querySelector('#nbSubj [data-subj="역사"]').click();
+  await until(() => A.d.querySelector('#nbSubj [data-subj="역사"][aria-pressed="true"]'), "역사로 돌아온다");
 
   /* ---------- 시정 채우기 (설정 창 시간표 탭) ---------- */
   assert(!A.$("ttEdit"), "위젯의 편집 단추는 설정 창으로 옮겼다");

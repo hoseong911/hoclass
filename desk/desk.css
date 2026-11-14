@@ -1384,3 +1384,6 @@ table.pa-table { width: auto; min-width: 100%; }
 .nb #classBody .lt-tiles { grid-auto-rows: 84px; }
 .pa-table th.pa-cls, .pa-table td.pa-cell { width: 110px; min-width: 96px; }
 .pa-table .pa-topic { width: auto; }
+
+/* 수업 장 머리줄 과목 고르기: 탭(.nb-seg)과 같은 모양, 고른 과목은 강조색 */
+.nb-subj button[aria-pressed="true"] { color: var(--accent); font-weight: 700; }

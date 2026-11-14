@@ -91,8 +91,8 @@ export async function loadLessons(FB, hc) {
   ]);
   const title = {};
   lessons.forEach(d => { const l = d.data() || {}; title[d.id] = String(l.title || ""); });
-  const idToCls = {};
-  for (const c of hc.courses) idToCls[c.id] = c.cls;
+  const idToCls = {}, subjOf = {};
+  for (const c of hc.courses) { idToCls[c.id] = c.cls; subjOf[c.id] = c.subject || ""; }
   cls.forEach(d => {
     const cl = d.data() || {};
     const cls2 = idToCls[cl.courseId];
@@ -100,7 +100,7 @@ export async function loadLessons(FB, hc) {
     (byCls[cls2] = byCls[cls2] || []).push({
       clId: d.id, courseId: cl.courseId, lessonId: cl.lessonId || "",
       order: Number(cl.order) || 0, date: String(cl.date || ""),
-      isOpen: cl.isOpen !== false, title: title[cl.lessonId] || "",
+      isOpen: cl.isOpen !== false, title: title[cl.lessonId] || "", subject: subjOf[cl.courseId] || "",
     });
   });
   for (const k of Object.keys(byCls)) byCls[k].sort((a, b) => a.order - b.order);
