@@ -129,10 +129,11 @@ function device() {
   };
   w.URL.createObjectURL = () => "blob:fake";
   w.URL.revokeObjectURL = () => {};
-  const sideCode = ["../shared/icons.js", "grid.js", "hoclass.js"].map(f => fs.readFileSync(path.join(DIR, f), "utf8").replace(/^export /gm, "")).join("\n");
+  const sideCode = ["../shared/icons.js", "grid.js", "hoclass.js", "plansync.js"].map(f => fs.readFileSync(path.join(DIR, f), "utf8").replace(/^export /gm, "")).join("\n");
   const deskCode = fs.readFileSync(path.join(DIR, "desk.js"), "utf8")
     .replace(/^import \{ FB \} from "\.\/fb-desk\.js";$/m, "const FB = window.__FB__;")
     .replace(/^import \{[^}]*\} from "\.\/hoclass\.js";$/m, "")
+    .replace(/^import \{[^}]*\} from "\.\/plansync\.js";$/m, "")
     .replace(/^import \{[^}]*\} from "\.\/grid\.js";$/m, "")
     .replace(/^import \* as GCal from "\.\/gcal\.js";$/m, "const GCal = window.__GCAL__;")
     .replace(/^import \* as Neis from "\.\/neis\.js";$/m, "const Neis = window.__NEIS__;")

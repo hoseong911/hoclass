@@ -55,6 +55,9 @@ function renameHoclassStudent(room, idx, newName) {
 }
 
 const writes = [], hcWrites = [];
+/* 가짜 구글 캘린더: 「교무수첩」 캘린더 하나와 그 일정들(plansync.js 의 fromEvent 모양) */
+const gfake = { token: null, cal: "", events: new Map(), seq: 0, ensures: 0 };
+const gtime = () => Date.now() + (++gfake.seq);
 /* 저장소 연결이 끊긴 것을 흉내 낼 때 부를 콜백들 */
 const errCbs = new Set();
 function breakCloud() { const all = [...errCbs]; errCbs.clear(); for (const f of all) f(new Error("끊김")); }
@@ -116,9 +119,15 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
   w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder;
   w.__FB__ = makeFB();
   w.__GCAL__ = {
-    savedToken: () => null, forgetToken: () => {},
+    savedToken: () => gfake.token ? { token: gfake.token } : null, forgetToken: () => { gfake.token = null; },
     connect: async () => { const e = new Error("시험에서는 연결하지 않는다"); throw e; },
     listEvents: async () => [], byDay: () => [],
+    ensureCalendar: async (t, id) => { gfake.ensures++; if (!gfake.cal) gfake.cal = "cal_desk"; return gfake.cal; },
+    listCal: async () => [...gfake.events.values()].map(e => ({ ...e })),
+    insertEv: async (t, c, pl) => { const gid = "e" + gfake.seq, updated = gtime();
+      gfake.events.set(gid, { gid, d: pl.d, t: pl.t || "", dur: pl.dur || 0, text: pl.text, done: !!pl.done, updated }); return { gid, updated }; },
+    patchEv: async (t, c, gid, pl) => { const e = gfake.events.get(gid); Object.assign(e, { d: pl.d, text: pl.text, done: !!pl.done, updated: gtime() }); return { updated: e.updated }; },
+    deleteEv: async (t, c, gid) => { gfake.events.delete(gid); },
     why: (e) => ({ step: 0, msg: String((e && e.message) || "") }),
     CONSOLE_URL: "https://example.invalid/",
   };
@@ -145,13 +154,14 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
   w.addEventListener("error", (e) => errs.push("페이지 오류: " + e.message));
   w.addEventListener("unhandledrejection", (e) => errs.push("처리 안 된 거부: " + (e.reason && e.reason.message)));
   // jsdom 은 import 를 못 따라가서 모듈을 이어 붙인다.
-  const sideCode = ["../shared/icons.js", "grid.js", "hoclass.js"]
+  const sideCode = ["../shared/icons.js", "grid.js", "hoclass.js", "plansync.js"]
     .map(f => fs.readFileSync(path.join(DIR, f), "utf8").replace(/^export /gm, ""))
     .join("\n");
   const deskCode = fs.readFileSync(path.join(DIR, "desk.js"), "utf8")
     .replace(/^import \{ FB \} from "\.\/fb-desk\.js";$/m, "const FB = window.__FB__;")
     .replace(/^import \{[^}]*\} from "\.\/hoclass\.js";$/m, "")
     .replace(/^import \{[^}]*\} from "\.\/grid\.js";$/m, "")
+    .replace(/^import \{[^}]*\} from "\.\/plansync\.js";$/m, "")
     .replace(/^import \* as GCal from "\.\/gcal\.js";$/m, "const GCal = window.__GCAL__;")
     .replace(/^import \* as Neis from "\.\/neis\.js";$/m, "const Neis = window.__NEIS__;")
     .replace(/^import \{ icon as svgIc, resolveIcon \} from "\.\.\/shared\/icons\.js";$/m,
@@ -171,7 +181,7 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
     go: (name) => [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === name).click(),
     sub: (k) => d.querySelector('#nbSeg [data-tab="' + k + '"]').click(),
     tab: (p) => {
-      const page = { student: "담임", consult: "담임", ann: "담임", lesson: "수업", prog: "수업", work: "업무", todo: "업무", week: "업무" }[p];
+      const page = { student: "담임", consult: "담임", ann: "담임", lesson: "수업", prog: "수업", work: "업무", todo: "업무", week: "업무", month: "업무" }[p];
       [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === page).click();
       d.querySelector('#nbSeg [data-tab="' + p + '"]').click();
     },
@@ -850,6 +860,51 @@ function checkEntries() {
   await wait(900);
   assert(!allStored().includes("교과협의회 자료"), "계획 내용 평문 금지");
 
+  /* ---------- 업무 장: 월간 계획(주간과 같은 계획), 제목 옆 탭 한 줄 ---------- */
+  assert.deepStrictEqual([...A.d.querySelectorAll("#nbSeg button")].map(b => b.textContent), ["주간 계획", "월간 계획", "할 일", "업무 기록"], "업무 탭 넷");
+  assert(A.d.querySelector(".nb-head > #nbSeg") && A.d.querySelector(".nb-head > .nb-tools"), "탭과 도구가 제목 줄에 있다");
+  A.tab("month");
+  await until(() => A.$("moGrid"), "월간 계획 달력");
+  if (mon.slice(0, 7) !== TODAY.slice(0, 7)) { A.d.querySelector('#classBody [aria-label="다음 달"]').click(); await until(() => A.$("moThis"), "다음 달로"); }
+  const moCell = () => A.d.querySelector('#moGrid .mo-cell[data-day="' + mon + '"]');
+  const moDay = () => A.d.querySelector("#classBody .mo-day");
+  assert(moCell().textContent.includes("교과협의회 자료 준비"), "주간에서 적은 계획이 월간 달력에 보인다");
+  moCell().click();
+  await until(() => moDay() && moDay().dataset.day === mon && A.$("plan_" + mon), "달력 칸을 누르면 그날 칸이 열린다");
+  A.fill("plan_" + mon, "월간에서 적은 계획");
+  A.$("plan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
+  await until(() => moDay().textContent.includes("월간에서 적은 계획"), "월간에서 계획을 적는다");
+  A.tab("week");
+  await until(() => monCol() && monCol().textContent.includes("월간에서 적은 계획"), "월간에서 적은 것이 주간에 그대로");
+
+  /* ---------- 구글 「교무수첩」 캘린더와 양쪽으로 ---------- */
+  gfake.token = "시험열쇠";
+  A.tab("month");
+  await until(() => A.$("planSyncBtn") && A.$("planSyncBtn").textContent === "지금 맞추기", "연결되면 지금 맞추기");
+  const gOf = (t) => [...gfake.events.values()].find(e => e.text === t);
+  await until(() => gOf("교과협의회 자료 준비") && gOf("월간에서 적은 계획"), "계획이 구글 「교무수첩」 캘린더로 간다(열면 한 번 맞춘다)");
+  assert(gOf("교과협의회 자료 준비").done && gOf("교과협의회 자료 준비").d === mon, "다 했음과 날짜도 간다");
+  assert(gfake.cal === "cal_desk" && gfake.ensures >= 1, "「교무수첩」 캘린더를 찾거나 만든다");
+  gOf("월간에서 적은 계획").text = "구글에서 고친 계획"; gOf("구글에서 고친 계획").updated = Date.now() + 60000;
+  gfake.events.set("gnew", { gid: "gnew", d: mon, t: "15:30", dur: 30, text: "구글에서 넣은 일정", done: false, updated: Date.now() + 60000 });
+  A.$("planSyncBtn").click();
+  await until(() => moDay().textContent.includes("구글에서 고친 계획") && moDay().textContent.includes("15:30 구글에서 넣은 일정"), "구글에서 고치고 넣은 것이 들어온다");
+  A.tab("week");
+  await until(() => monCol() && monCol().textContent.includes("구글에서 넣은 일정"), "구글에서 넣은 것도 주간에 그대로");
+  gfake.events.delete(gOf("교과협의회 자료 준비").gid);
+  A.tab("month");
+  await until(() => A.$("planSyncBtn"), "월간");
+  A.$("planSyncBtn").click();
+  await until(() => !moDay().textContent.includes("교과협의회 자료 준비"), "구글에서 지운 것은 여기서도 지운다");
+  const rowOf = (t) => [...moDay().querySelectorAll(".wk-plan .todo")].find(li => li.textContent.includes(t));
+  rowOf("구글에서 넣은 일정").querySelector(".del").click();
+  rowOf("구글에서 고친 계획").querySelector(".check").click();
+  await until(() => !gfake.events.has("gnew") && gOf("구글에서 고친 계획").done, "여기서 지우고 체크한 것이 구글로 간다", 8000);
+  await wait(900);
+  assert(!allStored().includes("구글에서 고친 계획"), "주고받은 계획도 평문 금지");
+  if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_plans.html", A.$("nb").outerHTML);
+  gfake.token = null;
+
   /* ---------- 파수꾼: 학번의 이름이 달라지면 알린다 ---------- */
   renameHoclassStudent("301", 2, "전학온애");
   A.setTab("lesson");
@@ -1113,6 +1168,16 @@ function checkEntries() {
   A.fill("calText", "12.24 붙여넣은 방학식");
   A.$("calAdd").click();
   await until(() => A.$("ddayList").textContent.includes("붙여넣은 방학식"), "붙여 넣은 일정이 D-day 에 들어온다");
+  /* 계획 올리기: 붙여 넣은 글에서 날짜와 할 일을 찾아 미리보기, 적용하면 주간, 월간 계획에 */
+  A.fill("planText", ["12.3 학년 협의회", "12/9 성적 입력 마감", "날짜 없는 줄"].join("\n"));
+  A.$("planFind").click();
+  await until(() => A.$("planPlan") && A.$("planPlan").querySelectorAll(".rs-row").length === 2, "날짜가 있는 두 줄을 찾는다");
+  A.$("planApply").click();
+  await until(() => !A.$("planPlan"), "적용");
+  A.fill("planText", "12.3 학년 협의회");
+  A.$("planFind").click();
+  await until(() => A.$("planPlan") && A.$("planPlan").textContent.includes("이미 있음") && A.$("planApply").disabled, "같은 날 같은 계획은 건너뛴다");
+  A.$("planCancel").click();
   // 눈으로 볼 때: DUMP_TABS=폴더 npm test 하면 설정 탭 다섯을 탭이름.html 로 떠 둔다.
   if (process.env.DUMP_TABS) for (const k of ["year", "screen", "lesson", "home", "work"]) {
     A.setTab(k); await wait(60);

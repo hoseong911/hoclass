@@ -1,6 +1,7 @@
 import { FB } from "./fb-desk.js";
 import * as GCal from "./gcal.js";
 import * as Neis from "./neis.js";
+import { mergePlans, reconcile, livePlans, unsent } from "./plansync.js";
 import { icon as svgIc, resolveIcon } from "../shared/icons.js";
 import { WIDGETS, widgetDef, DEFAULT_GRID, DEFAULT_PAGES, MAX_PAGES, GRID_MIN, GRID_MAX,
          okGrid, okPages, normalize, pagesIn, hits, freeSlot, turnOn, moveToPage,
@@ -729,6 +730,7 @@ async function gcalConnect() {
   try {
     const token = await GCal.connect(FB);
     await gcalLoad(token);
+    gcalMonths.clear(); planSync();
   } catch (e) {
     const w = GCal.why(e);
     gcalErr = w.msg; gcalStep = w.step;
@@ -752,13 +754,17 @@ function gcalSection() {
   const linked = !!GCal.savedToken(), n = gcalDays.reduce((a, d) => a + d.items.length, 0);
   const note = h("p", { class: "set-state", id: "gcalSetNote", text: !signedIn ? "로그인하면 쓸 수 있습니다."
     : gcalErr || (linked ? `연결되어 있습니다. 앞으로 3주 일정 ${n}건이 위젯과 주간 계획에 보입니다.` : "연결하면 위젯과 주간 계획에 내 일정이 보입니다.") });
+  const W = docs.works, ready = W && W.ready && keyStateNow() === "open";
   return setSec("구글 캘린더", [setBlock(null, [
     !signedIn ? note : h("div", { class: "set-row" }, h("button", { class: "btn small secondary", type: "button", id: "gcalSet",
       text: gcalBusy ? "연결 중…" : linked ? "새로 받기" : "연결", disabled: gcalBusy, onclick: async () => {
-        if (linked) { await gcalLoad(); renderGcal(); } else await gcalConnect();
+        if (linked) { await gcalLoad(); renderGcal(); gcalMonths.clear(); planSync(); } else await gcalConnect();
         renderSet();
       } }), note),
-  ])]);
+  ]), signedIn ? setBlock("「교무수첩」 캘린더", [
+    h("p", { class: "set-state", text: "구글에 「교무수첩」 캘린더를 따로 만들어 주간, 월간 계획과 양쪽으로 주고받습니다." }),
+    ready ? planStatus("set") : h("p", { class: "set-state", text: "교무수첩을 열면 주고받습니다." }),
+  ]) : null]);
 }
 function renderGcal() {
   const box = $("gcalBody");
@@ -819,7 +825,7 @@ let arranging = false, curPage = 1;
 const NB = [
   { key: "lesson", name: "수업", tabs: [["prog", "진도"], ["lesson", "수업 기록"], ["student", "학생"], ["att", "출결"], ["col", "수합"]] },
   { key: "home", name: "담임", tabs: [["att", "출결"], ["col", "수합"], ["ann", "전달사항"], ["student", "학생"], ["consult", "상담 민원"]] },
-  { key: "work", name: "업무", tabs: [["week", "주간 계획"], ["todo", "할 일"], ["work", "업무 기록"]] },
+  { key: "work", name: "업무", tabs: [["week", "주간 계획"], ["month", "월간 계획"], ["todo", "할 일"], ["work", "업무 기록"]] },
 ];
 const nbTab = { lesson: "prog", home: "att", work: "week" };
 const dashPages = () => okPages(state.pages);
@@ -1148,7 +1154,7 @@ function openApp(user) {
   $("gate").hidden = true;
   $("app").hidden = false;
   cloud = cloudRef;
-  if (GCal.savedToken()) gcalLoad().then(renderGcal);
+  if (GCal.savedToken()) gcalLoad().then(() => { renderGcal(); planSync(); });
   renderGcal();
   setSync("", "연결 중");
   const loadTimer = setTimeout(() => { if (!C.confirmed) setSync("warn", "저장소에 연결하는 중입니다. 그동안 이 브라우저에 저장됩니다."); }, 10000);
@@ -1720,7 +1726,7 @@ const SET_TABS = [
   { key: "screen", name: "화면", desc: "위젯 배치와 바로가기" },
   { key: "lesson", name: "수업", desc: "수업 반, 과목, 시간표, 학생 명단" },
   { key: "home", name: "담임", desc: "담임 반과 학생 명단" },
-  { key: "work", name: "업무", desc: "학사 일정과 구글 캘린더" },
+  { key: "work", name: "업무", desc: "학사 일정, 구글 캘린더, 계획 올리기" },
 ];
 let setTab = "year", setPage = 1;
 let mealToday = null;          // 오늘 급식 { day, list }
@@ -1764,7 +1770,7 @@ function renderSet() {
   const [left, right, full] = setTab === "screen" ? [[gridSection()], [linksSection()], []]
     : setTab === "lesson" ? [[yearSection("lesson"), rosterSec("lesson")], [neisSection("lesson")], [ttSection()]]
     : setTab === "home" ? [[yearSection("home")], [rosterSec("home")], []]
-    : setTab === "work" ? [[neisSection("work"), calPasteSec()], [gcalSection()], []]
+    : setTab === "work" ? [[neisSection("work"), calPasteSec()], [gcalSection(), planImportSec()], []]
     : [[yearSection(), C.body && C.body.pass ? passSection() : null], [neisSection("year"), backupSection()], []];
   const col = (list) => h("div", { class: "set-col" }, ...list.filter(Boolean));
   const main = h("div", { class: "set-main", "data-tab": setTab },
@@ -2227,7 +2233,7 @@ function parseRosterRows(rows) {
   }
   return byCls;
 }
-async function readRosterFile(f) {
+async function readRosterFile(f, dates = false) {
   const buf = await new Promise((ok, no) => {
     const fr = new FileReader();
     fr.onload = () => ok(fr.result); fr.onerror = () => no(new Error("파일을 읽지 못했습니다."));
@@ -2242,8 +2248,14 @@ async function readRosterFile(f) {
     return text.replace(/^﻿/, "").split(/\r?\n/).map(l => l.split(",").map(c => c.replace(/^"|"$/g, "").trim()));
   }
   const X = await loadXlsx();
-  const wb = X.read(new Uint8Array(buf), { type: "array" });
-  return X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: "" });
+  const wb = X.read(new Uint8Array(buf), { type: "array", cellDates: dates });
+  const rows = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: dates, defval: "" });
+  if (!dates) return rows;
+  // 날짜 칸은 YYYY-MM-DD 로. 날짜 서식이 없는 엑셀 일련번호(45000 언저리)도 날짜로 본다.
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return rows.map(r => r.map(c => c instanceof Date ? iso(c)
+    : typeof c === "number" && c > 30000 && c < 80000 ? iso(new Date(Date.UTC(1899, 11, 30) + Math.round(c) * 86400000 + new Date().getTimezoneOffset() * 60000))
+    : String(c)));
 }
 /* 미리보기: 반마다 몇 명이고 저장할지, 왜 건너뛰는지 */
 function makeRosterPlan(kind, classes, byCls, from) {
@@ -2502,6 +2514,7 @@ function renderNb() {
     if (tab === "todo") { wrap([]); if (TODO_CARD) body.append(TODO_CARD); return; }
     if (!bookReady()) { wrap(note("기록을 여는 중입니다.")); return; }
     if (tab === "week") { wrap(weekView()); return; }
+    if (tab === "month") { wrap(monthView()); return; }
     cols(workPage()); return;
   }
   if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "담임 반과 수업 반을 넣어 주세요" }), h("div", { class: "row" }, openSetBtn()))]); return; }
@@ -2844,6 +2857,70 @@ function allDdays() {
     .filter(x => x && x.d && x.name && !have.has(x.d + " " + x.name))
     .map(x => ({ id: "cal:" + x.d + x.name, title: x.name, date: x.d, src: "나이스" }));
   return [...mine, ...cal].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/* 설정 업무 탭: 계획 올리기(선생님 지시 2026-11-14). 엑셀, CSV 파일이나 붙여 넣은 글에서 날짜와 할 일을 찾아
+   주간, 월간 계획에 넣는다. 양식은 날짜 | 내용. 같은 날 같은 글은 건너뛴다. 넣으면 구글 「교무수첩」 캘린더로도 간다. */
+let planPlan = null, planImpErr = "";
+function makePlanPlan(lines, from) {
+  const have = new Set(livePlans(plansOf()).map(p => p.d + " " + p.text));
+  const rows = parseSchedule(lines.join("\n"), state.year.current)
+    .map(x => ({ d: x.date, text: x.title, dup: have.has(x.date + " " + x.title) }));
+  return { from, rows };
+}
+function planImportSec() {
+  const W = docs.works;
+  if (!W || !W.ready || keyStateNow() !== "open") return setSec("계획 올리기", [h("p", { class: "set-state", text: "교무수첩을 열면 올릴 수 있습니다." })]);
+  const err = h("p", { class: "form-err", role: "alert", text: planImpErr });
+  const fail = (e) => { planImpErr = (e && e.message) || "읽지 못했습니다."; err.textContent = planImpErr; };
+  const fileIn = h("input", { type: "file", id: "planFile", accept: ".xlsx,.xls,.csv", hidden: true, onchange: async () => {
+    const f = fileIn.files && fileIn.files[0];
+    if (!f) return;
+    planImpErr = "";
+    try {
+      const rows = await readRosterFile(f, true);
+      planPlan = makePlanPlan(rows.map(r => r.filter(c => String(c).trim()).join(" ")), f.name);
+      if (!planPlan.rows.length) { planPlan = null; throw new Error("파일에서 날짜와 할 일을 찾지 못했습니다. 양식처럼 날짜 칸과 내용 칸을 채워 주세요."); }
+    } catch (e) { fail(e); return; }
+    renderSet();
+  } });
+  const ta = h("textarea", { id: "planText", "aria-label": "계획 붙여넣기" });
+  const tplBtn = h("button", { class: "btn small secondary", type: "button", id: "planTpl", text: "양식 받기", onclick: async () => {
+    try {
+      const ym = todayKey().slice(0, 7);
+      const rows = [["날짜", "내용"], ...livePlans(plansOf()).filter(p => p.d.startsWith(ym)).sort((a, b) => a.d.localeCompare(b.d)).map(p => [p.d, p.text])];
+      const X = await loadXlsx(), ws = X.utils.aoa_to_sheet(rows), wb = X.utils.book_new();
+      ws["!cols"] = [{ wch: 12 }, { wch: 40 }];
+      X.utils.book_append_sheet(wb, ws, "계획");
+      X.writeFile(wb, `업무계획_${ym}.xlsx`);
+    } catch (e) { fail(e); }
+  } });
+  const plan = planPlan;
+  const okN = plan ? plan.rows.filter(r => !r.dup).length : 0;
+  const preview = plan ? h("div", { class: "rs-plan", id: "planPlan" },
+    h("p", { class: "rs-from", text: `${plan.from}에서 ${plan.rows.length}건을 찾았습니다. 적용하면 ${okN}건을 계획에 넣습니다.` }),
+    ...plan.rows.slice(0, 60).map(r => h("div", { class: "rs-row" + (r.dup ? " skip" : "") },
+      h("b", { text: `${+r.d.slice(5, 7)}월 ${+r.d.slice(8)}일` }), h("span", { text: r.text }),
+      h("span", { class: "rs-why", text: r.dup ? "이미 있음" : "넣음" }))),
+    plan.rows.length > 60 ? h("p", { class: "set-state", text: `외 ${plan.rows.length - 60}건` }) : null,
+    h("div", { class: "set-row" },
+      h("button", { class: "btn small", type: "button", id: "planApply", text: "적용", disabled: !okN, onclick: () => {
+        const now = Date.now();
+        for (const r of plan.rows) if (!r.dup) plansOf().push({ id: uid(), d: r.d, text: r.text.slice(0, 100), done: false, at: now });
+        saveEnc(W); planPlan = null; planImpErr = "";
+        renderSet(); renderNb(); planSyncSoon();
+        toast(`계획 ${okN}건을 넣었습니다`);
+      } }),
+      h("button", { class: "btn small secondary", type: "button", id: "planCancel", text: "취소", onclick: () => { planPlan = null; renderSet(); } }))) : null;
+  return setSec(["계획 올리기", tplBtn,
+    h("button", { class: "btn small secondary", type: "button", id: "planUp", text: "파일 올리기", onclick: () => { fileIn.value = ""; fileIn.click(); } }), fileIn], [
+    setBlock(["붙여넣기", h("button", { class: "btn small secondary", type: "button", id: "planFind", text: "날짜 찾기", onclick: () => {
+      planImpErr = "";
+      planPlan = makePlanPlan(ta.value.split(/\r?\n/), "붙여 넣은 글");
+      if (!planPlan.rows.length) { planPlan = null; fail(new Error("날짜를 찾지 못했습니다. 11.20 교과협의회처럼 날짜와 내용이 한 줄에 있어야 합니다.")); return; }
+      renderSet();
+    } })], [ta]),
+    preview], err);
 }
 
 /* 설정 업무 탭: 학사 일정을 글로 붙여 넣어 D-day 에 넣는다(전에는 D-day 위젯의 「일정 붙여넣기」) */
@@ -3516,51 +3593,181 @@ function mondayIso(d) {
   return isoOf(t);
 }
 const addDaysIso = (iso, n) => { const d = parseDate(iso); d.setDate(d.getDate() + n); return isoOf(d); };
+/* ---------- 계획: 주간, 월간이 같은 계획(docs.works.plan)을 본다. 구글 「교무수첩」 캘린더와 양쪽으로 주고받는다 ---------- */
+const plansOf = () => { const W = docs.works; if (!Array.isArray(W.value.plan)) W.value.plan = []; return W.value.plan; };
+// 고치면 at 을 찍는다. 구글로 보낼지는 at 과 마지막으로 맞춘 때(sat)를 견줘 plansync.js 가 정한다.
+function planEdit(fn) { fn(); saveEnc(docs.works); renderNb(); planSyncSoon(); }
+const planAdd = (d, text) => planEdit(() => plansOf().push({ id: uid(), d, text: text.slice(0, 100), done: false, at: Date.now() }));
+const planToggle = (p) => planEdit(() => { p.done = !p.done; p.at = Date.now(); });
+const planDel = (p) => planEdit(() => {
+  const W = docs.works;
+  if (p.gid) { p.del = true; p.at = Date.now(); }             // 구글에서도 지운 뒤 걷는다
+  else W.value.plan = plansOf().filter(x => x.id !== p.id);
+});
+
+/* 구글 캘린더(내 다른 캘린더) 일정을 달마다 받아 둔다. 주간, 월간 칸에 보기로만 붙는다. */
+const gcalMonths = new Map();                               // "2026-11" -> [{ at, items }]
+function gcalOn(d) {
+  const ym = d.slice(0, 7);
+  if (!gcalMonths.has(ym)) { loadGcalMonth(ym); return (gcalDays.find(x => x.at === d) || {}).items || []; }
+  const g = gcalMonths.get(ym).find(x => x.at === d);
+  return g ? g.items : [];
+}
+async function loadGcalMonth(ym) {
+  const keep = GCal.savedToken();
+  if (!keep || gcalMonths.has(ym)) return;
+  gcalMonths.set(ym, []);
+  const [y, m] = ym.split("-").map(Number);
+  const end = m === 12 ? `${y + 1}-01-01` : `${y}-${pad(m + 1)}-01`;
+  try { gcalMonths.set(ym, GCal.byDay(await GCal.listEvents(keep.token, { start: ym + "-01", end, max: 250 }))); renderNb(); }
+  catch (e) { gcalMonths.delete(ym); }
+}
+
+/* 맞추기: 연결돼 있을 때 고친 뒤 잠깐 있다가, 연결한 때, 그리고 2분마다 */
+let planKicked = false, planBusy = false, planAgain = false, planErr = "", planAt = 0, planT = 0;
+const expired = (e) => /401|invalid_token|Invalid Credentials/i.test((e && (e.code || e.message)) || "");
+function planSyncSoon() { clearTimeout(planT); planT = setTimeout(() => planSync(), 1500); }
+async function planSync() {
+  const keep = GCal.savedToken(), W = docs.works;
+  if (!keep || !W || !W.ready || keyStateNow() !== "open") return;
+  if (planBusy) { planAgain = true; return; }
+  planBusy = true; planErr = "";
+  const startedAt = Date.now(), token = keep.token;
+  try {
+    const cal = await GCal.ensureCalendar(token, state.gcalCal || "");
+    if (cal !== state.gcalCal) { state.gcalCal = cal; save(true); }
+    const from = addDaysIso(todayKey(), -180), to = addDaysIso(todayKey(), 400);
+    const r = mergePlans(plansOf(), await GCal.listCal(token, cal, { from, to }), { now: startedAt, from, to });
+    const byId = new Map(r.plans.map(p => [p.id, p]));
+    for (const o of r.ops) {
+      const p = byId.get(o.id);
+      try {
+        if (o.op === "insert") { const g = await GCal.insertEv(token, cal, p); p.gid = g.gid; p.gat = g.updated; p.sat = p.at || startedAt; }
+        else if (o.op === "patch") { const g = await GCal.patchEv(token, cal, p.gid, p); p.gat = g.updated; p.sat = p.at; }
+        else { await GCal.deleteEv(token, cal, p.gid); byId.delete(o.id); }
+      } catch (e) {
+        planErr = GCal.why(e).msg;
+        if (expired(e)) { GCal.forgetToken(); break; }
+      }
+    }
+    W.value.plan = reconcile(plansOf(), [...byId.values()], startedAt);
+    saveEnc(W);
+    planAt = Date.now();
+  } catch (e) {
+    planErr = GCal.why(e).msg;
+    if (expired(e)) GCal.forgetToken();
+  } finally {
+    planBusy = false;
+    renderNb(); if (setOpen) renderSet();
+    if (planAgain) { planAgain = false; planSyncSoon(); }
+  }
+}
+setInterval(() => { if (document.visibilityState !== "hidden") planSync(); }, 120000);
+
+/* 계획 줄 상태: 구글과 맞춘 때, 안 보낸 것, 연결 단추 */
+function planStatus(pre = "") {
+  // 잠금을 풀고 처음 계획 화면을 열 때 한 번 맞춘다(그 뒤로는 2분마다, 고친 뒤에)
+  if (!planKicked && GCal.savedToken()) { planKicked = true; planSyncSoon(); }
+  const linked = !!GCal.savedToken(), n = unsent(plansOf());
+  const txt = !signedIn ? "" : planErr ? planErr
+    : !linked ? (n ? `구글 캘린더에 아직 안 보낸 계획 ${n}건` : "구글 캘린더와 이어지지 않았습니다")
+    : planBusy ? "구글 「교무수첩」 캘린더와 맞추는 중"
+    : planAt ? `구글 「교무수첩」 캘린더와 맞춤 (${new Date(planAt).toTimeString().slice(0, 5)})` + (n ? `, 보낼 것 ${n}건` : "") : "";
+  return h("div", { class: "plan-sync", id: pre + "planSync" },
+    txt ? h("span", { class: "tip", text: txt }) : null,
+    signedIn ? h("button", { class: "text-btn", type: "button", id: pre + "planSyncBtn", disabled: planBusy || gcalBusy,
+      text: linked ? "지금 맞추기" : "구글 캘린더 연결",
+      onclick: async () => { if (linked) planSync(); else { await gcalConnect(); planSync(); } } }) : null);
+}
+
+/* 하루 칸: 학사 일정, D-day, 구글 일정, 업무 기한(보기만)과 내 계획(적고, 체크, 지우기). 주간 칸과 월간의 고른 날이 같이 쓴다. */
+function dayPanel(d, label, opts = {}) {
+  const W = docs.works, today = todayKey(), off = offName(d);
+  const ev = [
+    ...(state.cal || []).filter(x => x.d === d).map(x => h("li", { class: "wk-ev wk-cal" + (OFF_RE.test(x.name) ? " wk-off" : "") }, h("span", { class: "tag", text: "학사" }), x.name)),
+    ...state.ddays.filter(x => x.date === d).map(x => h("li", { class: "wk-ev wk-dday" }, h("span", { class: "tag", text: "D-day" }), x.title)),
+    ...gcalOn(d).map(x => h("li", { class: "wk-ev wk-gcal" }, h("span", { class: "tag", text: x.allDay ? "종일" : x.time }), x.title)),
+    ...W.value.items.filter(x => x.due === d).map(x => h("li", { class: "wk-ev wk-due" + (x.done ? " done" : "") }, h("span", { class: "tag", text: "기한" }), x.title)),
+  ];
+  const mine = livePlans(plansOf()).filter(p => p.d === d);
+  const input = h("input", { type: "text", id: "plan_" + d, maxlength: "100", autocomplete: "off", "aria-label": label + " 계획" });
+  return h("section", { class: "wk-day" + (d === today ? " today" : "") + (off ? " wk-offday" : "") + (opts.cls ? " " + opts.cls : ""), "data-day": d },
+    h("h4", { class: "wk-head" }, ...opts.head, d === today ? h("span", { class: "tag", text: "오늘" }) : null),
+    ev.length ? h("ul", { class: "wk-evs" }, ...ev) : null,
+    h("ul", { class: "wk-plan" }, ...mine.map(p => {
+      const chk = h("button", { class: "check", type: "button", "aria-pressed": String(!!p.done), "aria-label": p.done ? "다시 하기" : "다 했음", onclick: () => planToggle(p) });
+      chk.innerHTML = CHECK;
+      return h("li", { class: "todo" + (p.done ? " done" : "") }, chk,
+        h("span", { class: "todo-text", text: (p.t ? p.t + " " : "") + p.text }),
+        h("button", { class: "del", type: "button", "aria-label": "삭제", text: "×", onclick: () => planDel(p) }));
+    })),
+    h("form", { class: "wk-add", onsubmit: (e) => {
+      e.preventDefault();
+      const t = input.value.trim(); if (!t) return;
+      planAdd(d, t);
+      const again = $("plan_" + d); if (again) again.focus();
+    } }, input));
+}
+
+/* 업무 장 주간 계획(선생님 지시 2026-11-13). 월~금 다섯 칸. */
 function weekView() {
-  const W = docs.works, today = todayKey(), thisMon = mondayIso(new Date()), mon = weekMon || thisMon;
-  if (!Array.isArray(W.value.plan)) W.value.plan = [];
-  const plan = W.value.plan;
+  const thisMon = mondayIso(new Date()), mon = weekMon || thisMon;
   const days = [0, 1, 2, 3, 4].map(i => addDaysIso(mon, i));
-  const gday = (d) => { const g = gcalDays.find(x => x.at === d); return g ? g.items : []; };
   const md = (iso) => `${+iso.slice(5, 7)}월 ${+iso.slice(8)}일`;
-  const col = (d, i) => {
-    const off = offName(d);
-    const ev = [
-      ...(state.cal || []).filter(x => x.d === d).map(x => h("li", { class: "wk-ev wk-cal" + (OFF_RE.test(x.name) ? " wk-off" : "") }, h("span", { class: "tag", text: "학사" }), x.name)),
-      ...state.ddays.filter(x => x.date === d).map(x => h("li", { class: "wk-ev wk-dday" }, h("span", { class: "tag", text: "D-day" }), x.title)),
-      ...gday(d).map(x => h("li", { class: "wk-ev wk-gcal" }, h("span", { class: "tag", text: x.allDay ? "종일" : x.time }), x.title)),
-      ...W.value.items.filter(x => x.due === d).map(x => h("li", { class: "wk-ev wk-due" + (x.done ? " done" : "") }, h("span", { class: "tag", text: "기한" }), x.title)),
-    ];
-    const mine = plan.filter(p => p.d === d);
-    const input = h("input", { type: "text", id: "plan_" + d, maxlength: "100", autocomplete: "off", "aria-label": WD5[i] + "요일 계획" });
-    return h("section", { class: "wk-day" + (d === today ? " today" : "") + (off ? " wk-offday" : ""), "data-day": d },
-      h("h4", { class: "wk-head" }, h("span", { class: "wd", text: WD5[i] }), h("span", { class: "md", text: md(d) }), d === today ? h("span", { class: "tag", text: "오늘" }) : null),
-      ev.length ? h("ul", { class: "wk-evs" }, ...ev) : null,
-      h("ul", { class: "wk-plan" }, ...mine.map(p => {
-        const chk = h("button", { class: "check", type: "button", "aria-pressed": String(!!p.done), "aria-label": p.done ? "다시 하기" : "다 했음",
-          onclick: () => { p.done = !p.done; saveEnc(W); renderNb(); } });
-        chk.innerHTML = CHECK;
-        return h("li", { class: "todo" + (p.done ? " done" : "") }, chk, h("span", { class: "todo-text", text: p.text }),
-          h("button", { class: "del", type: "button", "aria-label": "삭제", text: "×", onclick: () => { W.value.plan = plan.filter(x => x.id !== p.id); saveEnc(W); renderNb(); } }));
-      })),
-      h("form", { class: "wk-add", onsubmit: (e) => {
-        e.preventDefault();
-        const t = input.value.trim(); if (!t) return;
-        plan.push({ id: uid(), d, text: t.slice(0, 100), done: false });
-        saveEnc(W); renderNb();
-        const again = $("plan_" + d); if (again) again.focus();
-      } }, input));
-  };
-  const range = `${md(days[0])} ~ ${md(days[4])}`;
   return [
     h("div", { class: "cls-line" },
       h("div", { class: "att-nav" },
         navBtn("앞 주", CHEV_L, () => { weekMon = addDaysIso(mon, -7); renderNb(); }),
-        h("span", { class: "att-date wk-range", id: "wkRange", text: range }),
+        h("span", { class: "att-date wk-range", id: "wkRange", text: `${md(days[0])} ~ ${md(days[4])}` }),
         navBtn("다음 주", CHEV_R, () => { weekMon = addDaysIso(mon, 7); renderNb(); }),
         mon === thisMon ? null : h("button", { class: "text-btn", type: "button", id: "wkThis", text: "이번 주", onclick: () => { weekMon = ""; renderNb(); } })),
-      h("span", { class: "tip", text: "칸 아래 입력칸에 적고 Enter" })),
-    h("div", { class: "wk-grid", id: "wkGrid" }, ...days.map(col)),
+      planStatus()),
+    h("div", { class: "wk-grid", id: "wkGrid" }, ...days.map((d, i) => dayPanel(d, WD5[i] + "요일",
+      { head: [h("span", { class: "wd", text: WD5[i] }), h("span", { class: "md", text: md(d) })] }))),
+  ];
+}
+
+/* 업무 장 월간 계획(선생님 지시 2026-11-14). 달력 칸에는 그날 것을 짧게, 누른 날은 옆 칸에서 적고 고친다. 주간과 같은 계획이다. */
+let monthYm = "", monthPick = "";
+const WD7 = ["일", "월", "화", "수", "목", "금", "토"];
+function monthView() {
+  const today = todayKey(), ym = monthYm || today.slice(0, 7);
+  const [y, m] = ym.split("-").map(Number);
+  const first = `${ym}-01`, last = new Date(y, m, 0).getDate();
+  const pick = monthPick && monthPick.startsWith(ym) ? monthPick : (today.startsWith(ym) ? today : first);
+  const shiftYm = (n) => { const d = new Date(y, m - 1 + n, 1); monthYm = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; renderNb(); };
+  const lead = new Date(y, m - 1, 1).getDay();
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push(h("div", { class: "mo-cell blank" }));
+  for (let day = 1; day <= last; day++) {
+    const d = `${ym}-${pad(day)}`, wd = (lead + day - 1) % 7;
+    const marks = [
+      ...(state.cal || []).filter(x => x.d === d).map(x => ({ c: OFF_RE.test(x.name) ? "off" : "cal", t: x.name })),
+      ...state.ddays.filter(x => x.date === d).map(x => ({ c: "dday", t: x.title })),
+      ...gcalOn(d).map(x => ({ c: "gcal", t: x.title })),
+      ...docs.works.value.items.filter(x => x.due === d).map(x => ({ c: "due", t: x.title })),
+      ...livePlans(plansOf()).filter(p => p.d === d).map(p => ({ c: "plan" + (p.done ? " done" : ""), t: p.text })),
+    ];
+    cells.push(h("button", { class: "mo-cell" + (d === today ? " today" : "") + (d === pick ? " pick" : "") + (wd === 0 ? " sun" : wd === 6 ? " sat" : "") + (offName(d) ? " offday" : ""),
+      type: "button", "data-day": d, "aria-pressed": String(d === pick), "aria-label": `${m}월 ${day}일 ${marks.length}건`,
+      onclick: () => { monthPick = d; renderNb(); } },
+      h("span", { class: "mo-num", text: String(day) }),
+      ...marks.slice(0, 3).map(x => h("span", { class: "mo-ev " + x.c, text: x.t })),
+      marks.length > 3 ? h("span", { class: "mo-more", text: `외 ${marks.length - 3}` }) : null));
+  }
+  const pd = new Date(pick + "T00:00:00");
+  const pLabel = `${pd.getMonth() + 1}월 ${pd.getDate()}일`;
+  return [
+    h("div", { class: "cls-line" },
+      h("div", { class: "att-nav" },
+        navBtn("앞 달", CHEV_L, () => shiftYm(-1)),
+        h("span", { class: "att-date", id: "moRange", text: `${y}년 ${m}월` }),
+        navBtn("다음 달", CHEV_R, () => shiftYm(1)),
+        ym === today.slice(0, 7) ? null : h("button", { class: "text-btn", type: "button", id: "moThis", text: "이번 달", onclick: () => { monthYm = ""; monthPick = ""; renderNb(); } })),
+      planStatus()),
+    h("div", { class: "mo-wrap" },
+      h("div", { class: "mo-grid", id: "moGrid" }, ...WD7.map((w, i) => h("div", { class: "mo-wd" + (i === 0 ? " sun" : i === 6 ? " sat" : ""), text: w })), ...cells),
+      dayPanel(pick, pLabel, { cls: "mo-day", head: [h("span", { class: "wd", text: WD7[pd.getDay()] }), h("span", { class: "md", text: pLabel })] })),
   ];
 }
 

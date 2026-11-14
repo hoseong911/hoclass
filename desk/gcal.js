@@ -1,7 +1,11 @@
 
 const KEY = "desk-gcal-token";
-const SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
-const API = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+import { fromEvent, toEvent } from "./plansync.js";
+// 읽기(내 다른 캘린더 보기) + 이 앱이 만든 캘린더만 쓰기(「교무수첩」 캘린더). 다른 캘린더는 고칠 수 없다.
+const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly", "https://www.googleapis.com/auth/calendar.app.created"];
+const BASE = "https://www.googleapis.com/calendar/v3";
+const API = BASE + "/calendars/primary/events";
+export const CAL_NAME = "교무수첩";
 export const CONSOLE_URL = "https://console.firebase.google.com/project/ho0911seong-56638/authentication/providers";
 
 export function savedToken() {
@@ -27,7 +31,7 @@ export function why(e) {
   if (/popup-closed-by-user|cancelled-popup-request/.test(c)) return { step: 0, msg: "연결을 취소했습니다." };
   if (/credential-already-in-use|account-exists/.test(c)) return { step: 0, msg: "그 구글 계정이 다른 곳에 이미 이어져 있습니다." };
   if (/calendar.*not been used|accessNotConfigured|SERVICE_DISABLED/i.test(c)) return { step: 3, msg: "구글 클라우드에서 Calendar API 가 꺼져 있습니다. 켜고 1~2분 뒤에 다시 해 주세요." };
-  if (/insufficient|insufficientPermissions|403/.test(c)) return { step: 3, msg: "캘린더를 읽을 권한이 없습니다. 연결할 때 캘린더 보기를 허용해 주세요." };
+  if (/insufficient|insufficientPermissions|403/.test(c)) return { step: 3, msg: "캘린더 권한이 모자랍니다. 다시 연결해서 캘린더 보기와 「교무수첩」 캘린더 만들기를 허용해 주세요." };
   if (/401|invalid_token|Invalid Credentials/i.test(c)) return { step: 0, msg: "연결이 만료됐습니다. 다시 연결해 주세요." };
   return { step: 0, msg: "구글 캘린더에 이어 붙이지 못했습니다. " + (c || "까닭을 모르겠습니다") };
 }
@@ -38,7 +42,7 @@ export async function connect(FB) {
   const user = FB.auth.currentUser;
   if (!user) throw new Error("먼저 로그인해 주세요.");
   const provider = new FB.GoogleAuthProvider();
-  provider.addScope(SCOPE);
+  for (const s of SCOPES) provider.addScope(s);
   provider.setCustomParameters({ login_hint: user.email || "", prompt: "consent" });
 
   const linked = (user.providerData || []).some(p => p && p.providerId === "google.com");
@@ -52,9 +56,9 @@ export async function connect(FB) {
   return token;
 }
 
-export async function listEvents(token, { days = 21, max = 30 } = {}) {
-  const from = new Date(); from.setHours(0, 0, 0, 0);
-  const to = new Date(from.getTime() + days * 86400000);
+export async function listEvents(token, { days = 21, max = 30, start, end } = {}) {
+  const from = start ? new Date(start + "T00:00:00+09:00") : new Date(); if (!start) from.setHours(0, 0, 0, 0);
+  const to = end ? new Date(end + "T00:00:00+09:00") : new Date(from.getTime() + days * 86400000);
   const url = API + "?" + new URLSearchParams({
     timeMin: from.toISOString(),
     timeMax: to.toISOString(),
@@ -88,3 +92,46 @@ export function byDay(events) {
   }
   return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([at, items]) => ({ at, items }));
 }
+
+/* ---------- 「교무수첩」 캘린더 주고받기(plansync.js 가 셈, 여기는 주고받기만) ---------- */
+async function call(token, method, url, body) {
+  const res = await fetch(url, { method, headers: { Authorization: "Bearer " + token, ...(body ? { "Content-Type": "application/json" } : {}) },
+    body: body ? JSON.stringify(body) : undefined });
+  if (method === "DELETE" && (res.status === 404 || res.status === 410)) return null;   // 이미 지워졌다
+  if (!res.ok) {
+    let detail = "";
+    try { const j = await res.json(); detail = (j.error && (j.error.message || j.error.status)) || ""; } catch (e) {}
+    const err = new Error(res.status + " " + detail);
+    err.code = String(res.status) + " " + detail; err.status = res.status;
+    throw err;
+  }
+  return res.status === 204 ? null : res.json();
+}
+const enc = encodeURIComponent;
+/* 「교무수첩」 캘린더 id. 적어 둔 것이 없거나 지워졌으면 내 캘린더 목록에서 찾고, 없으면 만든다(기기마다 새로 만들지 않게). */
+export async function ensureCalendar(token, id) {
+  if (id) {
+    try { await call(token, "GET", BASE + "/calendars/" + enc(id)); return id; }
+    catch (e) { if (e.status !== 404 && e.status !== 403) throw e; }
+  }
+  const list = await call(token, "GET", BASE + "/users/me/calendarList?minAccessRole=owner&maxResults=250");
+  const have = (list.items || []).find(c => c.summary === CAL_NAME && !c.deleted);
+  if (have) return have.id;
+  const made = await call(token, "POST", BASE + "/calendars", { summary: CAL_NAME, timeZone: "Asia/Seoul" });
+  return made.id;
+}
+export async function listCal(token, cal, { from, to }) {
+  const out = [];
+  let page = "";
+  do {
+    const q = new URLSearchParams({ timeMin: from + "T00:00:00+09:00", timeMax: to + "T23:59:59+09:00", singleEvents: "true", maxResults: "2500" });
+    if (page) q.set("pageToken", page);
+    const j = await call(token, "GET", BASE + "/calendars/" + enc(cal) + "/events?" + q);
+    for (const ev of j.items || []) if (ev.status !== "cancelled") out.push(fromEvent(ev));
+    page = j.nextPageToken || "";
+  } while (page);
+  return out;
+}
+export async function insertEv(token, cal, p) { const j = await call(token, "POST", BASE + "/calendars/" + enc(cal) + "/events", toEvent(p)); return { gid: j.id, updated: Date.parse(j.updated) || Date.now() }; }
+export async function patchEv(token, cal, gid, p) { const j = await call(token, "PATCH", BASE + "/calendars/" + enc(cal) + "/events/" + enc(gid), toEvent(p)); return { updated: Date.parse(j.updated) || Date.now() }; }
+export async function deleteEv(token, cal, gid) { await call(token, "DELETE", BASE + "/calendars/" + enc(cal) + "/events/" + enc(gid)); }

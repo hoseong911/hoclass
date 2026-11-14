@@ -3,7 +3,7 @@
   "private": true,
   "description": "나의 책상 — 교사용 수첩. 웹판은 빌드가 없고, 바탕화면 앱만 타우리로 묶는다.",
   "scripts": {
-    "test": "node test/desk.test.js",
+    "test": "node test/plansync.test.js && node test/desk.test.js",
     "build:dist": "node build-dist.js",
     "vendor": "node build-dist.js --vendor",
     "tauri": "tauri",

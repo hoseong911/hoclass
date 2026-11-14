@@ -877,12 +877,12 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   margin: var(--pad); margin-left: max(var(--pad), env(safe-area-inset-left, 0px)); margin-right: max(var(--pad), env(safe-area-inset-right, 0px));
   padding: 20px 22px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
 }
-.nb-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.nb-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--muted); }
-.nb-head .class-name { font-size: 22px; }
-.nb-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap;
-  padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.nb-tools { gap: 4px; }
+/* 제목, 반 이름, 탭, 도구를 한 줄로(선생님 지시 2026-11-14). 좁으면 탭부터 다음 줄로 */
+.nb-head { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.nb-title { margin: 0; font-family: var(--font-title); font-size: 20px; font-weight: 700; color: var(--ink); }
+.nb-head .class-name { font-size: 18px; color: var(--muted); margin: 0; }
+.nb-head .class-name:empty { display: none; }
+.nb-tools { gap: 4px; margin-left: auto; }
 .nb #classBody { flex: 1 1 auto; min-height: 0; overflow: auto; }
 /* 장은 넓어서 학생 칸을 늘이면 기둥처럼 길쭉해진다. 칸 크기를 정해 두고 줄을 채운다 */
 .nb #classBody > .students { flex: none; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); grid-auto-rows: 68px; }
@@ -1199,3 +1199,42 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .rs-cnt { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); }
 .rs-cnt input { width: 72px; }
 .calpaste textarea, #calText { min-height: 120px; }
+
+/* ══════════ 월간 계획 ══════════ */
+.plan-sync { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.mo-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+.mo-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.mo-wd { font-size: var(--fs-label); font-weight: 600; color: var(--muted); text-align: center; padding: 4px 0; }
+.mo-wd.sun, .mo-cell.sun .mo-num { color: var(--danger); }
+.mo-wd.sat, .mo-cell.sat .mo-num { color: var(--blue); }
+.mo-cell {
+  min-height: 92px; display: flex; flex-direction: column; gap: 2px; align-items: stretch; text-align: left;
+  padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer; min-width: 0;
+}
+.mo-cell.blank { border: 0; background: none; cursor: default; }
+.mo-cell:hover { border-color: var(--faint); }
+.mo-cell.today { border-color: var(--accent); }
+.mo-cell.pick { background: var(--accent-soft); border-color: var(--accent); }
+.mo-cell.offday { background: var(--surface-2); }
+.mo-num { font-size: var(--fs-sm); font-weight: 700; color: var(--ink); }
+.mo-ev { font-size: 11.5px; line-height: 1.35; padding: 1px 5px; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--surface-2); color: var(--ink); }
+.mo-ev.plan { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.mo-ev.plan.done { text-decoration: line-through; opacity: .6; }
+.mo-ev.gcal { background: var(--blue-soft); color: var(--blue); }
+.mo-ev.cal, .mo-ev.off { background: var(--warn-soft); color: var(--warn); }
+.mo-ev.dday { background: var(--pass-soft); color: var(--ink); }
+.mo-ev.due { background: var(--surface-2); color: var(--muted); }
+.mo-more { font-size: 11px; color: var(--faint); }
+.mo-day { position: sticky; top: 0; }
+@media (max-width: 1100px) { .mo-wrap { grid-template-columns: minmax(0, 1fr); } .mo-cell { min-height: 64px; } }
+@media (max-width: 600px) { .mo-ev { display: none; } .mo-cell { min-height: 44px; } }
+
+/* ══════════ 글 쓰는 칸(textarea)이 잘 보이게(선생님 지적 2026-11-14) ══════════ */
+/* 흰 카드 위 옅은 회색 상자라 칸인 줄 몰랐다. 흰 바탕, 진한 테두리, 누르면 강조색 테두리와 은은한 빛 */
+textarea {
+  background: var(--surface) !important; border: 1.5px solid var(--faint) !important; border-radius: 10px;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, .06);
+  transition: border-color .15s, box-shadow .15s;
+}
+textarea:hover { border-color: var(--muted) !important; }
+textarea:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft); }

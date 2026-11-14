@@ -47,7 +47,7 @@ async function main() {
 
   for (const rel of [
     "desk/index.html", "desk/widget.html", "desk/desk.css",
-    "desk/desk.js", "desk/widget.js", "desk/fb-desk.js", "desk/hoclass.js", "desk/grid.js", "desk/gcal.js", "desk/neis.js",
+    "desk/desk.js", "desk/widget.js", "desk/fb-desk.js", "desk/hoclass.js", "desk/grid.js", "desk/gcal.js", "desk/plansync.js", "desk/neis.js",
     "shared/theme.css", "shared/fb.js", "shared/firebase-config.js", "shared/icons.js",
   ]) copy(rel);
 
