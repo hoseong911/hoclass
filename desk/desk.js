@@ -33,7 +33,7 @@ function h(tag, props, ...kids) {
 /* 추가, 삭제 같은 흔한 동작 단추는 글 대신 SVG 아이콘(선생님 지시 2026-11-14). 이름은 마우스를 올리면(title) 보이고
    화면낭독기(aria-label)가 읽는다. 단추마다 고치지 않고 h() 가 글자를 보고 바꾼다. */
 const ICON_FOR = { "추가": "plus", "과목 추가": "plus", "장 추가": "plus", "삭제": "trash-2", "장 삭제": "trash-2",
-  "고치기": "pencil", "편집": "pencil", "저장": "check", "적용": "check", "취소": "x", "그만두기": "x", "닫기": "x", "×": "x" };
+  "고치기": "square-pen", "편집": "square-pen", "저장": "check", "적용": "check", "취소": "x", "그만두기": "x", "닫기": "x", "×": "x" };
 function iconize(el, label) {
   if (!el.getAttribute("aria-label")) el.setAttribute("aria-label", label);
   if (!el.title) el.title = el.getAttribute("aria-label");
