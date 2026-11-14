@@ -1819,7 +1819,7 @@ function renderSet() {
   const old = p.querySelector(".set-main"), keepTop = old && old.dataset.tab === setTab ? old.scrollTop : 0;
   /* 2단(선생님 지시 2026-11-14: 늘어지지 않게). [왼쪽, 오른쪽, 아래 전체 폭]. 좁으면 왼쪽, 오른쪽, 아래 차례로 한 줄. */
   const [left, right, full] = setTab === "screen" ? [[gridSection()], [linksSection()], []]
-    : setTab === "lesson" ? [[yearSection("lesson"), rosterSec("lesson")], [neisSection("lesson")], [ttSection()]]
+    : setTab === "lesson" ? [[yearSection("lesson"), rosterSec("lesson")], [neisSection("lesson"), lessonResetSec()], [ttSection()]]
     : setTab === "home" ? [[yearSection("home")], [rosterSec("home")], []]
     : setTab === "work" ? [[neisSection("work"), calPasteSec()], [gcalSection(), planImportSec()], []]
     : [[yearSection(), C.body && C.body.pass ? passSection() : null], [neisSection("year"), backupSection()], []];
@@ -2340,6 +2340,16 @@ function rosterTemplate(kind, classes) {
     else for (let n = 1; n <= 30; n++) rows.push([g, c, n, ""]);
   }
   return rows;
+}
+/* 설정 수업 탭: 진도와 수업 기록 초기화(모든 과목, 그 학년도 것 전부). 출결, 학생 메모, 수합은 남는다. */
+function lessonResetSec() {
+  const D = docs.lessons;
+  if (!D || !D.ready || keyStateNow() !== "open") return setSec("진도 초기화", [h("p", { class: "set-state", text: "교무수첩을 열면 쓸 수 있습니다." })]);
+  const n = D.value.items.length;
+  return setSec(["진도 초기화", n ? armed("모두 지우기", "모두 지우기", () => clearLessons(false, true)) : null], [
+    h("p", { class: "set-state", id: "lessonCount", text: n
+      ? `${state.year.current}학년도 진도표와 수업 기록 ${n}개가 있습니다. 모든 과목 것을 지웁니다. 출결, 학생 메모, 수합은 남습니다.`
+      : "진도표와 수업 기록이 없습니다." })]);
 }
 /* 설정 수업, 담임 탭의 학생 명단 카드 */
 function rosterSec(kind) {
@@ -3560,6 +3570,17 @@ function genBar() {
     genNote ? h("span", { class: "tip", id: "genNote", text: genNote }) : null);
 }
 
+/* 진도표 지우기(선생님 지시 2026-11-14 "초기화, 삭제하는 기능도"). 한 번 더 눌러야 지운다.
+   onlyEmpty: 단원, 계획, 기록, 과제가 다 빈 수업만(나이스로 만든 뒤 손대지 않은 것). all: 과목 상관없이 전부(설정의 초기화). */
+function clearLessons(onlyEmpty, all = false) {
+  const D = docs.lessons, before = D.value.items.length;
+  const empty = (x) => !(x.unit || x.plan || x.body || x.hw);
+  D.value.items = D.value.items.filter(x => !((all || inSubj(x)) && (!onlyEmpty || empty(x))));
+  const n = before - D.value.items.length;
+  progPick = ""; genNote = "";
+  saveEnc(D); renderNb(); if (setOpen) renderSet();
+  toast(n ? `수업 ${n}개를 지웠습니다` : "지울 수업이 없습니다");
+}
 /* 전체: 줄 = 차시, 열 = 반, 칸 = 그 반 그 차시 날짜. 칸을 누르면 그 반 진도표의 그 수업 */
 function progressAll() {
   const today = todayKey(), classes = subjClasses(), per = classes.map(sessOf);
@@ -3578,8 +3599,12 @@ function progressAll() {
           h("span", { class: "pa-d", text: mdd(s.at) }), h("span", { class: "pa-p", text: s.period + "교시" }));
       })));
   }
+  const subj = curSubj();
   return [
     genBar(),
+    maxN ? h("div", { class: "row pa-clear" },
+      armed("빈 계획 지우기", "빈 계획 지우기", () => clearLessons(true)),
+      armed((subj ? subj + " " : "") + "진도표 모두 지우기", (subj ? subj + " " : "") + "진도표 모두 지우기", () => clearLessons(false))) : null,
     h("div", { class: "pa-legend" }, ...[["done", "기록함"], ["today", "오늘"], ["plan", "계획"], ["miss", "지났는데 기록 없음"]]
       .map(([k, t]) => h("span", { class: "pa-lg" }, h("i", { class: "pa-sw " + k }), t))),
     maxN ? h("div", { class: "prog-scroll" }, h("table", { class: "prog pa-table", id: "progAll" },

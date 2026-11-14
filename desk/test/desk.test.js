@@ -1123,6 +1123,30 @@ function checkEntries() {
   A.d.querySelector('#nbSubj [data-subj="역사"]').click();
   await until(() => A.d.querySelector('#nbSubj [data-subj="역사"][aria-pressed="true"]'), "역사로 돌아온다");
 
+  /* 진도표 지우기: 빈 계획만, 이 과목 모두, 설정에서 모든 과목 초기화 */
+  const cntSubj = (subj) => A.d.querySelectorAll("#pcList .pc-row").length;
+  A.d.querySelector("#classPick .cpick").click();   // 전체
+  await until(() => A.$("progAll"), "역사 전체 표");
+  const rowsBefore = paRows().length;
+  const clearBtn = (t) => A.btn("#classBody .pa-clear", t);
+  clearBtn("빈 계획 지우기").click();
+  assert(A.$("progAll") && paRows().length === rowsBefore, "한 번 누르면 아직 안 지운다");
+  clearBtn("한 번 더 누르면 빈 계획 지우기").click();
+  await until(() => A.$("progAll") && paRows().length < rowsBefore, "빈 계획을 지운다");
+  assert(A.$("progAll").textContent.includes("3단원 1 조선 건국"), "단원을 적은 수업은 남는다");
+  clearBtn("역사 진도표 모두 지우기").click(); clearBtn("한 번 더 누르면 역사 진도표 모두 지우기").click();
+  await until(() => !A.$("progAll") && A.$("genPlan"), "역사 진도표를 다 지운다");
+  A.d.querySelector('#nbSubj [data-subj="사회"]').click();
+  await until(() => A.d.querySelectorAll("#pcList .pc-row").length > 0, "사회 진도표는 남아 있다");
+  A.setTab("lesson");
+  await until(() => A.$("lessonCount"), "설정 수업 탭 진도 초기화");
+  A.btn("#setPanel", "모두 지우기").click(); A.btn("#setPanel", "한 번 더 누르면 모두 지우기").click();
+  await until(() => A.$("lessonCount").textContent.includes("없습니다"), "모든 과목 진도와 기록을 지운다");
+  A.$("setClose").click();
+  await until(() => A.$("setPanel").hidden && !A.d.querySelector("#pcList"), "사회 진도표도 비었다");
+  A.d.querySelector('#nbSubj [data-subj="역사"]').click();
+  await until(() => A.d.querySelector('#nbSubj [data-subj="역사"][aria-pressed="true"]'), "역사로");
+
   /* ---------- 시정 채우기 (설정 창 시간표 탭) ---------- */
   assert(!A.$("ttEdit"), "위젯의 편집 단추는 설정 창으로 옮겼다");
   assert(!A.d.querySelector('.wg[data-w="tt"] input'), "위젯의 시간표는 보기만 한다");

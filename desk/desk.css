@@ -1387,3 +1387,4 @@ table.pa-table { width: auto; min-width: 100%; }
 
 /* 수업 장 머리줄 과목 고르기: 탭(.nb-seg)과 같은 모양, 고른 과목은 강조색 */
 .nb-subj button[aria-pressed="true"] { color: var(--accent); font-weight: 700; }
+.pa-clear { justify-content: flex-end; margin-top: -6px; }
