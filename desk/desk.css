@@ -456,7 +456,7 @@ table.tt-edit th.ph { width: 132px; padding: 6px 4px; vertical-align: middle; }
 .sync.ok::before { background: var(--accent); }
 .sync.warn::before { background: var(--warn); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; z-index: 20; }
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; z-index: 35;   /* 설정 화면(25) 위에서도 보이게 */ }
 
 /* 잠금과 올해 설정 */
 .lock-panel { display: flex; flex-direction: column; gap: 10px; }
@@ -560,6 +560,12 @@ body { overflow: hidden; }
 @container (max-height: 108px) {
   .links { flex-wrap: nowrap; }
 }
+/* 노트북에서 띠가 몇 px 넘쳐 아래 여백이 굴러 사라졌다(선생님 지적 2026-11-14).
+   여백을 줄이고, 그래도 넘치면 굴리지 말고 fitCard() 가 통째로 줄이게 자른다.
+   높이로 가르면 줄일 때(zoom) 칸이 커진 셈이 되어 규칙이 풀렸다 걸렸다 한다. 가로세로 비는 줌에 안 변한다. */
+@container (min-aspect-ratio: 4/1) {
+  .wg > .wg-links { overflow: hidden; padding-block: 10px; }
+}
 
 /* ── 할 일 ── */
 .wg-todo .quad { flex: 1; min-height: 0; }
@@ -625,6 +631,8 @@ body { overflow: hidden; }
 /* ══════════ 설정 화면 ══════════ */
 /* 팝업 대신 화면 전체(선생님 지시 2026-11-14). 왼쪽 메뉴 다섯, 오른쪽 내용. 폰에서는 메뉴가 위 줄로. */
 .scrim { position: fixed; inset: 0; z-index: 24; background: var(--bg); }
+/* 설정이 열리면 장 바와 우상단 도구를 숨긴다. 둘 다 설정보다 위층(28)이라 닫기 단추를 가렸다. */
+body.set-on .pagebar, body.set-on .tools { display: none; }
 .set-full {
   position: fixed; inset: 0; z-index: 25;
   display: flex; flex-direction: column; background: var(--bg);

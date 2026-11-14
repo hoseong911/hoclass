@@ -23,6 +23,8 @@ const CHROMES = [
 ];
 /* 작은 창도 넣는다. --k 가 0.75 에서 멈추므로 창이 작을수록 글이 상대적으로 커져 더 잘 넘친다. */
 const SCREENS = ["1024,640", "1280,800", "1366,768", "1920,1080", "2560,1440", "3840,2160"];
+/* 띠(세로 한두 줄)는 바로가기만 그렇게 둔다(다른 칸은 최소 크기가 더 크다). */
+const STRIPS = [[8,1],[12,1],[16,1],[24,1],[8,2],[12,2]];
 const SIZES = [[2,2],[3,2],[2,3],[3,3],[4,3],[4,4],[5,4],[6,4],[6,6],[6,8],[8,6],[9,6],[12,8],[18,16],[24,16]];
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -258,6 +260,7 @@ function buildPage(widgets) {
 ${fitCodeFromDesk()}
 const DATA = JSON.parse(document.getElementById("DATA").textContent);
 const SIZES = ${JSON.stringify(SIZES)};
+const STRIPS = ${JSON.stringify(STRIPS)};
 const deck = document.getElementById("deck");
 document.documentElement.style.setProperty("--k",
   Math.max(0.75, Math.min(2.5, Math.min(innerWidth/1920, innerHeight/1080) || 1)).toFixed(3));
@@ -345,7 +348,7 @@ const sel = (el) => {
 
 /* 담는 글이 정해져 있어 "굴리지 않고 한눈에" 보여야 하는 칸.
    desk.css 에서 이 칸들의 카드에 overflow: hidden 을 걸어 fitCards() 가 줄이게 해 둔다. */
-const MUST_FIT = ["clock", "now", "periods", "todos", "tt"];
+const MUST_FIT = ["clock", "now", "periods", "todos", "tt", "links"];
 const bad = [];
 function one(name, html, w, h) {
   deck.style.setProperty("--cols", 24); deck.style.setProperty("--rows", 16);
@@ -395,9 +398,13 @@ function one(name, html, w, h) {
   /* ④ 한눈에 다 보여야 하는 칸이 굴려야 보이는 상태.
      스크롤 막대를 숨겨 두어서 선생님 눈에는 그냥 "글자가 잘린 것"으로 보인다.
      (실제로 2026-11-12에 "지금 수업"이 이것으로 잘려 보였다.) */
-  if (MUST_FIT.includes(name.split(":")[0])) {
+  /* 바로가기는 띠(가로가 세로의 4배 이상)일 때만 굴리지 않는다. 네모 칸에 많으면 굴려 본다. */
+  const must = MUST_FIT.includes(name.split(":")[0]) && (name !== "links" || w >= h * 4);
+  if (must) {
     const over = card.scrollHeight - card.clientHeight;
-    if (over > 2) bad.push("칸넘침  " + where + "  굴려야 보이는 높이 " + Math.round(over) + "px");
+    /* 끝까지(0.45배) 줄였는데도 넘치면 칸이 너무 작은 것이다(1024x640 창의 16줄 중 한 줄, 30px). 참고로만. */
+    const floor = name === "links" && wg.style.getPropertyValue("--z") === FIT_MIN.toFixed(3);
+    if (over > 2) bad.push((floor ? "띠참고  " : "칸넘침  ") + where + "  굴려야 보이는 높이 " + Math.round(over) + "px");
   }
   /* ⑤ 옆으로 굴려야 보이는 곳. 스크롤 막대를 숨겨 두어 옆에 뭐가 더 있는 줄 모른다.
      (2026-11-13에 주간 시간표가 월화수만 보이고 목금은 옆으로 숨어 있었다.) */
@@ -413,7 +420,8 @@ function one(name, html, w, h) {
   }
 }
 
-for (const [name, html] of Object.entries(DATA)) for (const [w, h] of SIZES) one(name, html, w, h);
+for (const [name, html] of Object.entries(DATA))
+  for (const [w, h] of name === "links" ? [...STRIPS, ...SIZES] : SIZES) one(name, html, w, h);
 deck.replaceChildren();
 document.getElementById("out").textContent =
   "화면 " + innerWidth + "x" + innerHeight + "\\n" + (bad.length ? bad.join("\\n") : "모두 괜찮음");

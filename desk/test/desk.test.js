@@ -416,6 +416,21 @@ function checkEntries() {
   assert.deepStrictEqual([...A.d.querySelectorAll("#setPanel .set-tab")].map(b => b.textContent),
     ["기본", "화면", "수업", "담임", "업무"], "탭 다섯");
   assert(A.$("setPanel").classList.contains("set-full"), "설정은 팝업이 아니라 전체 화면");
+  assert(A.d.body.classList.contains("set-on"), "설정이 열리면 장 바와 우상단 도구를 숨긴다(body.set-on)");
+  /* 뒤로 가기는 교무수첩 밖이 아니라 설정만 닫고, 보던 장(담임)이 그대로 남는다 */
+  A.$("setClose").click();
+  await until(() => A.$("setPanel").hidden && !(A.w.history.state && A.w.history.state.deskSet), "닫기 단추로 닫으면 얹은 기록도 걷는다");
+  A.go("담임");
+  await until(() => !A.$("nb").hidden, "담임 장");
+  A.$("toolSet").click();
+  await until(() => A.$("setForm") && A.w.history.state && A.w.history.state.deskSet, "열면 방문 기록 한 칸");
+  A.w.history.back();
+  await until(() => A.$("setPanel").hidden && !A.d.body.classList.contains("set-on"), "뒤로 가기로 설정이 닫힌다");
+  assert(!A.$("nb").hidden && A.$("deck").hidden, "뒤로 가도 보던 담임 장 그대로");
+  A.go("대시보드");
+  await until(() => !A.$("deck").hidden, "대시보드로");
+  A.$("toolSet").click();
+  await until(() => A.$("setForm"), "다시 연다");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden && A.$("setScrim").hidden, "닫기 단추로 닫힌다");
   A.$("toolSet").click();

@@ -1716,6 +1716,14 @@ const SET_TABS = [
 let setTab = "year", setPage = 1;
 let mealToday = null;          // 오늘 급식 { day, list }
 function closeSet() { setOpen = false; renderSet(); }
+/* 뒤로 가기가 교무수첩 밖으로 나가지 않고 설정만 닫게(선생님 지적 2026-11-14). 열 때 방문 기록 한 칸을 얹고,
+   뒤로 가기(popstate)면 닫는다. 단추나 Esc 로 닫으면 얹은 칸을 걷는다. 보던 장은 그대로라 손댈 것이 없다. */
+let setHist = false;
+function setHistory() {
+  if (setOpen && !setHist) { setHist = true; history.pushState({ deskSet: 1 }, ""); }
+  else if (!setOpen && setHist) { setHist = false; if (history.state && history.state.deskSet) history.back(); }
+}
+window.addEventListener("popstate", () => { if (setHist) { setHist = false; setOpen = false; renderSet(); } });
 const setField = (name, el) => h("label", { class: "field" }, name, el);
 /* 묶음마다 소제목과 테두리를 둬서 빽빽하지 않게 (선생님 지시 2026-11-12) */
 const setBlock = (title, kids) => h("div", { class: "set-block" },
@@ -1732,6 +1740,8 @@ function renderSet() {
   const p = $("setPanel"), scrim = $("setScrim");
   p.hidden = !setOpen;
   scrim.hidden = !setOpen;
+  document.body.classList.toggle("set-on", setOpen);   // 장 바, 우상단 도구를 숨긴다(desk.css)
+  setHistory();
   if (!setOpen) { p.replaceChildren(); return; }
   if (!SET_TABS.some(t => t.key === setTab)) setTab = "year";
   const cur = SET_TABS.find(t => t.key === setTab);
