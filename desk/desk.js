@@ -3607,8 +3607,10 @@ function progressAll() {
       armed((subj ? subj + " " : "") + "진도표 모두 지우기", (subj ? subj + " " : "") + "진도표 모두 지우기", () => clearLessons(false))) : null,
     h("div", { class: "pa-legend" }, ...[["done", "기록함"], ["today", "오늘"], ["plan", "계획"], ["miss", "지났는데 기록 없음"]]
       .map(([k, t]) => h("span", { class: "pa-lg" }, h("i", { class: "pa-sw " + k }), t))),
-    maxN ? h("div", { class: "prog-scroll" }, h("table", { class: "prog pa-table", id: "progAll" },
-      h("thead", null, h("tr", null, h("th", { class: "pa-n", text: "차시" }), h("th", { class: "pa-topic", text: "주제" }),
+    // 2단(선생님 지시 2026-11-14): 왼쪽 차시와 강의명은 좁게 고정, 오른쪽 반 칸은 남는 폭을 나눠 쓰고 넘치면 옆으로 넘긴다
+    maxN ? h("div", { class: "prog-scroll" }, h("table", { class: "prog pa-table", id: "progAll", style: "--pa-n:" + classes.length },
+      h("colgroup", null, h("col", { class: "c-n" }), h("col", { class: "c-topic" }), ...classes.map(() => h("col", { class: "c-cls" }))),
+      h("thead", null, h("tr", null, h("th", { class: "pa-n", text: "차시" }), h("th", { class: "pa-topic", text: "강의명" }),
         ...classes.map(c => h("th", { class: "pa-cls", text: c })))),
       h("tbody", null, ...rows)))
       : noneLine("진도 계획이 없습니다. 위에서 나이스 시간표로 만들거나 반을 골라 수업을 추가해 주세요."),

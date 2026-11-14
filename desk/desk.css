@@ -1388,3 +1388,15 @@ table.pa-table { width: auto; min-width: 100%; }
 /* 수업 장 머리줄 과목 고르기: 탭(.nb-seg)과 같은 모양, 고른 과목은 강조색 */
 .nb-subj button[aria-pressed="true"] { color: var(--accent); font-weight: 700; }
 .pa-clear { justify-content: flex-end; margin-top: -6px; }
+/* 진도 전체 표 2단: 왼쪽(차시, 강의명) 좁게 고정, 오른쪽 반 칸은 한 줄(날짜 교시) */
+table.pa-table { table-layout: fixed; width: 100%; min-width: calc(300px + var(--pa-n, 6) * 120px); }
+.pa-table col.c-n { width: 52px; }
+.pa-table col.c-topic { width: 248px; }
+.pa-table th.pa-cls, .pa-table td.pa-cell { width: auto; min-width: 0; }
+.pa-table .pa-topic { max-width: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; position: sticky; left: 52px; background: var(--surface); z-index: 1;
+  border-right: 2px solid var(--line); }
+.pa-table .pa-n { z-index: 1; }
+.pa-table tbody tr:nth-child(even) .pa-n, .pa-table tbody tr:nth-child(even) .pa-topic { background: #FAFBFC; }
+.pa-cell { padding: 8px 6px; }
+.pa-d, .pa-p { display: inline; }
+.pa-p { margin-left: 6px; font-size: 12px; }
