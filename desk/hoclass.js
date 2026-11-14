@@ -43,6 +43,21 @@ export async function loadHoclass(FB, year) {
   return { year: String(year), courses, byCls, classes, at: Date.now() };
 }
 
+/* 학년도 학생 명부(hoclass_course_roster). 강의실이 없는 반(담임 반 등)도 여기 있다. { "3-9": [{ n, name }] } */
+export async function loadRegister(FB, year) {
+  const ss = await FB.getDocs(FB.collection(FB.db, "hoclass_course_roster"));
+  const byCls = {};
+  ss.forEach(d => {
+    const s = d.data() || {};
+    const no = String(s.studentNo || "");
+    if (String(s.year) !== String(year) || !/^\d{5}$/.test(no)) return;
+    const list = (byCls[roomToCls(no.slice(0, 3))] = byCls[roomToCls(no.slice(0, 3))] || []);
+    if (!list.some(x => x.n === noOf(no))) list.push({ n: noOf(no), name: String(s.name || "").trim() });
+  });
+  for (const k of Object.keys(byCls)) byCls[k].sort((a, b) => a.n - b.n);
+  return byCls;
+}
+
 export function nameChanges(hc, seen) {
   const out = [];
   if (!hc || !seen) return out;

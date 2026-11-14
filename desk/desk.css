@@ -622,47 +622,63 @@ body { overflow: hidden; }
 
 .wg-links .links { margin: 0; flex: 1; }
 
-/* ══════════ 설정 패널 ══════════ */
-.scrim { position: fixed; inset: 0; z-index: 24; background: rgba(22, 32, 28, .28); }
-/* 가로는 못박고 세로는 내용만큼. 길어지면 화면 높이까지만 늘고 속이 굴러간다. */
-.card.float {
-  position: fixed; z-index: 25; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: min(620px, calc(100vw - 32px));
-  max-height: calc(100vh - 48px);
-  display: flex; flex-direction: column; overflow: hidden;
-  padding: 0; gap: 0;
+/* ══════════ 설정 화면 ══════════ */
+/* 팝업 대신 화면 전체(선생님 지시 2026-11-14). 왼쪽 메뉴 다섯, 오른쪽 내용. 폰에서는 메뉴가 위 줄로. */
+.scrim { position: fixed; inset: 0; z-index: 24; background: var(--bg); }
+.set-full {
+  position: fixed; inset: 0; z-index: 25;
+  display: flex; flex-direction: column; background: var(--bg);
 }
 .set-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 14px 16px 12px; border-bottom: 1px solid var(--line);
+  flex: none; height: 56px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line);
 }
-.set-title { font-size: 17px; font-weight: 600; margin: 0; }
+.set-title { font-size: var(--fs-strong); font-weight: 700; margin: 0; }
 .set-x {
-  width: 30px; height: 30px; flex: 0 0 auto; display: grid; place-items: center;
-  border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
-  color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer;
+  width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer;
 }
-.set-x:hover { color: var(--ink); border-color: var(--line-strong, var(--line)); }
+.set-x:hover { color: var(--ink); background: var(--surface-2); }
+.set-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
 .set-tabs {
-  display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--line);
-  overflow-x: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; gap: 4px; padding: 24px 14px;
+  background: var(--surface); border-right: 1px solid var(--line); overflow-y: auto;
 }
-.set-tabs::-webkit-scrollbar { width: 0; height: 0; }
-.set-tab { flex: 0 0 auto; }
 .set-tab {
-  border: 0; background: none; cursor: pointer; padding: 9px 10px; margin-bottom: -1px;
-  font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent;
+  border: 0; background: none; cursor: pointer; text-align: left;
+  padding: 11px 14px; border-radius: 10px; font-size: var(--fs-body); font-weight: 500; color: var(--muted);
 }
-.set-tab[aria-pressed="true"] { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
-.set-sec { display: flex; flex-direction: column; gap: 18px; padding: 16px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.set-tab:hover { background: var(--surface-2); color: var(--ink); }
+.set-tab[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.set-main { overflow-y: auto; min-height: 0; min-width: 0; }
+.set-inner { max-width: 760px; margin: 0 auto; padding: 36px 32px 72px; display: flex; flex-direction: column; gap: 20px; }
+.set-lead { padding: 0 4px 4px; }
+.set-page { font-family: var(--font-title); font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.02em; }
+.set-lead p { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
+.set-sec {
+  display: flex; flex-direction: column; gap: 18px; padding: 24px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+}
+/* 학생 명단: 반마다 한 줄 */
+.rs-list, .rs-plan { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.rs-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; font-size: var(--fs-sm); }
+.rs-row + .rs-row { border-top: 1px solid var(--line); }
+.rs-row b { font-weight: 600; color: var(--ink); }
+.rs-row span { color: var(--muted); }
+.rs-row .rs-why { color: var(--accent); font-weight: 600; }
+.rs-row.skip { background: var(--surface-2); }
+.rs-row.skip .rs-why { color: var(--muted); font-weight: 500; }
+.rs-plan { padding-bottom: 12px; background: var(--surface); }
+.rs-plan .rs-from { margin: 0; padding: 12px 14px; font-size: var(--fs-sm); font-weight: 600; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.rs-plan > .set-state, .rs-plan > .set-row { padding: 10px 14px 0; }
 /* 묶음은 회색 상자 대신 위 가는 줄과 여백으로 나눈다(선생님 지적 2026-11-13: 상자가 겹겹이라 난잡하다). */
 .set-block { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
 .set-sec > h3 + .set-block { border-top: 0; padding-top: 0; }
 .set-block > .set-sub { margin: 0 0 2px; }
 /* .set-state 는 줄(row) 안에서 늘어나라고 flex-basis 140px 이다. 세로 묶음 안에서는 그게 높이가 된다. */
-.set-block > .set-state { flex: none; }
-.set-head, .set-tabs { flex: none; }
-.set-sec > h3 { font-size: 15px; font-weight: 600; margin: 0; }
+.set-block > .set-state, .set-val > .set-state { flex: none; }
+.set-sec > h3 { font-size: var(--fs-strong); font-weight: 700; margin: 0; }
 .set-sub { font-size: 12px; font-weight: 600; color: var(--muted); margin: 2px 0 -4px; }
 .set-form { display: contents; }
 .set-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -883,9 +899,16 @@ body { overflow: hidden; }
   #app { padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
   .nb { padding: 14px; }
   .tools { opacity: 1; }
-  .set-head { padding: 12px 12px 10px; }
-  .set-tabs { padding: 0 12px; }
-  .set-sec { padding: 12px; }
+  .set-head { height: 52px; padding: 0 12px; }
+  .set-body { display: flex; flex-direction: column; }
+  .set-tabs { flex: none; flex-direction: row; overflow-x: auto; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .set-tabs::-webkit-scrollbar { width: 0; height: 0; }
+  .set-tab { flex: 0 0 auto; padding: 8px 14px; text-align: center; }
+  .set-main { flex: 1 1 auto; }
+  .set-tabs { flex: none; }
+  .set-inner { padding: 20px 16px 56px; gap: 14px; }
+  .set-page { font-size: 22px; }
+  .set-sec { padding: 16px; }
 }
 
 /* ══════════ 칸이 작아지면 줄어든다 ══════════ */

@@ -414,7 +414,8 @@ function checkEntries() {
   assert(A.$("setClose"), "머리줄에 닫기 단추가 있다");
   assert(!A.$("setScrim").hidden, "열면 뒤가 가려진다");
   assert.deepStrictEqual([...A.d.querySelectorAll("#setPanel .set-tab")].map(b => b.textContent),
-    ["기본", "바로가기", "시간표", "화면", "나이스", "백업", "비밀번호"], "탭 일곱");
+    ["기본", "화면", "수업", "담임", "업무"], "탭 다섯");
+  assert(A.$("setPanel").classList.contains("set-full"), "설정은 팝업이 아니라 전체 화면");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden && A.$("setScrim").hidden, "닫기 단추로 닫힌다");
   A.$("toolSet").click();
@@ -424,14 +425,20 @@ function checkEntries() {
   await until(() => A.d.querySelector('#setPanel .cpick[data-year="2027"][aria-pressed="true"]'), "2027학년도를 더하고 고른다");
   assert(!A.d.querySelector("#setPanel input[id=setSchool]"), "학교 이름 칸은 없다. 학교는 나이스 학교 찾기 한 곳에서만 정한다");
   assert(!A.$("setSave"), "기본 탭은 누르는 즉시 저장하므로 저장 단추가 없다");
+  assert(!A.$("setHome") && !A.$("setClasses"), "담임 반, 수업 반은 기본 탭이 아니라 담임, 수업 탭에 있다");
+  A.setTab("home");
+  await until(() => A.$("setHome"), "담임 탭");
   A.d.querySelector('#setHome [data-home="1"]').click();   // 담임을 고르면 반 고르개가 나온다
   await until(() => A.$("setHomeCls"), "담임 반 고르개");
   A.pickRoom("setHomeCls", 3, 9);                 // 담임 반 3-9
+  await until(() => A.d.querySelector('#setHomeCls [data-grade="3"][aria-pressed="true"]'), "다시 그려도 3학년이 펼쳐져 있다");
+  A.setTab("lesson");
+  await until(() => A.$("setClasses"), "수업 탭");
   A.pickRoom("setClasses", 3, 1);                 // 수업 반 3-1 (담임 반 3-9 와 따로)
   await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state;
     return y && y.years && y.years["2027"] && y.years["2027"].homeroom === "3-9" && y.years["2027"].classes.join() === "3-1"; },
     "누르는 즉시 담임 반 3-9, 수업 반 3-1 로 저장된다");
-  assert.strictEqual(A.d.querySelector('#setHomeCls [data-grade="3"]').getAttribute("aria-pressed"), "true", "다시 그려도 3학년이 펼쳐져 있다");
+  A.setTab("year");
 
   /* ---------- 이 기기에서 교무수첩 잠그지 않기 ---------- */
   const kept = () => { try { return JSON.parse(A.w.localStorage.getItem("my-desk-v3:keepKey")); } catch (e) { return null; } };
@@ -560,7 +567,7 @@ function checkEntries() {
   assert(!A.d.querySelector("#links button"), "위젯에는 누를 타일만 있고 단추는 없다");
   assert(!A.$("editLinks"), "바로가기 편집 단추는 설정 창으로 옮겼다");
 
-  A.setTab("links");
+  A.setTab("screen");
   await until(() => A.$("linkForm"), "바로가기 탭");
   type("linkName", "이모지 시험"); type("linkUrl", "example.com");
   picks()[2].click();   // 다시 그려도 적던 이름과 주소가 남아야 한다
@@ -625,7 +632,7 @@ function checkEntries() {
   await until(() => String(store.get("desk_settings/general")).includes('"officials":true'), "officials 표 저장");
   A.$("setClose").click();
 
-  A.setTab("grid");
+  A.setTab("screen");
   await until(() => A.$("setCols"), "화면 탭 열림");
   A.btn("#setPanel", "장 추가").click();
   await until(() => dots().length === 2, "대시보드가 두 장이 됐다");
@@ -684,7 +691,7 @@ function checkEntries() {
   assert.strictEqual(A.area("tt"), "1 / 7 / span 16 / span 6", "되돌린 2단 자리");
   A.d.dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await until(() => A.$("setPanel").hidden, "ESC 로 닫힌다");
-  A.setTab("grid");
+  A.setTab("screen");
   await until(() => A.$("setCols"), "다시 열림");
   A.$("setScrim").click();
   await until(() => !A.$("setCols") && A.$("setScrim").hidden, "가림막으로 닫힌다");
@@ -765,7 +772,8 @@ function checkEntries() {
   await until(() => A.$("attMonth") && A.$("attMonthCopy"), "한 달 표");
   const monthRows = () => [...A.$("attMonth").querySelectorAll("tbody tr")];
   assert.strictEqual(monthRows().length, 2, "학생 줄 둘");
-  await until(() => monthRows()[1].textContent.includes("결"), "오늘 결석이 표에 찍힌다");
+  const weekend = [0, 6].includes(new Date().getDay());   // 한 달 표는 평일 칸만 있어 주말엔 오늘 칸이 없다
+  if (!weekend) await until(() => monthRows()[1].textContent.includes("결"), "오늘 결석이 표에 찍힌다");
   if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_month.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
   if (prev.slice(0, 7) === day.slice(0, 7)) {
     await until(() => monthRows()[0].textContent.includes("지"), "지난날 지각도 표에 찍힌다");
@@ -821,8 +829,8 @@ function checkEntries() {
 
   /* ---------- 파수꾼: 학번의 이름이 달라지면 알린다 ---------- */
   renameHoclassStudent("301", 2, "전학온애");
-  A.setTab("year");
-  await until(() => A.$("setForm"), "설정 다시");
+  A.setTab("lesson");
+  await until(() => A.$("setClasses"), "설정 다시");
   A.pickRoom("setClasses", 3, 1); A.pickRoom("setClasses", 3, 1);   // 껐다 켜면 다시 저장된다
   await until(() => A.text().includes("학번에 붙은 이름이 달라졌습니다"), "파수꾼이 알린다", 30000);
   await until(() => { const y = JSON.parse(store.get("desk_years/all") || "{}").state;
@@ -916,8 +924,8 @@ function checkEntries() {
     ["hoclass_course_grades", "hoclass_course_lessons"], "호클래스에 쓴 컬렉션: " + hcWrites.join(", "));
 
   /* ---------- 나이스에서 받아오기 ---------- */
-  A.setTab("neis");
-  await until(() => A.$("neisKey"), "나이스 탭");
+  A.setTab("year");
+  await until(() => A.$("neisKey"), "인증키는 기본 탭");
   A.fill("neisKey", "시험열쇠");
   A.$("neisSave").click();
   await until(() => A.$("neisKey") && A.$("neisKey").value === "시험열쇠", "인증키가 남는다");
@@ -929,13 +937,15 @@ function checkEntries() {
   await until(() => A.$("schoolEdit") && A.$("setForm").textContent.includes("인천동양중학교"), "정한 학교가 보인다");
   // 눈으로 볼 때: DUMP_SET=파일 npm test 하면 학교를 정한 뒤 기본 탭을 떠 둔다. 브라우저로 찍어 본다.
   if (process.env.DUMP_SET) fs.writeFileSync(process.env.DUMP_SET, A.$("setPanel").outerHTML);
-  A.setTab("neis");
-  await until(() => A.$("neisCal"), "학교를 정하면 나이스 탭에 받아오기 단추가 생긴다");
+  A.setTab("work");
+  await until(() => A.$("neisCal"), "학교를 정하면 업무 탭에 학사 일정 받기 단추가 생긴다");
   A.$("neisCal").click();
   await until(() => A.$("ddayList").textContent.includes("입학식"), "학사 일정이 D-day 에 들어온다");
   /* 과목 줄이 없으면 받아오지 않는다. 거를 것이 없어 첫 반이 35칸을 다 먹는다. */
+  A.setTab("lesson");
+  await until(() => A.$("neisTT"), "시간표 받기는 수업 탭");
   A.$("neisTT").click();
-  await until(() => A.d.querySelector("#setPanel .form-err").textContent.includes("내 과목"),
+  await until(() => [...A.d.querySelectorAll("#setPanel .form-err")].some(e => e.textContent.includes("내 과목")),
     "과목 줄이 없으면 까닭을 알리고 멈춘다");
 
   /* 과목마다 가르치는 반이 다르다. 줄을 둘 두고 반을 달리 고른다. */
@@ -988,7 +998,7 @@ function checkEntries() {
   /* ---------- 시정 채우기 (설정 창 시간표 탭) ---------- */
   assert(!A.$("ttEdit"), "위젯의 편집 단추는 설정 창으로 옮겼다");
   assert(!A.d.querySelector('.wg[data-w="tt"] input'), "위젯의 시간표는 보기만 한다");
-  A.setTab("tt");
+  A.setTab("lesson");
   await until(() => A.$("ttSet"), "시간표 탭");
   if (process.env.DUMP_TT) { for (const i of A.d.querySelectorAll("#setPanel input")) i.setAttribute("value", i.value);
     fs.writeFileSync(process.env.DUMP_TT, A.$("setPanel").outerHTML); }
@@ -1014,7 +1024,7 @@ function checkEntries() {
   await until(() => A.$("setPanel").hidden, "시간표 탭 닫기");
 
   /* ---------- 백업 ---------- */
-  A.setTab("back");
+  A.setTab("year");
   await until(() => A.$("bkSave"), "백업 탭");
   A.$("bkSave").click();
   await until(() => saved.length === 1, "백업 파일");
@@ -1030,6 +1040,51 @@ function checkEntries() {
   }
   assert(!Object.keys(file.docs).some(k => k.startsWith("hoclass_")), "백업에 호클래스 자료는 담지 않는다");
   for (const nm of ["김지우", "담임하나"]) assert(!JSON.stringify(file).includes(nm), "백업 파일에 이름 평문 금지: " + nm);
+
+  /* ---------- 설정: 학생 명단 양식 받기, 올리기, 호클래스에서 가져오기 ---------- */
+  A.setTab("home");
+  await until(() => A.$("rsList") && A.$("rsList").textContent.includes("2명"), "담임 탭에 3-9 명단 2명");
+  let tpl = null;   // 엑셀 도구(SheetJS)는 시험에서 가짜로 둔다
+  A.w.XLSX = { utils: { aoa_to_sheet: (rows) => ({ rows }), book_new: () => ({}), book_append_sheet: (wb, ws) => { wb.ws = ws; } },
+    writeFile: (wb, name) => { tpl = { rows: wb.ws.rows, name }; } };
+  A.$("rsTpl").click();
+  await until(() => tpl, "양식 받기");
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(tpl.rows)), [["학년", "반", "번호", "이름"], [3, 9, 1, "담임하나"], [3, 9, 2, "담임둘"]], "양식에 지금 담임 반 명단이 채워진다");
+  assert(tpl.name === "학생명단_담임_2027.xlsx", "양식 파일 이름: " + tpl.name);
+  const upload = (name, body) => {
+    Object.defineProperty(A.$("rsFile"), "files", { value: [new A.w.File([body], name)], configurable: true });
+    A.$("rsFile").dispatchEvent(new A.w.Event("change"));
+  };
+  const planRows = () => [...A.$("rsPlan").querySelectorAll(".rs-row")].map(r => r.textContent);
+  // 한글 윈도 엑셀이 저장한 CSV(EUC-KR)
+  const eucKr = (t) => new Uint8Array(require("iconv-lite").encode(t, "euc-kr"));
+  upload("명단.csv", eucKr(["학년,반,번호,이름", "3,9,1,담임하나", "3,9,2,새친구", "3,9,3,셋째", "3,1,1,남의반", ",,,", ""].join("\r\n")));
+  await until(() => A.$("rsPlan"), "미리보기");
+  assert(planRows().some(t => t.includes("3학년 9반") && t.includes("3명") && t.includes("바꿈")), "3-9 세 명: " + planRows());
+  assert(planRows().some(t => t.includes("3학년 1반") && t.includes("담임 반이 아닙니다")), "담임 반이 아니면 건너뛴다");
+  assert(A.$("rsList").textContent.includes("2명"), "적용 전에는 그대로");
+  A.$("rsApply").click();
+  await until(() => !A.$("rsPlan") && A.$("rsList").textContent.includes("3명"), "적용하면 3명");
+  upload("겹침.csv", ["이름,학번", "가,30901", "나,30901", ""].join("\n"));
+  await until(() => A.$("rsPlan") && planRows()[0].includes("1번이 두 번"), "학번 칸도 읽고, 같은 번호가 둘이면 막는다");
+  assert(A.$("rsApply").disabled, "저장할 반이 없으면 적용을 못 누른다");
+  A.$("rsCancel").click();
+  put("hoclass_course_roster/2027_30901", { id: "2027_30901", year: "2027", studentNo: "30901", name: "명부하나" });
+  put("hoclass_course_roster/2027_30902", { id: "2027_30902", year: "2027", studentNo: "30902", name: "명부둘" });
+  put("hoclass_course_roster/2026_30903", { id: "2026_30903", year: "2026", studentNo: "30903", name: "작년애" });
+  A.$("rsHc").click();
+  await until(() => A.$("rsPlan") && A.$("rsPlan").textContent.includes("호클래스 학생 명부"), "호클래스 명부 미리보기");
+  assert.strictEqual(planRows().length, 1, "내 반(3-9)만");
+  assert(planRows()[0].includes("2명"), "그 학년도 학생만: " + planRows());
+  A.$("rsApply").click();
+  await until(() => A.$("rsList").textContent.includes("2명"), "호클래스 명부로 바꾼다");
+  A.setTab("lesson");
+  await until(() => A.$("rsList"), "수업 탭 명단");
+  assert(A.$("rsList").textContent.includes("호클래스 강의실"), "강의실 반은 호클래스 명단을 쓴다고 보인다");
+  await wait(900);
+  for (const nm of ["새친구", "명부하나"]) assert(!allStored().includes(nm), "올린 명단 평문 금지: " + nm);
+  A.$("setClose").click();
+  await until(() => A.$("setPanel").hidden, "설정 닫기");
 
   /* ---------- 끊겨도 스스로 다시 붙는다 ---------- */
   // 전에는 한 번 끊기면 새로고침 전까지 영영 끊긴 채였고, 그동안 "우리 반" 은

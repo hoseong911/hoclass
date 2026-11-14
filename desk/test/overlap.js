@@ -169,8 +169,10 @@ async function dumpWidgets() {
     d.querySelector("#" + id + ' [data-grade="' + g + '"]').click();
     d.querySelector("#" + id + ' .cpick[data-cls="' + g + "-" + r + '"]').click();
   };
+  d.querySelector('#setPanel .set-tab[data-tab="home"]').click();
   d.querySelector('#setHome [data-home="1"]').click();
   pickRoom("setHomeCls", 3, 1);
+  d.querySelector('#setPanel .set-tab[data-tab="lesson"]').click();
   pickRoom("setClasses", 3, 1); pickRoom("setClasses", 3, 2);
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
