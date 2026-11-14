@@ -589,6 +589,7 @@ function openYearDocs() {
   const y = state.year.current;
   if (yearOpen === y) return;
   for (const d of encDocs()) closeDoc(d);
+  for (const k of Object.keys(docs)) if (k.startsWith("xatt_")) delete docs[k];
   yearOpen = y; attDay = ""; attCls = ""; docs.att = null; activeCollect = null; pickedCls = "";
   attCache.clear(); attLoaded = "";
   docs.roster = makeDoc(`y${y}_roster`, { enc: true, makeDefault: () => ({ classes: {} }) });
@@ -868,7 +869,7 @@ let arranging = false, curPage = 1;
 /* 교무수첩 장(선생님 지시 2026-11-13): 1장은 대시보드, 그 뒤로 수업, 담임, 업무가 각각 화면 하나.
    장마다 위에서 작은 페이지(탭)를 넘긴다. 위젯 배치(장 추가, 끌어 옮기기)는 대시보드 장에서만 한다. */
 const NB = [
-  { key: "lesson", name: "수업", tabs: [["prog", "진도"], ["lesson", "수업 기록"], ["student", "학생"], ["att", "출결"], ["col", "수합"]] },
+  { key: "lesson", name: "수업", tabs: [["prog", "진도"], ["student", "학생"], ["att", "출결"], ["col", "수합"]] },
   { key: "home", name: "담임", tabs: [["att", "출결"], ["col", "수합"], ["ann", "전달사항"], ["student", "학생"], ["consult", "상담 민원"]] },
   { key: "work", name: "업무", tabs: [["week", "주간 계획"], ["month", "월간 계획"], ["todo", "할 일"], ["work", "업무 기록"]] },
 ];
@@ -2151,10 +2152,11 @@ function studentsAll() {
   const c = v && v.classes && v.classes[picked()];
   return c && Array.isArray(c.students) ? c.students : [];
 }
-function attMarks() {
-  const v = docs.att.value;
+function attMarks() { return marksOf(docs.att); }
+function marksOf(A) {
+  const v = A.value;
   if (!v.marks || typeof v.marks !== "object") v.marks = {};
-  attCache.set(docs.att.key, v);
+  attCache.set(A.key, v);
   return v.marks;
 }
 // 같은 학번의 이름이 바뀌면 기록이 다른 학생에게 붙은 것이다. 알리기만 한다.
@@ -2498,11 +2500,15 @@ function softClass() {
   if (!typing && !(ks === lastKs && (ks === "none" || ks === "locked" || ks === "recovery"))) renderNb();
 }
 let lastKs = "";
-function renderPick(list, pick) {
-  $("classPick").replaceChildren(...list.map(c => h("button", {
-    class: "cpick", type: "button", "aria-pressed": String(c === pick),
-    onclick: () => goClass(c),
-  }, c)));
+function renderPick(list, pick, withAll) {
+  // 진도 탭은 맨 앞에 「전체」(차시 x 반 표)
+  const all = withAll && progAll;
+  $("classPick").replaceChildren(...[
+    withAll ? h("button", { class: "cpick", type: "button", "aria-pressed": String(all), onclick: () => { progAll = true; renderNb(); } }, "전체") : null,
+    ...list.map(c => h("button", {
+      class: "cpick", type: "button", "aria-pressed": String(c === pick && !all),
+      onclick: () => { progAll = false; progPick = ""; if (pickedCls === c) renderNb(); else goClass(c); },
+    }, c))].filter(Boolean));
 }
 /* 할 일은 위젯 하나를 대시보드와 업무 장이 같이 쓴다(선생님 지시 2026-11-13).
    업무 장의 할 일 탭을 열면 카드를 옮겨 오고, 다른 데를 보면 대시보드 칸으로 되돌린다. 두 벌을 만들지 않는다. */
@@ -2521,18 +2527,20 @@ function renderNb() {
   const ks = keyStateNow(), open = ks === "open";
   lastKs = ks;
   const tab = nbTab[nb.key], usesCls = nb.key !== "work";
+  if (open && nb.key === "lesson" && tab === "att" && !attAuto && docs.lessons && docs.lessons.ready) autoPickLesson();
+  const allView = nb.key === "lesson" && tab === "prog" && progAll && lessonClasses().length > 1;
   const pick = usesCls ? picked() : "";
   $("nbTitle").textContent = nb.name;
-  $("className").textContent = open && usesCls ? (pick ? classLabel(pick) : nb.key === "home" ? "담임 반 없음" : "수업 반 없음") : "";
+  $("className").textContent = open && usesCls ? (allView ? "전체 반" : pick ? classLabel(pick) : nb.key === "home" ? "담임 반 없음" : "수업 반 없음") : "";
   const list = nb.key === "lesson" ? lessonClasses() : [];
   $("classPick").hidden = !(open && list.length > 1);
-  if (open && list.length > 1) renderPick(list, pick);
+  if (open && list.length > 1) renderPick(list, pick, nb.key === "lesson" && tab === "prog");
   const seg = $("nbSeg");
   seg.hidden = !open;
   seg.parentElement.hidden = !open;   // 잠겨 있으면 탭 줄(과 그 밑줄)째 숨긴다
   seg.replaceChildren(...nb.tabs.map(([k, name]) => h("button", {
     type: "button", "data-tab": k, "aria-pressed": String(k === tab), text: name,
-    onclick: () => { nbTab[nb.key] = k; renderNb(); },
+    onclick: () => { nbTab[nb.key] = k; if (k === "att") attAuto = false; attEdit = ""; renderNb(); },
   })));
   $("hideBtn").hidden = !open || !usesCls;
   $("lockBtn").hidden = !open;
@@ -2571,7 +2579,7 @@ function renderNb() {
   }
   if (encDocs().some(d => d.broken)) { wrap(note("일부 기록을 풀지 못했습니다. 페이지를 새로고침한 뒤 다시 열어 주세요. 기록은 그대로 있습니다.")); return; }
   if (encDocs().some(d => !d.ready)) { wrap(note("기록을 여는 중입니다.")); return; }
-  if (tab === "prog") { cols([progressView()]); return; }
+  if (tab === "prog") { wrap(allView ? progressAll() : [progressClass(pick)]); return; }
   if (!roster().length && tab !== "lesson") {
     wrap([h("div", { class: "lock-panel" }, h("h3", { text: "학생 명단이 비어 있습니다" }),
       h("p", { text: hcHas(pick) ? "호클래스 이 강의실에 학생이 아직 없습니다. 호클래스 어드민의 학생 관리에서 넣어 주세요."
@@ -2579,10 +2587,10 @@ function renderNb() {
       hcHas(pick) ? null : h("div", { class: "row" }, openSetBtn(nb.key === "home" ? "home" : "lesson")))]);
     return;
   }
-  if (tab === "att") wrap(attMode === "month" ? attMonthView() : attView());
+  if (tab === "att") wrap(nb.key === "lesson" ? lessonAttView() : attMode === "month" ? attMonthView() : attView());
   else if (tab === "col") wrap(collectView());
   else if (tab === "ann") wrap(noticeView());
-  else cols(tab === "student" ? studentPage() : tab === "consult" ? consultPage() : lessonPage());
+  else cols(tab === "consult" ? consultPage() : studentPage());
 }
 /* 여러 곳에서 부르던 옛 이름. 둘 다 교무수첩 장을 다시 그린다. */
 function renderClass() { renderNb(); }
@@ -2628,14 +2636,15 @@ const navBtn = (label, svg, fn, off) => h("button", { class: "pg-arrow", type: "
    지각은 몇 교시까지, 조퇴는 몇 교시부터, 결과는 빠진 교시 여럿. 결석은 교시를 안 고른다. 메모 한 줄.
    학생 칸을 누르면 그 학생의 고르개가 열린다. 한 학생이 하루에 여러 건을 가질 수 있다. */
 let attEdit = "", attDraft = null;          // 고르개를 연 학생("날짜|반|학생"), 고르는 중인 한 건
-const attEditKey = (sid) => attDate() + "|" + picked() + "|" + sid;
-function openAttEdit(sid) {
-  attEdit = attEdit === attEditKey(sid) ? "" : attEditKey(sid);
+const attEditKey = (sid, day = attDate(), cls = picked()) => day + "|" + cls + "|" + sid;
+function openAttEdit(sid, day = attDate(), cls = picked()) {
+  attEdit = attEdit === attEditKey(sid, day, cls) ? "" : attEditKey(sid, day, cls);
   attDraft = { k: "결석", r: "", p: [], memo: "" };
   renderNb();
 }
-function attEditor(st, A) {
-  const d = attDraft, marks = attMarks();
+function attEditor(st, A, day = attDate(), cls = picked()) {
+  if (!attDraft) attDraft = { k: "결석", r: "", p: [], memo: "" };
+  const d = attDraft, marks = marksOf(A);
   const list = entriesOf(A.value, st.id);
   const multi = d.k === "결과", noP = d.k === "결석";
   const pick = (cls, items, cur, on) => h("div", { class: "seg att-pick " + cls }, ...items.map(([v, t]) => h("button", {
@@ -2658,7 +2667,7 @@ function attEditor(st, A) {
   };
   return h("section", { class: "att-ed", id: "attEd" },
     h("div", { class: "att-ed-head" },
-      h("b", { text: who(st) }), h("span", { class: "muted", text: mdw(attDate()) }),
+      h("b", { text: (nbKey() === "lesson" ? cls + " " : "") + who(st) }), h("span", { class: "muted", text: mdw(day) }),
       h("button", { class: "text-btn", type: "button", text: "닫기", onclick: () => { attEdit = ""; renderNb(); } })),
     list.length ? h("ul", { class: "att-ed-list" }, ...list.map((e, i) => h("li", { class: "att-ed-item " + e.k },
       h("span", { text: entryText(e) }), e.memo ? h("span", { class: "muted", text: e.memo }) : null,
@@ -2749,7 +2758,10 @@ function attLegend() {
 function attMonthView() {
   const cls = picked(), list = roster(), ym = attYm || ymOf(todayKey()), today = todayKey();
   if (attLoaded !== ym + "|" + cls && !attBusy) loadMonth(ym, cls);
-  const days = monthDays(ym);
+  const L = nbKey() === "lesson";
+  const lessonDays = L ? [...new Set(sessOf(cls).filter(s => s.at.startsWith(ym)).map(s => s.at))].sort() : [];
+  const days = lessonDays.length ? lessonDays : monthDays(ym);
+  const periodsOn = (d) => L ? sessOf(cls).filter(s => s.at === d).map(s => s.period) : [];
   const esOf = (d, sid) => d > today ? [] : entriesOf(attValueOf(d, cls), sid);
   const [y, m] = ym.split("-").map(Number);
   const goYm = (n) => { const d = new Date(y, m - 1 + n, 1); attYm = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; renderNb(); };
@@ -2764,7 +2776,8 @@ function attMonthView() {
       return h("td", { class: [k ? "m " + k : "", k && es[0].r ? "r-" + es[0].r : "", es.some(e => !e.r) ? "undecided" : "", off ? "off" : "", d === today ? "today" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "),
         title: `${mdw(d)} ${es.length ? es.map(e => entryText(e) + (e.memo ? " " + e.memo : "")).join(", ") : off || (d > today ? "" : "출석")}`,
         text: es.map(e => ATT_ABBR[e.k]).join(""),
-        onclick: d > today ? null : () => { attPick = d === today ? "" : d; attMode = "day"; renderNb(); } });
+        "aria-pressed": L && attEdit === attEditKey(st.id, d, cls) ? "true" : null,
+        onclick: d > today ? null : L ? () => openAttEdit(st.id, d, cls) : () => { attPick = d === today ? "" : d; attMode = "day"; renderNb(); } });
     });
     const nm = shownName(st);
     return { st, cnt, tr: h("tr", null, h("th", { class: "who" }, h("span", { class: "no", text: String(st.n) }), nm ? h("span", { class: "nm", text: nm }) : null), ...cells,
@@ -2786,7 +2799,7 @@ function attMonthView() {
         navBtn("앞 달", CHEV_L, () => goYm(-1)),
         h("span", { class: "att-date", id: "attYm", text: `${y}년 ${m}월` }),
         navBtn("다음 달", CHEV_R, () => goYm(1), ym >= ymOf(today))),
-      attModeSeg()),
+      L ? null : attModeSeg()),
     h("div", { class: "cls-line" },
       h("div", { class: "att-sum" }, ...ATT_KINDS.map((k, i) => h("span", { class: "k" + (totals[i] ? " " + ["absent", "late", "early", "outk"][i] : "") }, k + " ", h("b", { text: totals[i] + "건" })))),
       attBusy ? h("span", { class: "tip", text: "기록을 모으는 중입니다" })
@@ -2797,10 +2810,12 @@ function attMonthView() {
       h("thead", null, h("tr", null, h("th", { class: "who" }, h("span", { class: "no", text: "번호" }), h("span", { class: "nm", text: "이름" })),
         ...days.map(d => { const off = offName(d), wd = parseDate(d).getDay();
           return h("th", { class: ["day", off ? "off" : "", d === today ? "today" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "), title: off || mdw(d) },
-            h("span", { class: "dn", text: String(+d.slice(8)) }), h("span", { class: "dw", text: WD[wd] })); }),
+            h("span", { class: "dn", text: String(+d.slice(8)) }), h("span", { class: "dw", text: WD[wd] }),
+            L && periodsOn(d).length ? h("span", { class: "dp", text: periodsOn(d).join(",") + "교시" }) : null); }),
         ...ATT_KINDS.map((k, i) => h("th", { class: "tot" + (i === 0 ? " first" : ""), text: k })))),
       h("tbody", null, ...rows.map(r => r.tr)))),
-    h("p", { class: "tip", text: "칸을 누르면 그날로 가서 고칩니다. 마우스를 올리면 사유와 교시, 빗금 칸은 학사 일정의 쉬는 날입니다." }),
+    h("p", { class: "tip", text: L ? (lessonDays.length ? "열은 진도표의 이 반 수업 날입니다. 칸을 누르면 오른쪽에서 적습니다." : "이 달 진도표에 수업이 없어 평일을 다 보입니다. 칸을 누르면 오른쪽에서 적습니다.")
+      : "칸을 누르면 그날로 가서 고칩니다. 마우스를 올리면 사유와 교시, 빗금 칸은 학사 일정의 쉬는 날입니다." }),
   ];
 }
 
@@ -3178,6 +3193,8 @@ function entryText(e) {
 const attKeyOf = (day, cls) => `y${yearOpen}_att_${day}_${cls}`;
 function attValueOf(day, cls) {
   if (docs.att && docs.att.ready && attDay === day && attCls === cls) return docs.att.value;
+  const x = docs["xatt_" + day + "_" + cls];
+  if (x && x.ready) return x.value;
   return attCache.get(attKeyOf(day, cls)) || null;
 }
 const bookReady = () => keyStateNow() === "open" && encDocs().every(d => d.ready && !d.broken);
@@ -3436,92 +3453,244 @@ function consultPage() {
 }
 
 /* ---------- 수업 ---------- */
-function lessonPage() {
-  const D = docs.lessons, cls = bCls();
-  const now = new Date(), row = todayRow(now);
-  const lessons = lessonsOf(cls);
-  const mine = D.value.items.filter(x => x.cls === cls).slice().sort((a, b) => b.at.localeCompare(a.at) || b.period - a.period);
-  const atIn = h("input", { type: "date", id: "leAt", value: todayKey() });
-  const perIn = h("select", { id: "lePeriod" }, ...Array.from({ length: 7 }, (_, i) => h("option", { value: String(i + 1), text: (i + 1) + "교시" })));
-  if (row) { const i = row.findIndex(c => c.trim() === cls); if (i >= 0) perIn.value = String(i + 1); }
-  const unitIn = h("input", { type: "text", id: "leUnit", maxlength: "60", autocomplete: "off" });
-  const clIn = h("select", { id: "leCl" }, h("option", { value: "", text: "고르지 않음" }),
-    ...lessons.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || "제목 없음"}${x.date ? " (" + x.date + ")" : ""}` })));
-  clIn.addEventListener("change", () => {
-    const x = lessons.find(y => y.clId === clIn.value);
-    if (!x) return;
-    if (x.date) atIn.value = x.date;
-    if (x.title && !unitIn.value.trim()) unitIn.value = x.title;
-  });
-  const bodyIn = h("textarea", { id: "leBody" });
-  const hwIn = h("input", { type: "text", id: "leHw", maxlength: "120", autocomplete: "off" });
-  const err = h("p", { class: "form-err", role: "alert" });
-  const form = h("form", { class: "book-form", id: "leForm", onsubmit: (e) => {
-    e.preventDefault();
-    if (!cls) { err.textContent = "설정의 수업 탭에서 수업 반을 먼저 넣어 주세요."; return; }
-    if (!unitIn.value.trim() && !bodyIn.value.trim()) { err.textContent = "단원이나 내용 하나는 적어 주세요."; return; }
-    D.value.items.unshift({
-      id: uid(), cls, at: atIn.value || todayKey(), period: Number(perIn.value),
-      unit: unitIn.value.trim().slice(0, 60), body: bodyIn.value.trim().slice(0, 1000), hw: hwIn.value.trim().slice(0, 120),
-      clId: clIn.value || "",
-    });
-    saveEnc(D); renderBook(); toast(classLabel(cls) + " 수업을 적었습니다");
-  } },
-    h("div", { class: "form-grid" },
-      field("날짜", atIn), field("교시", perIn),
-      lessons.length ? h("label", { class: "field wide" }, "호클래스 차시", clIn) : null,
-      h("label", { class: "field wide" }, "단원", unitIn),
-      h("label", { class: "field wide" }, "내용", bodyIn),
-      h("label", { class: "field wide" }, "과제", hwIn)),
-    err,
-    h("div", { class: "row" }, h("button", { class: "btn small", type: "submit", text: "추가" })));
+/* ---------- 진도(수업 장, 선생님 지시 2026-11-14) ----------
+   진도와 수업 기록을 한 탭으로. 수업 하나 = docs.lessons.items 한 줄 { id, cls, at, period, unit, plan, body, hw, clId }.
+   plan 은 수업 계획, body 는 한 것(기록). 옛 기록은 plan 없이 body 만 있다. 차시는 그 반 수업을 날짜, 교시 차례로 센 번호.
+   「전체」는 차시 x 반 표(호클래스 진도표처럼 줄 = 차시, 열 = 반, 칸 = 그 반 날짜). 반을 고르면 왼쪽 진도표, 오른쪽 그 수업 적기. */
+let progAll = true, progPick = "", genBusy = false, genNote = "", genFrom = "", genTo = "";
+const sessOf = (cls) => docs.lessons.value.items.filter(x => x.cls === cls)
+  .sort((a, b) => a.at.localeCompare(b.at) || a.period - b.period);
+// 호클래스 차시: 이어 붙인 것(clId) 먼저, 없으면 같은 날짜
+const hcOf = (s) => lessonsOf(s.cls).find(x => s.clId && x.clId === s.clId) || lessonsOf(s.cls).find(x => x.date && x.date === s.at) || null;
+const unitOf = (s) => s.unit || (hcOf(s) || {}).title || "";
+const sessState = (s, today) => s.at === today ? "today" : s.body ? "done" : s.at < today ? "miss" : "plan";
+const mdd = (iso) => { const d = parseDate(iso); return `${d.getMonth() + 1}.${d.getDate()}(${WD[d.getDay()]})`; };
 
-  const lines = mine.map(x => h("li", { class: "line" },
-    h("div", { class: "top" },
-      h("span", { class: "ttl", text: x.unit || "수업" }),
-      h("span", { class: "when", text: dotDate(x.at) + " " + x.period + "교시" })),
-    x.body ? h("div", { class: "body", text: x.body }) : null,
-    x.hw ? h("div", { class: "marks" }, h("span", { class: "tag open", text: "과제" }), h("span", { class: "body", text: x.hw })) : null,
-    h("div", { class: "row" },
-      h("button", { class: "btn small secondary", type: "button", text: "복사", onclick: () => copyText(
-        [`${x.at} ${classLabel(x.cls)} ${x.period}교시`, x.unit, x.body, x.hw ? "과제: " + x.hw : ""].filter(Boolean).join("\n")) }),
-      armed("삭제", "삭제", () => { D.value.items = D.value.items.filter(y => y.id !== x.id); saveEnc(D); renderBook(); }))));
+/* 나이스 시간표로 진도 계획 만들기: 주마다 나이스에서 내 과목 시간표를 받아 그 반 수업을 넣는다.
+   나이스에 아직 없는 주는 설정의 주간 시간표 모양으로. 학사 일정의 쉬는 날은 뺀다. 이미 있는 반, 날, 교시는 건너뛴다. */
+async function genPlan(from, to) {
+  if (genBusy || !from || !to || from > to) return;
+  genBusy = true; genNote = "나이스 시간표를 받는 중입니다"; renderNb();
+  const D = docs.lessons, classes = lessonClasses(), N = state.neis;
+  const have = new Set(D.value.items.map(x => x.cls + "|" + x.at + "|" + x.period));
+  const subjects = N.subjects.filter(s => s.name && s.classes.length);
+  let added = 0, byTT = 0;
+  try {
+    for (let mon = mondayIso(parseDate(from)); mon <= to; mon = addDaysIso(mon, 7)) {
+      let grid = null;
+      if (N.school && subjects.length) {
+        try {
+          const d = parseDate(mon);
+          grid = await Neis.loadMyWeek(N.school, academicYear(d), Neis.semesterOf(d), mon.replace(/-/g, ""), subjects, N.key);
+          if (!grid.flat().some(Boolean)) grid = null;
+        } catch (e) { grid = null; }
+      }
+      if (!grid) { if (state.ttExample) continue; grid = state.tt; byTT++; }
+      for (let di = 0; di < 5; di++) {
+        const d = addDaysIso(mon, di);
+        if (d < from || d > to || offName(d)) continue;
+        for (let p = 0; p < 7; p++) {
+          const c = String((grid[di] || [])[p] || "").trim();
+          if (!classes.includes(c) || have.has(c + "|" + d + "|" + (p + 1))) continue;
+          have.add(c + "|" + d + "|" + (p + 1));
+          D.value.items.push({ id: uid(), cls: c, at: d, period: p + 1, unit: "", plan: "", body: "", hw: "", clId: "" });
+          added++;
+        }
+      }
+      genNote = `${+mon.slice(5, 7)}월 ${+mon.slice(8)}일 주까지 받았습니다`; renderNb();
+    }
+    saveEnc(D);
+    genNote = `수업 ${added}개를 넣었습니다` + (byTT ? `. 나이스에 없는 ${byTT}주는 주간 시간표 모양으로 채웠습니다.` : ".");
+  } finally { genBusy = false; renderNb(); }
+}
+function genBar() {
+  const t = todayKey(), [y, m] = t.split("-").map(Number);
+  const nextEnd = isoOf(new Date(y, m + 1, 0));                // 다음 달 끝(11월이면 12월 31일)
+  const fromIn = h("input", { type: "date", id: "genFrom", value: genFrom || `${y}-${pad(m)}-01`, "aria-label": "시작 날", oninput: (e) => { genFrom = e.target.value; } });
+  const toIn = h("input", { type: "date", id: "genTo", value: genTo || nextEnd, "aria-label": "끝 날", oninput: (e) => { genTo = e.target.value; } });
+  return h("div", { class: "cls-line gen-bar" },
+    h("div", { class: "row" }, fromIn, h("span", { class: "tip", text: "~" }), toIn,
+      h("button", { class: "btn small secondary", type: "button", id: "genPlan", disabled: genBusy,
+        text: genBusy ? "만드는 중…" : "나이스 시간표로 진도 계획 만들기", onclick: () => genPlan(fromIn.value, toIn.value) })),
+    genNote ? h("span", { class: "tip", id: "genNote", text: genNote }) : null);
+}
 
+/* 전체: 줄 = 차시, 열 = 반, 칸 = 그 반 그 차시 날짜. 칸을 누르면 그 반 진도표의 그 수업 */
+function progressAll() {
+  const today = todayKey(), classes = lessonClasses(), per = classes.map(sessOf);
+  const maxN = Math.max(0, ...per.map(l => l.length));
+  const rows = [];
+  for (let i = 0; i < maxN; i++) {
+    const topic = per.map(l => l[i] ? unitOf(l[i]) : "").find(Boolean) || "";
+    rows.push(h("tr", null,
+      h("td", { class: "pa-n", text: String(i + 1) }),
+      h("td", { class: "pa-topic", text: topic }),
+      ...classes.map((c, j) => {
+        const s = per[j][i];
+        if (!s) return h("td", { class: "pa-cell na" });
+        return h("td", { class: "pa-cell " + sessState(s, today), "data-cls": c, title: `${classLabel(c)} ${mdd(s.at)} ${s.period}교시 ${unitOf(s)}`.trim(),
+          onclick: () => { progAll = false; progPick = s.id; pickedCls = c; renderNb(); } },
+          h("span", { class: "pa-d", text: mdd(s.at) }), h("span", { class: "pa-p", text: s.period + "교시" }));
+      })));
+  }
   return [
-    panel("새 수업 기록", form),
-    panel(classLabel(cls) + " 기록 " + mine.length + "건", lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("기록이 없습니다.")),
-    hcPanel(cls, lessons),
+    genBar(),
+    h("div", { class: "pa-legend" }, ...[["done", "기록함"], ["today", "오늘"], ["plan", "계획"], ["miss", "지났는데 기록 없음"]]
+      .map(([k, t]) => h("span", { class: "pa-lg" }, h("i", { class: "pa-sw " + k }), t))),
+    maxN ? h("div", { class: "prog-scroll" }, h("table", { class: "prog pa-table", id: "progAll" },
+      h("thead", null, h("tr", null, h("th", { class: "pa-n", text: "차시" }), h("th", { class: "pa-topic", text: "주제" }),
+        ...classes.map(c => h("th", { class: "pa-cls", text: c })))),
+      h("tbody", null, ...rows)))
+      : noneLine("진도 계획이 없습니다. 위에서 나이스 시간표로 만들거나 반을 골라 수업을 추가해 주세요."),
   ];
 }
 
-/* ---------- 진도: 수업 반 한눈에 ---------- */
-/* 반마다 마지막 수업 기록과 호클래스 차시를 한 표에. 같은 과목을 여러 반에서 가르치면 어느 반이 어디까지
-   나갔는지가 제일 궁금하다(3단계, 2026-11-13). 줄을 누르면 그 반 수업 기록으로 간다. */
-function progressView() {
-  const today = todayKey(), row = todayRow(new Date());
-  const items = docs.lessons.value.items;
-  const lines = lessonClasses().map(c => {
-    const mine = items.filter(x => x.cls === c).sort((a, b) => b.at.localeCompare(a.at) || b.period - a.period);
-    const last = mine[0];
-    const periods = row ? row.map((x, i) => x.trim() === c ? (i + 1) + "교시" : "").filter(Boolean) : [];
-    const hcDone = lessonsOf(c).filter(x => x.date && x.date <= today).sort((a, b) => Number(b.order) - Number(a.order))[0];
-    return h("tr", { class: "prog-row" + (periods.length ? " today" : ""), "data-cls": c, tabindex: "0",
-      onclick: () => { goClass(c); nbTab.lesson = "lesson"; renderNb(); },
-      onkeydown: (e) => { if (e.key === "Enter") e.currentTarget.click(); } },
-      h("th", { text: classLabel(c) }),
-      h("td", { class: "p-today", text: periods.join(", ") }),
-      h("td", { class: "p-when", text: last ? dotDate(last.at) + " " + last.period + "교시" : "" }),
-      h("td", { class: "p-unit", text: last ? (last.unit || last.body.slice(0, 40)) : "기록 없음" }),
-      h("td", { class: "p-hw", text: last && last.hw ? last.hw : "" }),
-      h("td", { class: "p-hc", text: hcDone ? hcDone.order + "차시 " + (hcDone.title || "") : "" }),
-      h("td", { class: "p-n", text: String(mine.length) }));
+/* 반 하나: 왼쪽 진도표(길게), 오른쪽 고른 수업 적기 */
+function progressClass(cls) {
+  const D = docs.lessons, today = todayKey(), list = sessOf(cls);
+  let cur = list.find(s => s.id === progPick);
+  if (!cur) cur = list.find(s => s.at === today) || list.find(s => s.at > today) || list[list.length - 1] || null;
+  progPick = cur ? cur.id : "";
+  const add = () => {
+    const row = todayRow(new Date()), i = row ? row.findIndex(c => c.trim() === cls) : -1;
+    const s = { id: uid(), cls, at: today, period: i >= 0 ? i + 1 : 1, unit: "", plan: "", body: "", hw: "", clId: "" };
+    D.value.items.push(s); progPick = s.id; saveEnc(D); renderNb();
+  };
+  const hcL = lessonsOf(cls);
+  const fillHc = () => {          // 호클래스 차시 순서대로 단원과 연결을 채운다(비어 있는 수업만)
+    const hs = hcL.slice().sort((a, b) => Number(a.order) - Number(b.order));
+    let n = 0;
+    sessOf(cls).forEach((s, i) => { const x = hs[i]; if (!x) return;
+      if (!s.clId) { s.clId = x.clId; n++; } if (!s.unit && x.title) s.unit = x.title; });
+    saveEnc(D); renderNb(); toast(n ? `호클래스 차시 ${n}개를 이었습니다` : "이을 차시가 없습니다");
+  };
+  let month = "";
+  const rows = [];
+  list.forEach((s, i) => {
+    const ym = s.at.slice(0, 7);
+    if (ym !== month) { month = ym; rows.push(h("li", { class: "pc-month", text: `${+ym.slice(5)}월` })); }
+    const st = sessState(s, today);
+    rows.push(h("li", null, h("button", { class: "pc-row " + st, type: "button", "data-id": s.id, "aria-pressed": String(s === cur),
+      onclick: () => { progPick = s.id; renderNb(); } },
+      h("span", { class: "pc-n", text: (i + 1) + "차시" }),
+      h("span", { class: "pc-d", text: mdd(s.at) }),
+      h("span", { class: "pc-p", text: s.period + "교시" }),
+      h("span", { class: "pc-u", text: unitOf(s) || (s.plan || "").split("\n")[0] || "" }),
+      h("i", { class: "pc-dot", "aria-hidden": "true" }))));
   });
-  return panel("반별 진도",
-    lines.length ? h("div", { class: "prog-scroll" }, h("table", { class: "prog", id: "progTable" },
-      h("thead", null, h("tr", null, ...["반", "오늘", "마지막 수업", "단원", "과제", "호클래스 차시", "기록"].map(t => h("th", { text: t })))),
-      h("tbody", null, ...lines)))
-      : noneLine("수업 반이 없습니다."),
-    h("p", { class: "tip", text: "줄을 누르면 그 반 수업 기록으로 갑니다. 오늘 시간표에 있는 반은 칠해 둡니다." }));
+  const left = h("section", { class: "panel pc-left" },
+    h("div", { class: "set-hd" }, h("h3", { text: `진도표 ${list.length}차시` }),
+      h("div", { class: "set-acts" },
+        hcL.length ? h("button", { class: "text-btn", type: "button", id: "pcFillHc", text: "호클래스 차시 잇기", onclick: fillHc }) : null,
+        h("button", { class: "btn small secondary", type: "button", id: "pcAdd", text: "추가", "aria-label": "수업 추가", onclick: add }))),
+    list.length ? h("ul", { class: "pc-list", id: "pcList" }, ...rows) : noneLine("수업이 없습니다. 「전체」에서 나이스 시간표로 진도 계획을 만들 수 있습니다."));
+  return h("div", { class: "pc-split" }, left,
+    h("div", { class: "pc-side" }, cur ? lessonEditor(cur, list.indexOf(cur) + 1) : null, hcPanel(cls, hcL)));
+}
+/* 수업 하나 적기. 적는 대로 저장한다(다시 그리지 않아 쓰던 칸이 그대로). 날짜, 교시를 바꾸면 진도표 차례를 다시 세운다. */
+function lessonEditor(s, n) {
+  const D = docs.lessons, put = (k) => (e) => { s[k] = e.target.value.slice(0, k === "body" || k === "plan" ? 2000 : 120); saveEnc(D); };
+  const atIn = h("input", { type: "date", id: "leAt", value: s.at, onchange: (e) => { if (e.target.value) { s.at = e.target.value; saveEnc(D); renderNb(); } } });
+  const perIn = h("select", { id: "lePeriod", onchange: (e) => { s.period = Number(e.target.value); saveEnc(D); renderNb(); } },
+    ...Array.from({ length: 7 }, (_, i) => h("option", { value: String(i + 1), text: (i + 1) + "교시" })));
+  perIn.value = String(s.period);
+  const hcL = lessonsOf(s.cls), hx = hcOf(s);
+  const clIn = hcL.length ? h("select", { id: "leCl", onchange: (e) => {
+      s.clId = e.target.value; const x = hcL.find(y => y.clId === s.clId);
+      if (x && !s.unit && x.title) s.unit = x.title;
+      saveEnc(D); renderNb(); } },
+    h("option", { value: "", text: "잇지 않음" }),
+    ...hcL.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || "제목 없음"}${x.date ? " (" + x.date + ")" : ""}` }))) : null;
+  if (clIn) clIn.value = s.clId || (hx ? hx.clId : "");
+  const ta = (id, k) => h("textarea", { id, value: s[k] || "", oninput: put(k) });
+  return h("section", { class: "panel le-ed", id: "leEd", "data-id": s.id },
+    h("div", { class: "set-hd" }, h("h3", { text: `${mdw(s.at)} ${s.period}교시, ${n}차시` }),
+      h("div", { class: "set-acts" },
+        h("button", { class: "btn small secondary", type: "button", text: "복사", onclick: () => copyText(
+          [`${s.at} ${classLabel(s.cls)} ${s.period}교시 ${n}차시`, unitOf(s), s.plan ? "계획: " + s.plan : "", s.body ? "기록: " + s.body : "", s.hw ? "과제: " + s.hw : ""].filter(Boolean).join("\n")) }),
+        armed("삭제", "삭제", () => { D.value.items = D.value.items.filter(y => y.id !== s.id); progPick = ""; saveEnc(D); renderNb(); }))),
+    h("div", { class: "form-grid" },
+      field("날짜", atIn), field("교시", perIn),
+      clIn ? h("label", { class: "field wide" }, "호클래스 차시", clIn) : null,
+      h("label", { class: "field wide" }, "단원", h("input", { type: "text", id: "leUnit", maxlength: "60", autocomplete: "off", value: s.unit || "", oninput: put("unit") })),
+      h("label", { class: "field wide" }, "수업 계획", ta("lePlan", "plan")),
+      h("label", { class: "field wide" }, "수업 기록", ta("leBody", "body")),
+      h("label", { class: "field wide" }, "과제", h("input", { type: "text", id: "leHw", maxlength: "120", autocomplete: "off", value: s.hw || "", oninput: put("hw") }))));
+}
+
+/* ---------- 수업 출결(선생님 지시 2026-11-14): 오늘 수업이 든 반마다 하루 표, 아래에 고른 반 한 달 표(진도표 수업 날짜) ---------- */
+// 여러 반, 여러 날의 출결 문서를 같이 연다. docs 에 넣어야 잠글 때 보내기, 학년도 바꿀 때 닫기를 같이 한다.
+function attDocOf(day, cls) {
+  if (docs.att && attDay === day && attCls === cls) return docs.att;
+  const k = "xatt_" + day + "_" + cls;
+  if (!docs[k]) { docs[k] = makeDoc(attKeyOf(day, cls), { enc: true, makeDefault: () => ({ marks: {} }) }); attach(docs[k]); }
+  return docs[k];
+}
+function nowPeriod(now = new Date()) {
+  const m = now.getHours() * 60 + now.getMinutes();
+  for (let i = 0; i < 7; i++) { const b = state.bells[i]; if (b && m >= toMin(b.s) && m < toMin(b.e)) return i + 1; }
+  return 0;
+}
+/* 오늘 수업 반: 진도표에 오늘 수업이 있으면 그것, 없으면 오늘 시간표. 교시 차례 */
+function todayLessons() {
+  const today = todayKey(), classes = lessonClasses(), by = new Map();
+  const push = (c, p) => { if (!by.has(c)) by.set(c, []); if (!by.get(c).includes(p)) by.get(c).push(p); };
+  for (const s of docs.lessons.value.items) if (s.at === today && classes.includes(s.cls)) push(s.cls, s.period);
+  if (!by.size && !state.ttExample) { const row = todayRow(new Date()); if (row) row.forEach((c, i) => { if (classes.includes(c.trim())) push(c.trim(), i + 1); }); }
+  return [...by.entries()].map(([cls, ps]) => ({ cls, ps: ps.sort((a, b) => a - b) })).sort((a, b) => a.ps[0] - b.ps[0]);
+}
+let attAuto = false;            // 출결 탭을 열 때 한 번, 지금(또는 다음) 수업 반을 고른다
+function autoPickLesson() {
+  attAuto = true;
+  const np = nowPeriod(), t = todayLessons();
+  const hit = t.find(x => x.ps.includes(np)) || t.find(x => x.ps.some(p => p > np)) || t[0];
+  if (hit) pickedCls = hit.cls;
+}
+const attSumText = (A, list) => ATT_KINDS.map(k => [k, list.filter(st => entriesOf(A.value, st.id).some(e => e.k === k)).length]).filter(x => x[1]);
+function lessonAttView() {
+  const today = todayKey(), todays = todayLessons(), np = nowPeriod();
+  const cards = todays.map(({ cls, ps }) => {
+    const A = attDocOf(today, cls), list = rosterOf(cls), now = ps.includes(np);
+    const head = h("div", { class: "lt-head" },
+      h("b", { class: "lt-p", text: ps.join(", ") + "교시" }), h("span", { class: "lt-cls", text: classLabel(cls) }),
+      now ? h("span", { class: "tag", text: "지금" }) : null,
+      A.ready ? h("span", { class: "att-sum lt-sum" }, ...(attSumText(A, list).length ? attSumText(A, list).map(([k, n]) => h("span", { class: "k " + { 결석: "absent", 지각: "late", 조퇴: "early", 결과: "outk" }[k] }, k + " ", h("b", { text: String(n) })))
+        : [h("span", { class: "k" }, "전원 출석")])) : null);
+    if (!A.ready) return h("section", { class: "lt-card", "data-cls": cls }, head, h("p", { class: "tip", text: "여는 중입니다" }));
+    const tiles = list.map(st => {
+      const es = entriesOf(A.value, st.id);
+      const short = es.length ? (es[0].r ? reasonName(es[0].r).replace("출석", "") + " " : "") + es[0].k + (es.length > 1 ? " 외 " + (es.length - 1) : "") : "";
+      return stuTile(st, es.length ? es[0].k : "", `${classLabel(cls)} ${who(st)} ${es.length ? es.map(entryText).join(", ") : "출석"}. 눌러서 기록하기`, short,
+        () => openAttEdit(st.id, today, cls), String(attEdit === attEditKey(st.id, today, cls)));
+    });
+    return h("section", { class: "lt-card" + (now ? " now" : ""), "data-cls": cls }, head, h("div", { class: "students lt-tiles" }, ...tiles));
+  });
+  return [h("div", { class: "att-split" },
+    h("div", { class: "lt-main" },
+      h("h4", { class: "lt-title", text: "오늘 수업" }),
+      ...(cards.length ? cards : [h("p", { class: "tip", text: "오늘은 수업이 없습니다." })]),
+      h("h4", { class: "lt-title", text: classLabel(picked()) + " 한 달 출결" }),
+      ...attMonthView()),
+    h("aside", { class: "att-side", id: "attSide" }, attSidePanel(todays)))];
+}
+/* 오른쪽 칸: 고른 학생이 있으면 고르개, 없으면 오늘 수업 반의 기록 목록 */
+function attSidePanel(todays) {
+  if (attEdit) {
+    const [day, cls, sid] = attEdit.split("|"), st = stuOf(cls, sid), A = attDocOf(day, cls);
+    if (st && !A.ready) return h("p", { class: "tip", text: "여는 중입니다" });
+    if (st) return attEditor(st, A, day, cls);
+  }
+  const today = todayKey(), rows = [];
+  for (const { cls } of todays) {
+    const A = attDocOf(today, cls);
+    if (!A.ready) continue;
+    for (const st of rosterOf(cls)) for (const e of entriesOf(A.value, st.id)) rows.push({ cls, st, e });
+  }
+  return h("div", { class: "att-day-list" },
+    h("h4", { class: "att-side-hd", text: rows.length ? `오늘 기록 ${rows.length}건` : "오늘 기록 없음" }),
+    rows.length ? h("ul", { class: "att-ed-list" }, ...rows.map(({ cls, st, e }) => h("li", { class: "att-ed-item click " + e.k, onclick: () => openAttEdit(st.id, today, cls) },
+      h("b", { class: "who", text: cls + " " + who(st) }), h("span", { text: entryText(e) }), e.memo ? h("span", { class: "muted", text: e.memo }) : null)))
+      : h("p", { class: "tip", text: "학생 칸이나 한 달 표의 칸을 눌러 적습니다." }));
 }
 
 /* ---------- 호클래스 차시 칸 (연동) ---------- */
@@ -3559,7 +3728,7 @@ async function planSend(cls, x) {
   const absent = list.filter(st => kinds(st).includes("결석"));
   const other = list.filter(st => !kinds(st).includes("결석") && kinds(st).length);
   sendPlan = { cls, x, day, absent, other, picked: new Set(absent.map(st => st.id)) };
-  nbTab.lesson = "lesson"; renderNb();
+  nbTab.lesson = "prog"; renderNb();
 }
 function sendConfirm() {
   const p = sendPlan;

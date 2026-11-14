@@ -185,7 +185,7 @@ async function dumpWidgets() {
   const pick = [...d.querySelectorAll("#classPick .cpick")].find(x => x.textContent.startsWith("3-1"));
   if (pick) pick.click();
   d.querySelector('#nbSeg [data-tab="att"]').click();
-  await until(() => d.querySelectorAll("#classBody .stu").length > 5, "학생 명단");
+  await until(() => d.querySelectorAll("#attMonth tbody tr").length > 5, "학생 명단");   // 수업 출결은 오늘 수업 반만 학생 칸, 한 달 표는 늘 있다
   go("대시보드");
 
   A.$("memo").value = "교무회의 2시 — 생활기록부 마감 안내\n3학년 수련회 답사 보고서\n학부모 상담 주간 일정 조정";

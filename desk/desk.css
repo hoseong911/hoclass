@@ -1330,3 +1330,57 @@ table.att-month { border-collapse: separate; border-spacing: 0; font-size: 13px;
 .att-side .att-pick { flex-wrap: wrap; align-self: flex-start; }
 .att-side .att-ed-row > input { flex: none; width: 100%; }
 .att-month tbody th, .att-month tbody td { vertical-align: middle; }
+
+/* ══════════ 수업 장 진도(선생님 지시 2026-11-14) ══════════ */
+.gen-bar .row input[type="date"] { width: 150px; }
+.pa-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+.pa-lg { display: inline-flex; align-items: center; gap: 6px; }
+.pa-sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.pa-sw.done, .pa-cell.done { background: var(--pass-soft); }
+.pa-sw.today, .pa-cell.today { background: var(--accent-soft); }
+.pa-sw.plan { background: var(--surface); border: 1px solid var(--line); }
+.pa-sw.miss, .pa-cell.miss { background: var(--warn-soft); }
+table.pa-table { width: auto; min-width: 100%; }
+.pa-table th, .pa-table td { text-align: center; padding: 6px 10px; white-space: nowrap; }
+.pa-table .pa-n { font-weight: 700; color: var(--muted); width: 48px; position: sticky; left: 0; background: var(--surface); }
+.pa-table .pa-topic { text-align: left; min-width: 180px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.pa-table th.pa-cls { font-weight: 700; color: var(--ink); font-size: 13px; }
+.pa-cell { cursor: pointer; border-left: 1px solid var(--line); }
+.pa-cell:hover { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pa-cell.na { cursor: default; background: none; }
+.pa-cell.na:hover { outline: 0; }
+.pa-cell.today .pa-d { color: var(--accent); font-weight: 700; }
+.pa-d { display: block; font-size: 13px; font-variant-numeric: tabular-nums; }
+.pa-p { display: block; font-size: 11px; color: var(--faint); }
+.pc-split { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.pc-left { position: sticky; top: 0; max-height: calc(100vh - 220px); display: flex; flex-direction: column; }
+.pc-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+.pc-month { font-size: 12px; font-weight: 700; color: var(--muted); padding: 10px 6px 4px; }
+.pc-row { width: 100%; display: grid; grid-template-columns: 52px 74px 44px minmax(0, 1fr) 10px; gap: 6px; align-items: center; text-align: left;
+  border: 1px solid transparent; background: none; border-radius: 8px; padding: 7px 8px; cursor: pointer; font-size: 13px; }
+.pc-row:hover { background: var(--surface-2); }
+.pc-row[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.pc-n { font-weight: 700; } .pc-d { font-variant-numeric: tabular-nums; } .pc-p { color: var(--muted); font-size: 12px; }
+.pc-u { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.pc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.pc-row.done .pc-dot { background: var(--pass); } .pc-row.today .pc-dot { background: var(--accent); }
+.pc-row.miss .pc-dot { background: var(--warn); } .pc-row.miss .pc-u, .pc-row.miss .pc-d { color: var(--muted); }
+.pc-row.today .pc-d { color: var(--accent); font-weight: 700; }
+.pc-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.le-ed textarea { min-height: 120px; resize: vertical; }
+@media (max-width: 900px) { .pc-split { grid-template-columns: minmax(0, 1fr); } .pc-left { position: static; max-height: 360px; } }
+
+/* 수업 출결: 오늘 수업 반마다 하루 표 */
+.lt-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.lt-title { margin: 6px 0 0; font-size: 14px; font-weight: 700; }
+.lt-card { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.lt-card.now { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.lt-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lt-p { font-size: 15px; } .lt-cls { font-size: 15px; font-weight: 600; }
+.lt-sum { margin-left: auto; }
+.nb #classBody .lt-tiles { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); grid-auto-rows: 72px; }
+.att-month thead .dp { display: block; font-size: 10px; color: var(--muted); font-weight: 500; }
+.att-month td[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
+.nb #classBody .lt-tiles { grid-auto-rows: 84px; }
+.pa-table th.pa-cls, .pa-table td.pa-cell { width: 110px; min-width: 96px; }
+.pa-table .pa-topic { width: auto; }

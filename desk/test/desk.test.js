@@ -729,11 +729,24 @@ function checkEntries() {
 
   /* ---------- 호클래스 명단이 저절로 들어온다 ---------- */
   A.go("수업");
-  await until(() => [...A.d.querySelectorAll("#classPick .cpick")].length === 2, "수업 장: 호클래스 두 반");
+  await until(() => [...A.d.querySelectorAll("#classPick .cpick")].length === 3, "수업 장: 전체와 호클래스 두 반");
   assert.deepStrictEqual([...A.d.querySelectorAll("#classPick .cpick")].map(x => x.textContent),
-    ["3-1", "3-2"], "수업 장에는 담임 반(3-9)이 없다. 수업 반에 넣지 않았다");
+    ["전체", "3-1", "3-2"], "수업 장 진도 탭: 전체와 두 반. 담임 반(3-9)은 수업 반에 넣지 않아 없다");
+  assert.deepStrictEqual([...A.d.querySelectorAll("#nbSeg button")].map(b => b.textContent), ["진도", "학생", "출결", "수합"],
+    "수업 장 탭: 진도와 수업 기록을 합쳤다");
   A.pick("3-1");
+  await until(() => A.$("pcAdd"), "3-1 진도표");
+  A.$("pcAdd").click();                             // 오늘 수업 하나(출결 오늘 표에 3-1 이 뜨게)
+  await until(() => A.$("leEd"), "추가하면 오른쪽에서 적는다");
   A.sub("att");
+  await until(() => A.d.querySelector('.lt-card[data-cls="3-1"]') && !A.d.querySelector('.lt-card[data-cls="3-2"]'), "오늘 수업이 든 반(3-1)만 하루 표");
+  assert(A.$("attMonth"), "아래에 한 달 표");
+  assert(!A.$("attMode"), "수업 출결에는 하루, 한 달 고르기가 없다");
+  await until(() => A.d.querySelector("#attMonth tbody td.today"), "한 달 표의 열은 진도표 수업 날(오늘)");
+  A.d.querySelector("#attMonth tbody td.today").click();
+  await until(() => A.$("attEd") && A.$("attEd").textContent.includes("3-1"), "한 달 표 칸을 누르면 오른쪽에서 바로 적는다");
+  A.btn("#attEd", "닫기").click();
+  await until(() => !A.$("attEd"), "닫기");
   await until(() => A.stu().length === 3, "3-1 학생 3명이 호클래스에서 들어온다");
   assert(A.text().includes("김지우") && A.text().includes("박세찌"), "호클래스 이름: " + A.text().slice(0, 80));
   assert(!A.$("rosterBtn") && !A.$("rosterEditor"), "교무수첩 장에는 명단 편집이 없다(설정으로 옮겼다)");
@@ -826,7 +839,7 @@ function checkEntries() {
   }
 
   /* ---------- 교무수첩 장의 기록 화면 ---------- */
-  for (const p of ["student", "consult", "lesson", "work"]) {
+  for (const p of ["student", "consult", "prog", "work"]) {
     A.tab(p); await wait(40);
     assert(A.d.querySelectorAll("#classBody .panel").length > 0, p + " 화면이 비었다");
   }
@@ -928,37 +941,31 @@ function checkEntries() {
   /* ---------- 5단계: 차시와 제출 현황 ---------- */
   A.go("수업"); A.pick("3-1"); A.sub("att");
   await until(() => A.stu().length === 3, "3-1로 돌아옴");
-  A.tab("lesson");
-  await until(() => A.book().includes("호클래스 차시"), "차시 칸이 보인다");
+  /* ---------- 수업 장 진도: 왼쪽 진도표, 오른쪽 그 수업 계획과 기록, 호클래스 차시 ---------- */
+  A.sub("prog");
+  await until(() => A.$("leEd") && A.book().includes("호클래스 차시"), "진도 탭: 3-1 진도표, 적는 칸, 호클래스 차시");
   await until(() => A.book().includes("1차시 3단원 조선의 성립"), "1차시");
   assert(A.book().includes("2차시 4단원 조선의 문화"), "2차시");
   assert(A.book().includes("날짜 없음"), "2차시는 날짜가 없다");
-
-  A.$("leCl").value = "cl1";
-  A.$("leCl").dispatchEvent(new A.w.Event("change"));
-  assert.strictEqual(A.$("leAt").value, TODAY, "차시 날짜가 채워진다");
-  assert.strictEqual(A.$("leUnit").value, "3단원 조선의 성립", "차시 단원이 채워진다");
-  A.submit("leForm");
-  await until(() => A.book().includes("3단원 조선의 성립"), "수업 기록 저장");
-
-  /* ---------- 수업 장: 진도와 수업 메모 ---------- */
-  A.sub("prog");
-  await until(() => A.$("progTable"), "진도 표");
-  if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_prog.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
-  const progRow = (c) => A.d.querySelector('#progTable tr[data-cls="' + c + '"]');
-  assert(progRow("3-1") && progRow("3-2"), "수업 반마다 한 줄");
-  assert(progRow("3-1").textContent.includes("3단원 조선의 성립"), "3-1 마지막 수업 단원: " + progRow("3-1").textContent);
-  assert(progRow("3-1").textContent.includes("1차시"), "3-1 호클래스 차시(오늘 날짜인 1차시)");
-  assert(progRow("3-2").textContent.includes("기록 없음"), "3-2 는 기록이 없다");
-  progRow("3-2").click();
-  await until(() => A.$("className").textContent.includes("2반") && A.$("leForm"), "진도 줄을 누르면 그 반 수업 기록으로");
+  assert.strictEqual(A.$("leCl").value, "cl1", "오늘 수업은 같은 날짜의 호클래스 1차시와 저절로 이어진다");
+  const curRow = () => A.d.querySelector('#pcList .pc-row[aria-pressed="true"]');
+  assert(curRow().textContent.includes("3단원 조선의 성립"), "단원이 비면 호클래스 차시 제목: " + curRow().textContent);
+  const typeIn = (id, v) => { A.fill(id, v); A.$(id).dispatchEvent(new A.w.Event("input", { bubbles: true })); };
+  typeIn("lePlan", "사림의 성장 계획");
+  typeIn("leBody", "조선 건국 과정 설명함");
+  typeIn("leUnit", "3단원 1 조선 건국");
+  A.sub("student"); A.sub("prog");
+  await until(() => A.$("leBody") && A.$("leBody").value === "조선 건국 과정 설명함" && curRow().textContent.includes("3단원 1 조선 건국"), "적은 것이 남고 진도표 줄에 단원");
+  assert(curRow().classList.contains("today"), "오늘 수업 줄");
+  await wait(900);
+  assert(!allStored().includes("조선 건국 과정"), "수업 기록 평문 금지");
   A.pick("3-1"); A.sub("student");
   await until(() => A.d.querySelector("#classBody .stu-pick button"), "수업 장 학생 화면");
   A.d.querySelector("#classBody .stu-pick button").click();
   await until(() => A.$("stuNote"), "학생을 고르면 메모 칸");
   assert(A.book().includes("수업 메모") && !A.book().includes("상담 민원"), "수업 장 학생 화면은 수업 메모, 상담은 뺀다");
-  A.sub("lesson");
-  await until(() => A.$("leForm"), "다시 수업 기록");
+  A.sub("prog");
+  await until(() => A.$("leEd"), "다시 진도");
 
   A.btn("#classBody", "오늘 날짜 넣기").click();
   await until(() => !A.book().includes("날짜 없음"), "2차시에 날짜가 들어간다", 30000);
@@ -984,7 +991,7 @@ function checkEntries() {
     A.sub("att"); await wait(60);
   }
 
-  A.tab("lesson");
+  A.sub("prog");
   await until(() => A.book().includes("호클래스 차시"), "차시 칸");
   A.btn("#classBody", "결석 보내기").click();
   await until(() => A.book().includes("결석 보내기 확인"), "확인 화면", 30000);
@@ -1077,6 +1084,26 @@ function checkEntries() {
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
   await until(() => A.$("mealBody").textContent.includes("흑미밥"), "오늘 급식이 급식 위젯에 보인다");
+
+  /* ---------- 나이스 시간표로 진도 계획 만들기(수업 장 진도 「전체」) ---------- */
+  A.go("수업"); A.sub("prog");
+  A.d.querySelector("#classPick .cpick").click();   // 전체
+  await until(() => A.$("genPlan"), "전체: 진도 계획 만들기 단추");
+  assert(A.$("genFrom").value.endsWith("-01") && A.$("genTo").value > A.$("genFrom").value, "기본은 이번 달 1일부터 다음 달 끝");
+  A.$("genPlan").click();
+  await until(() => A.$("genNote") && A.$("genNote").textContent.includes("넣었습니다"), "진도 계획을 만든다", 30000);
+  const paRows = () => [...A.$("progAll").querySelectorAll("tbody tr")];
+  assert(paRows().length >= 6, "월요일 1교시 3-1 수업이 주마다 들어가 차시가 여럿: " + paRows().length);
+  assert.deepStrictEqual([...A.$("progAll").querySelectorAll("thead .pa-cls")].map(x => x.textContent), ["3-1", "3-2"], "열은 반");
+  const paBefore = paRows().length;
+  A.$("genPlan").click();
+  await until(() => A.$("genNote").textContent.includes("수업 0개"), "두 번 만들어도 겹치지 않는다", 30000);
+  assert.strictEqual(paRows().length, paBefore);
+  if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_progall.html", A.$("nb").outerHTML);
+  const paCell = A.d.querySelector('#progAll td.pa-cell[data-cls="3-1"]');
+  paCell.click();
+  await until(() => A.$("leEd") && A.$("className").textContent.includes("1반"), "칸을 누르면 그 반 진도표의 그 수업");
+  if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_progcls.html", A.$("nb").outerHTML);
 
   /* ---------- 시정 채우기 (설정 창 시간표 탭) ---------- */
   assert(!A.$("ttEdit"), "위젯의 편집 단추는 설정 창으로 옮겼다");
