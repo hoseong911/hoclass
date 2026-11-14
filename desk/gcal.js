@@ -4,7 +4,6 @@ import { fromEvent, toEvent } from "./plansync.js";
 // 읽기(내 다른 캘린더 보기) + 이 앱이 만든 캘린더만 쓰기(「교무수첩」 캘린더). 다른 캘린더는 고칠 수 없다.
 const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly", "https://www.googleapis.com/auth/calendar.app.created"];
 const BASE = "https://www.googleapis.com/calendar/v3";
-const API = BASE + "/calendars/primary/events";
 export const CAL_NAME = "교무수첩";
 export const CONSOLE_URL = "https://console.firebase.google.com/project/ho0911seong-56638/authentication/providers";
 
@@ -56,10 +55,10 @@ export async function connect(FB) {
   return token;
 }
 
-export async function listEvents(token, { days = 21, max = 30, start, end } = {}) {
+export async function listEvents(token, { days = 21, max = 30, start, end, cal = "primary" } = {}) {
   const from = start ? new Date(start + "T00:00:00+09:00") : new Date(); if (!start) from.setHours(0, 0, 0, 0);
   const to = end ? new Date(end + "T00:00:00+09:00") : new Date(from.getTime() + days * 86400000);
-  const url = API + "?" + new URLSearchParams({
+  const url = BASE + "/calendars/" + encodeURIComponent(cal) + "/events?" + new URLSearchParams({
     timeMin: from.toISOString(),
     timeMax: to.toISOString(),
     singleEvents: "true",
@@ -90,6 +89,8 @@ export function byDay(events) {
     if (!map.has(ev.at)) map.set(ev.at, []);
     map.get(ev.at).push(ev);
   }
+  // 캘린더 여럿을 합치면 하루 안 차례가 섞인다. 종일 먼저, 그다음 시각 차례
+  for (const list of map.values()) list.sort((a, b) => (a.allDay ? "" : a.time).localeCompare(b.allDay ? "" : b.time));
   return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([at, items]) => ({ at, items }));
 }
 
@@ -135,3 +136,11 @@ export async function listCal(token, cal, { from, to }) {
 export async function insertEv(token, cal, p) { const j = await call(token, "POST", BASE + "/calendars/" + enc(cal) + "/events", toEvent(p)); return { gid: j.id, updated: Date.parse(j.updated) || Date.now() }; }
 export async function patchEv(token, cal, gid, p) { const j = await call(token, "PATCH", BASE + "/calendars/" + enc(cal) + "/events/" + enc(gid), toEvent(p)); return { updated: Date.parse(j.updated) || Date.now() }; }
 export async function deleteEv(token, cal, gid) { await call(token, "DELETE", BASE + "/calendars/" + enc(cal) + "/events/" + enc(gid)); }
+
+/* 가져올 캘린더 고르기(선생님 지시 2026-11-14): 내 계정의 캘린더 목록. 「교무수첩」 캘린더는 계획으로 따로 주고받으니 뺀다. */
+export async function listCalendars(token, skipId) {
+  const j = await call(token, "GET", BASE + "/users/me/calendarList?maxResults=250");
+  return (j.items || []).filter(c => !c.deleted && c.id !== skipId && c.summary !== CAL_NAME)
+    .map(c => ({ id: c.id, name: String(c.summaryOverride || c.summary || c.id), color: c.backgroundColor || "", primary: !!c.primary }))
+    .sort((a, b) => (b.primary - a.primary) || a.name.localeCompare(b.name, "ko"));
+}

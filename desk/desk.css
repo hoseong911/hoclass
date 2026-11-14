@@ -1238,3 +1238,13 @@ textarea {
 }
 textarea:hover { border-color: var(--muted) !important; }
 textarea:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* 가져올 캘린더 고르기: 위젯 고르기(.wg-check)와 같은 모양에 캘린더 색 점 */
+.gcal-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+.gcal-pick { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); font-size: 13px; cursor: pointer; min-width: 0; }
+.gcal-pick.on { border-color: var(--accent); background: var(--accent-soft); }
+.gcal-pick input { flex: none; accent-color: var(--accent); margin: 0; }
+.gcal-pick .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gcal-pick .sz { margin-left: auto; font-size: 11px; color: var(--faint); flex: none; }
+.gcal-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--faint); }

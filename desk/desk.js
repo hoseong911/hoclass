@@ -130,6 +130,7 @@ const state = {
   school: "",
   neis: { key: "", school: null, subject: "", subjects: [] },   // 나이스에서 받아오기
   cal: [], calSchool: "", calAt: "",
+  gcalCal: "", gcalPick: null,  // 구글 「교무수첩」 캘린더 id, 가져올 캘린더(null 이면 기본 캘린더만)
 };
 
 const cfg = () => state.year.years[state.year.current] || { homeroom: "", classes: [] };
@@ -205,7 +206,8 @@ const SPECS = [
   { key: "desk_settings",
     /* 주간 시간표는 5×7 이지만 **한 줄로 펴서** 담는다.
        파이어스토어는 배열 안에 배열을 담지 못한다(넣으려 들면 저장이 통째로 막힌다). */
-    pick: () => ({ links: state.links, officials: true, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, ttAuto: state.ttAuto, idleMin: state.idleMin, school: state.school, neis: state.neis }),
+    pick: () => ({ links: state.links, officials: true, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttExample: state.ttExample, ttAuto: state.ttAuto, idleMin: state.idleMin, school: state.school, neis: state.neis,
+      gcalCal: state.gcalCal || "", gcalPick: Array.isArray(state.gcalPick) ? state.gcalPick : null }),
     put: (s) => {
       if (arr(s.links)) {
         state.links = s.links.filter(l => l && typeof l.url === "string")
@@ -242,6 +244,9 @@ const SPECS = [
             ? { name: String(sc.name || ""), atpt: sc.atpt, code: sc.code, kind: String(sc.kind || ""), rooms: cleanRooms(sc.rooms) } : null,
         };
       }
+      // 구글 「교무수첩」 캘린더 id, 가져올 캘린더(null 이면 기본 캘린더만)
+      if (typeof s.gcalCal === "string") state.gcalCal = s.gcalCal.slice(0, 200);
+      state.gcalPick = arr(s.gcalPick) ? s.gcalPick.map(String).slice(0, 50) : null;
     } },
   { key: "desk_year",
     pick: () => state.year,
@@ -730,24 +735,64 @@ async function gcalConnect() {
   try {
     const token = await GCal.connect(FB);
     await gcalLoad(token);
-    gcalMonths.clear(); planSync();
+    gcalMonths.clear(); planSync(); gcalCals = null;
   } catch (e) {
     const w = GCal.why(e);
     gcalErr = w.msg; gcalStep = w.step;
   } finally { gcalBusy = false; renderGcal(); }
+}
+/* 가져올 캘린더(설정 업무 탭에서 고름). 고른 적이 없으면 기본 캘린더만 */
+const gcalPicked = () => Array.isArray(state.gcalPick) ? state.gcalPick : ["primary"];
+async function listPicked(token, opts) {
+  const lists = await Promise.all(gcalPicked().map(cal => GCal.listEvents(token, { ...opts, cal })));
+  return lists.flat();
 }
 async function gcalLoad(tokenMaybe) {
   const keep = GCal.savedToken();
   const token = tokenMaybe || (keep && keep.token);
   if (!token) { gcalDays = []; return; }
   try {
-    gcalDays = GCal.byDay(await GCal.listEvents(token, { days: 21, max: 30 }));
+    gcalDays = GCal.byDay(await listPicked(token, { days: 21, max: 30 }));
     gcalAt = Date.now(); gcalErr = ""; gcalStep = 0;
   } catch (e) {
     const w = GCal.why(e);
     gcalErr = w.msg; gcalStep = w.step; gcalDays = [];
     if (w.step === 0 && /만료/.test(w.msg)) GCal.forgetToken();
   }
+}
+/* 가져올 캘린더 고르기. 고른 캘린더 일정은 위젯과 주간, 월간 칸에 보기로만 붙는다(고치는 것은 「교무수첩」 캘린더만). */
+let gcalCals = null, gcalCalsBusy = false, gcalCalsErr = "";
+async function loadGcalCals() {
+  const keep = GCal.savedToken();
+  if (!keep || gcalCalsBusy) return;
+  gcalCalsBusy = true; gcalCalsErr = "";
+  try { gcalCals = await GCal.listCalendars(keep.token, state.gcalCal || ""); }
+  catch (e) { gcalCalsErr = GCal.why(e).msg; }
+  finally { gcalCalsBusy = false; if (setOpen) renderSet(); }
+}
+function gcalPickBlock() {
+  if (!GCal.savedToken()) return setBlock("가져올 캘린더", [h("p", { class: "set-state", text: "연결하면 고를 수 있습니다." })]);
+  if (!gcalCals && !gcalCalsBusy && !gcalCalsErr) loadGcalCals();
+  if (!gcalCals) return setBlock("가져올 캘린더", [h("p", { class: "set-state", text: gcalCalsErr || "캘린더 목록을 받는 중입니다." })]);
+  const picked = gcalPicked();
+  // 기본 캘린더는 id 가 메일 주소지만 고른 적이 없으면 "primary" 로 적혀 있다. 둘 다 같은 것으로 본다.
+  const on = (c) => picked.includes(c.id) || (c.primary && picked.includes("primary"));
+  const toggle = (c) => {
+    const next = gcalCals.filter(x => x.id === c.id ? !on(x) : on(x)).map(x => x.id);
+    state.gcalPick = next;
+    save(true);
+    gcalMonths.clear();
+    gcalLoad().then(() => { renderGcal(); renderNb(); });
+    renderSet();
+  };
+  return setBlock(["가져올 캘린더", h("button", { class: "text-btn", type: "button", id: "gcalCalsReload", text: "목록 새로 받기", onclick: () => { gcalCals = null; loadGcalCals(); } })], [
+    h("div", { class: "gcal-picks", id: "gcalPicks" }, ...gcalCals.map(c => {
+      const box = h("input", { type: "checkbox", "data-cal": c.id, checked: on(c) ? true : null, onchange: () => toggle(c) });
+      return h("label", { class: "gcal-pick" + (on(c) ? " on" : "") }, box,
+        h("span", { class: "gcal-dot", style: c.color ? "background:" + c.color : null }),
+        h("span", { class: "nm", text: c.name }), c.primary ? h("span", { class: "sz", text: "기본" }) : null);
+    })),
+  ]);
 }
 /* 설정 업무 탭: 위젯의 연결 단추와 같은 일을 한다 */
 function gcalSection() {
@@ -761,7 +806,7 @@ function gcalSection() {
         if (linked) { await gcalLoad(); renderGcal(); gcalMonths.clear(); planSync(); } else await gcalConnect();
         renderSet();
       } }), note),
-  ]), signedIn ? setBlock("「교무수첩」 캘린더", [
+  ]), signedIn ? gcalPickBlock() : null, signedIn ? setBlock("「교무수첩」 캘린더", [
     h("p", { class: "set-state", text: "구글에 「교무수첩」 캘린더를 따로 만들어 주간, 월간 계획과 양쪽으로 주고받습니다." }),
     ready ? planStatus("set") : h("p", { class: "set-state", text: "교무수첩을 열면 주고받습니다." }),
   ]) : null]);
@@ -3619,7 +3664,7 @@ async function loadGcalMonth(ym) {
   gcalMonths.set(ym, []);
   const [y, m] = ym.split("-").map(Number);
   const end = m === 12 ? `${y + 1}-01-01` : `${y}-${pad(m + 1)}-01`;
-  try { gcalMonths.set(ym, GCal.byDay(await GCal.listEvents(keep.token, { start: ym + "-01", end, max: 250 }))); renderNb(); }
+  try { gcalMonths.set(ym, GCal.byDay(await listPicked(keep.token, { start: ym + "-01", end, max: 250 }))); renderNb(); }
   catch (e) { gcalMonths.delete(ym); }
 }
 

@@ -56,7 +56,7 @@ function renameHoclassStudent(room, idx, newName) {
 
 const writes = [], hcWrites = [];
 /* 가짜 구글 캘린더: 「교무수첩」 캘린더 하나와 그 일정들(plansync.js 의 fromEvent 모양) */
-const gfake = { token: null, cal: "", events: new Map(), seq: 0, ensures: 0 };
+const gfake = { token: null, cal: "", events: new Map(), seq: 0, ensures: 0, other: {} };
 const gtime = () => Date.now() + (++gfake.seq);
 /* 저장소 연결이 끊긴 것을 흉내 낼 때 부를 콜백들 */
 const errCbs = new Set();
@@ -121,7 +121,12 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
   w.__GCAL__ = {
     savedToken: () => gfake.token ? { token: gfake.token } : null, forgetToken: () => { gfake.token = null; },
     connect: async () => { const e = new Error("시험에서는 연결하지 않는다"); throw e; },
-    listEvents: async () => [], byDay: () => [],
+    // 캘린더마다 일정(가져올 캘린더 고르기 시험). at 이 날짜
+    listEvents: async (tk, o = {}) => (gfake.other[o.cal || "primary"] || []).map(e => ({ ...e })),
+    byDay: (evs) => { const m = new Map(); for (const e of evs) { if (!m.has(e.at)) m.set(e.at, []); m.get(e.at).push(e); }
+      return [...m.entries()].map(([at, items]) => ({ at, items })); },
+    listCalendars: async () => [{ id: "me@x", name: "나", color: "#4285F4", primary: true },
+      { id: "school@x", name: "학교", color: "#0B8043", primary: false }, { id: "family@x", name: "가족", color: "#E67C73", primary: false }],
     ensureCalendar: async (t, id) => { gfake.ensures++; if (!gfake.cal) gfake.cal = "cal_desk"; return gfake.cal; },
     listCal: async () => [...gfake.events.values()].map(e => ({ ...e })),
     insertEv: async (t, c, pl) => { const gid = "e" + gfake.seq, updated = gtime();
@@ -1178,6 +1183,35 @@ function checkEntries() {
   A.$("planFind").click();
   await until(() => A.$("planPlan") && A.$("planPlan").textContent.includes("이미 있음") && A.$("planApply").disabled, "같은 날 같은 계획은 건너뛴다");
   A.$("planCancel").click();
+
+  /* 가져올 캘린더 고르기: 기본 캘린더만 켜져 있다가, 고른 캘린더 일정만 주간 칸에 보인다 */
+  assert(A.$("setPanel").textContent.includes("연결하면 고를 수 있습니다"), "연결 전에는 고를 수 없다");
+  const wkDay = TODAY;
+  gfake.other = { primary: [{ at: wkDay, allDay: true, time: "", title: "기본 캘린더 일정" }], "me@x": [{ at: wkDay, allDay: true, time: "", title: "기본 캘린더 일정" }],
+    "school@x": [{ at: wkDay, allDay: false, time: "09:00", title: "학교 캘린더 일정" }], "family@x": [{ at: wkDay, allDay: true, time: "", title: "가족 캘린더 일정" }] };
+  gfake.token = "시험열쇠";
+  A.setTab("screen"); A.setTab("work");
+  await until(() => A.$("gcalPicks") && A.$("gcalPicks").querySelectorAll(".gcal-pick").length === 3, "내 캘린더 셋(「교무수첩」은 뺀다)");
+  const pickBox = (id) => A.d.querySelector('#gcalPicks input[data-cal="' + id + '"]');
+  assert(pickBox("me@x").checked && !pickBox("school@x").checked && !pickBox("family@x").checked, "처음에는 기본 캘린더만");
+  pickBox("school@x").click();
+  await until(() => { const st = JSON.parse(store.get("desk_settings/general") || "{}").state;
+    return st && JSON.stringify(st.gcalPick) === JSON.stringify(["me@x", "school@x"]); }, "고른 캘린더가 저장된다");
+  pickBox("me@x").click();
+  await until(() => { const st = JSON.parse(store.get("desk_settings/general") || "{}").state;
+    return st && JSON.stringify(st.gcalPick) === JSON.stringify(["school@x"]); }, "기본 캘린더를 끌 수 있다");
+  A.$("setClose").click();
+  await until(() => A.$("setPanel").hidden, "설정 닫기");
+  A.tab("month");
+  await until(() => A.$("moGrid"), "월간");
+  if (A.$("moThis")) { A.$("moThis").click(); await until(() => !A.$("moThis"), "이번 달"); }
+  A.d.querySelector('#moGrid .mo-cell[data-day="' + wkDay + '"]').click();
+  await until(() => A.d.querySelector("#classBody .mo-day").textContent.includes("학교 캘린더 일정"), "고른 학교 캘린더 일정이 보인다");
+  const dayTxt = A.d.querySelector("#classBody .mo-day").textContent;
+  assert(!dayTxt.includes("가족 캘린더 일정") && !dayTxt.includes("기본 캘린더 일정"), "고르지 않은 캘린더는 안 보인다: " + dayTxt);
+  gfake.token = null;
+  A.setTab("work");
+  await until(() => A.$("calText"), "업무 탭으로 돌아온다");
   // 눈으로 볼 때: DUMP_TABS=폴더 npm test 하면 설정 탭 다섯을 탭이름.html 로 떠 둔다.
   if (process.env.DUMP_TABS) for (const k of ["year", "screen", "lesson", "home", "work"]) {
     A.setTab(k); await wait(60);
