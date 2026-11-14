@@ -1209,6 +1209,8 @@ fitScale();
      맞추려 들면 글씨가 한없이 작아진다. 그런 곳은 원래대로 굴려 보면 된다.
    - .sr(화면낭독기용 1px 상자) 같은 작은 것은 뺀다. */
 const FIT_MIN = 0.45;     // 이보다 더 줄이지는 않는다
+/* 바로가기 띠는 더 줄인다(선생님 지적 2026-11-14: 작은 화면이면 더 줄여야지). 1024x640 창의 한 줄(30px)에도 들어가게. */
+const FIT_MIN_LINKS = 0.3;
 const FIT_TRIES = 5;      // 줄이면 칸 규칙이 바뀌므로 몇 번 다시 잰다
 
 function clipOverflow(card) {
@@ -1244,12 +1246,13 @@ function fitCard(wg, hard) {
   if (wg.dataset.w === "clock") { wg.style.removeProperty("--z"); return; }
   if (isStacked()) { wg.style.removeProperty("--z"); return; }   // 폰, 세워 둔 태블릿은 칸이 내용만큼 늘어난다
   if (hard) wg.style.removeProperty("--z");
+  const zMin = wg.dataset.w === "links" ? FIT_MIN_LINKS : FIT_MIN;
   let z = hard ? 1 : (parseFloat(wg.style.getPropertyValue("--z")) || 1);
   for (let i = 0; i < FIT_TRIES; i++) {
     const r = clipOverflow(card);
     if (r > 1.002) {
-      if (z <= FIT_MIN) break;                                   // 더 줄일 수 없으면 거기까지
-      z = Math.max(FIT_MIN, z / r);
+      if (z <= zMin) break;                                      // 더 줄일 수 없으면 거기까지
+      z = Math.max(zMin, z / r);
       wg.style.setProperty("--z", z.toFixed(3));
       continue;
     }

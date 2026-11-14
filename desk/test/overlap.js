@@ -240,7 +240,7 @@ function fitCodeFromDesk() {
   };
   const pick = (re) => { const m = re.exec(src); if (!m) throw new Error("desk.js 에서 못 찾음: " + re); return m[0]; };
   return [
-    pick(/const FIT_MIN = [^\n]+/), pick(/const FIT_TRIES = [^\n]+/),
+    pick(/const FIT_MIN = [^\n]+/), pick(/const FIT_MIN_LINKS = [^\n]+/), pick(/const FIT_TRIES = [^\n]+/),
     "const arranging = false;",          // 배치 중이 아닐 때를 잰다
     "const isStacked = () => false;",    // PC 칸 배치를 잰다
     grab("function clipOverflow("), grab("function fitCard("), grab("function trimTodos("),
@@ -402,9 +402,7 @@ function one(name, html, w, h) {
   const must = MUST_FIT.includes(name.split(":")[0]) && (name !== "links" || w >= h * 4);
   if (must) {
     const over = card.scrollHeight - card.clientHeight;
-    /* 끝까지(0.45배) 줄였는데도 넘치면 칸이 너무 작은 것이다(1024x640 창의 16줄 중 한 줄, 30px). 참고로만. */
-    const floor = name === "links" && wg.style.getPropertyValue("--z") === FIT_MIN.toFixed(3);
-    if (over > 2) bad.push((floor ? "띠참고  " : "칸넘침  ") + where + "  굴려야 보이는 높이 " + Math.round(over) + "px");
+    if (over > 2) bad.push("칸넘침  " + where + "  굴려야 보이는 높이 " + Math.round(over) + "px");
   }
   /* ⑤ 옆으로 굴려야 보이는 곳. 스크롤 막대를 숨겨 두어 옆에 뭐가 더 있는 줄 모른다.
      (2026-11-13에 주간 시간표가 월화수만 보이고 목금은 옆으로 숨어 있었다.) */

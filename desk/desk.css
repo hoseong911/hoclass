@@ -660,7 +660,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .set-tab:hover { background: var(--surface-2); color: var(--ink); }
 .set-tab[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .set-main { overflow-y: auto; min-height: 0; min-width: 0; }
-.set-inner { max-width: 760px; margin: 0 auto; padding: 36px 32px 72px; display: flex; flex-direction: column; gap: 20px; }
+.set-inner { max-width: 1120px; margin: 0 auto; padding: 36px 48px 72px; display: flex; flex-direction: column; gap: 20px; }
 .set-lead { padding: 0 4px 4px; }
 .set-page { font-family: var(--font-title); font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.02em; }
 .set-lead p { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
