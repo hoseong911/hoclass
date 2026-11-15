@@ -214,9 +214,12 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
     btn: (where, label) => [...d.querySelectorAll(where + " button")].find(b => b.textContent.includes(label) || (b.getAttribute("aria-label") || "").includes(label)),
     pick: (c) => [...d.querySelectorAll("#classPick .cpick")].find(x => x.textContent.startsWith(c)).click(),
     stu: () => [...d.querySelectorAll("#classBody .stu")],
-    /* 출결 한 건 적기: 학생 칸을 눌러 고르개를 열고 종류, 사유, 교시(조회 0, 1~7, 종례 8), 메모 */
-    mark: async (i, k, r, ps = [], memo = "") => {
-      [...d.querySelectorAll("#classBody .stu")][i].click();
+    /* 담임 출결은 한 달 표 하나(2026-11-16): 줄은 학생, 칸은 날짜 */
+    attRows: () => [...d.querySelectorAll("#attMonth tbody tr")],
+    attCell: (i, day = todayKey()) => [...d.querySelectorAll("#attMonth tbody tr")][i].querySelector('td[data-d="' + day + '"]'),
+    /* 출결 한 건 적기: 그 학생 그날 칸을 눌러 고르개를 열고 종류, 사유, 교시(조회 0, 1~7, 종례 8), 메모 */
+    mark: async (i, k, r, ps = [], memo = "", day = todayKey()) => {
+      [...d.querySelectorAll("#attMonth tbody tr")][i].querySelector('td[data-d="' + day + '"]').click();
       await until(() => $("attEd"), "출결 고르개");
       d.querySelector('#attEd .att-k [data-v="' + k + '"]').click();
       d.querySelector('#attEd .att-r [data-v="' + r + '"]').click();
@@ -791,15 +794,15 @@ function checkEntries() {
   await until(() => !A.$("rNames") && A.$("rsList").textContent.includes("2명"), "설정에서 저장");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
-  await until(() => A.stu().length === 2, "3-9 학생 2명");
+  await until(() => A.attRows().length === 2 && !A.d.querySelector("#classBody .stu"), "3-9 학생 2명, 카드 명단은 없앴다");
   await A.mark(1, "결석", "질병");
   await until(() => store.has("desk_att/2027_3-9_" + day), "3-9 출결 문서");
 
   /* ---------- 출결 열두 가지: 종류 넷 x 사유 셋, 교시, 메모, 하루 여러 건 ---------- */
   await A.mark(0, "결과", "미인정", [2, 3], "보건실");
   await A.mark(0, "조퇴", "질병", [6]);
-  await until(() => A.stu()[0].textContent.includes("결과 외 1"), "학생 칸에 첫 건과 나머지 수");
-  A.stu()[0].click();
+  await until(() => A.attCell(0).textContent === "과조", "칸에 종류 글자가 이어 붙는다: " + A.attCell(0).textContent);
+  A.attCell(0).click();
   await until(() => A.$("attEd"), "고르개를 다시 연다");
   A.d.querySelector('#attEd .att-k [data-v="결과"]').click(); A.d.querySelector('#attEd .att-p [data-v="5"]').click();
   if (process.env.DUMP_CLASS) { for (const i of A.d.querySelectorAll("#nb input")) i.setAttribute("value", i.value); fs.writeFileSync(process.env.DUMP_CLASS + "_ed.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML); }
@@ -816,35 +819,40 @@ function checkEntries() {
   A.d.querySelector("#attEd .att-ed-item .del").click();
   await until(() => A.d.querySelectorAll("#attEd .att-ed-item").length === 1, "한 건만 지운다");
   A.btn("#attEd", "닫기").click();
-  await until(() => !A.$("attEd") && A.d.querySelector("#classBody .stu.조퇴"), "남은 조퇴 한 건");
+  await until(() => !A.$("attEd") && A.attCell(0).textContent === "조", "남은 조퇴 한 건");
   await wait(900);
   assert(!allStored().includes("보건실"), "출결 메모 평문 금지");
 
-  /* ---------- 출결: 지난날 고치기와 한 달 표 ---------- */
+  /* ---------- 출결: 한 화면(한 달 표 + 그 아래 적는 칸). 지난날도 표의 칸에서 고친다 ---------- */
   const prev = (() => { const d = new Date(); do { d.setDate(d.getDate() - 1); } while (d.getDay() === 0 || d.getDay() === 6);
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
-  assert(A.$("attDate").textContent.includes("오늘"), "출결은 오늘부터 연다");
-  assert(A.d.querySelector('#classBody [aria-label="다음 날"]').disabled, "오늘보다 앞날로는 못 간다");
-  A.d.querySelector('#classBody [aria-label="앞 날"]').click();
-  await until(() => A.$("attToday") && A.stu().length === 2 && !A.d.querySelector("#classBody .stu.결석"), "앞 평일로 가면 그날 기록(빈 것)이 열린다");
-  await A.mark(0, "지각", "미인정", [1]);         // 1번 1교시까지 지각
-  await until(() => store.has("desk_att/2027_3-9_" + prev), "지난날 출결도 그날 문서에 저장된다");
-  A.$("attToday").click();
-  await until(() => A.$("attDate").textContent.includes("오늘") && A.d.querySelectorAll("#classBody .stu.결석").length === 1, "오늘로 돌아오면 오늘 기록");
+  assert(A.$("attDate").textContent.includes("오늘"), "표 아래 칸은 오늘부터 연다");
+  assert(!A.d.querySelector('#classBody [aria-label="앞 날"]') && !A.d.querySelector('#classBody [aria-label="다음 날"]'),
+    "날짜 앞뒤 단추는 걷었다(표의 칸으로 간다)");
+  if (prev.slice(0, 7) === day.slice(0, 7)) {
+    await A.mark(0, "지각", "미인정", [1], "", prev);   // 지난 평일 칸을 눌러 1번 1교시까지 지각
+    await until(() => store.has("desk_att/2027_3-9_" + prev), "지난날 출결도 그날 문서에 저장된다");
+    await until(() => A.$("attToday") && A.$("attDate").textContent.includes(+prev.slice(8) + "일"), "아래 칸이 그날로 간다");
+    A.$("attToday").click();
+    await until(() => A.$("attDate").textContent.includes("오늘") && !A.$("attToday"), "오늘로 돌아온다");
+  }
+  await until(() => A.attCell(1).textContent === "결", "오늘 칸에 1번 결석");
   if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_day.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
   assert(!A.$("attMode"), "하루, 한 달 고르기 없이 한 화면");
-  await until(() => A.$("attMonth") && A.$("attMonthCopy") && A.$("attSide"), "하루 칸 아래 한 달 표");
+  await until(() => A.$("attMonth") && A.$("attMonthCopy") && A.$("attBelow") && A.$("attCopy"), "한 달 표와 그 아래 적는 칸");
   assert(/^[0-9]+일$/.test(A.$("attDays").textContent), "표 맨 아래 수업 일수: " + A.$("attDays").textContent);
   const monthRows = () => [...A.$("attMonth").querySelectorAll("tbody tr")];
   assert.strictEqual(monthRows().length, 2, "학생 줄 둘");
-  const weekend = [0, 6].includes(new Date().getDay());   // 한 달 표는 평일 칸만 있어 주말엔 오늘 칸이 없다
-  if (!weekend) await until(() => monthRows()[1].textContent.includes("결"), "오늘 결석이 표에 찍힌다");
+  // 표는 평일 칸만 두지만 오늘은 토, 일이라도 남긴다(하루 보기를 걷었으니 그날도 적을 수 있어야 한다)
+  await until(() => monthRows()[1].textContent.includes("결"), "오늘 결석이 표에 찍힌다");
+  assert(A.d.querySelector('#attMonth thead th[title]'), "표 머리에 날짜");
+  if ([0, 6].includes(new Date().getDay())) assert(A.attCell(0).classList.contains("off"), "주말 오늘 칸은 쉬는 날 빗금");
   if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_month.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
   if (prev.slice(0, 7) === day.slice(0, 7)) {
     await until(() => monthRows()[0].textContent.includes("지"), "지난날 지각도 표에 찍힌다");
     const cell = [...monthRows()[0].querySelectorAll("td.m")].find(td => td.textContent === "지");
     cell.click();
-    await until(() => A.$("attToday") && A.d.querySelectorAll("#classBody .stu.지각").length === 1 && A.$("attEd"), "표의 칸을 누르면 위가 그날로 가고 그 학생 고르개가 열린다");
+    await until(() => A.$("attToday") && A.$("attEd") && A.$("attEd").textContent.includes("지각"), "표의 칸을 누르면 아래 칸이 그날로 가고 그 학생 고르개가 열린다");
     assert(A.d.querySelector("#attMonth thead th.pick"), "고른 날 열 표시");
     A.$("attToday").click();
     await until(() => A.$("attDate").textContent.includes("오늘"), "다시 오늘");

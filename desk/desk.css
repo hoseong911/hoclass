@@ -1257,23 +1257,19 @@ textarea:focus { outline: none; border-color: var(--accent) !important; box-shad
 .att-sum .k.absent { background: var(--danger-soft); } .att-sum .k.late { background: var(--warn-soft); }
 .att-sum .k.early { background: var(--blue-soft); } .att-sum .k.outk { background: #EFEAF8; }
 
-/* 하루 보기: 학생 칸 크게, 오른쪽 칸 */
-.att-split { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; flex: 1 0 auto; }
-.nb #classBody .att-tiles { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); grid-auto-rows: 84px; gap: 8px; }
+/* 표 아래 칸(2026-11-16 하루 보기와 한 달 표를 합쳤다). 학생 칸 모양은 수업 출결, 수합이 쓴다 */
+.att-below { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.att-below .att-ed { padding: 0; border: 0; }
 .nb #classBody .students .stu { justify-content: center; gap: 3px; border-radius: 12px; }
 .nb #classBody .students .stu .n { font-size: 20px; font-weight: 700; }
 .nb #classBody .students .stu .nm { font-size: 13px; color: var(--ink); }
 .nb #classBody .students .stu .st { font-size: 12px; }
 .nb #classBody .students .stu:not(.결석):not(.지각):not(.조퇴):not(.결과):not(.got) .st:empty { display: none; }
-.att-side { position: sticky; top: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); min-height: 160px; }
-.att-side .att-ed { padding: 0; border: 0; }
 .att-side-hd { margin: 0; font-size: 14px; font-weight: 700; }
 .att-day-list { display: flex; flex-direction: column; gap: 10px; }
 .att-ed-item.click { cursor: pointer; flex-wrap: wrap; gap: 4px 10px; }
 .att-ed-item.click:hover { filter: brightness(.97); }
 .att-ed-item .who { font-weight: 600; }
-.att-side .att-ed-row .lbl { flex-basis: 56px; }
-@media (max-width: 1000px) { .att-split { grid-template-columns: minmax(0, 1fr); } .att-side { position: static; } }
 
 /* 한 달 표: 요일 머리, 주 경계, 색 배지(사유는 모양), 합계는 0 이면 빈칸 */
 .att-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; color: var(--muted); }
@@ -1324,11 +1320,9 @@ table.att-month { border-collapse: separate; border-spacing: 0; font-size: 13px;
 /* 이름 칸은 본문 글꼴(옛 .who .nm 규칙이 제목 글꼴을 입혀 커졌다) */
 .att-month th.who .nm { font-family: var(--font-body); font-size: 14px; }
 .att-month thead th.who .nm, .att-month thead th.who .no { font-size: 12px; font-weight: 500; color: var(--muted); }
-/* 오른쪽 칸은 좁다: 이름표를 위로, 고르개는 줄바꿈 */
-.att-side .att-ed-row { flex-direction: column; align-items: stretch; gap: 6px; }
-.att-side .att-ed-row .lbl { flex: none; }
-.att-side .att-pick { flex-wrap: wrap; align-self: flex-start; }
-.att-side .att-ed-row > input { flex: none; width: 100%; }
+/* 아래 칸은 전체 폭: 고르개는 한 줄로 펴고, 메모 칸만 남는 폭을 먹는다 */
+.att-below .att-pick { flex-wrap: wrap; }
+.att-below .att-ed-row > input { flex: 1 1 240px; }
 .att-month tbody th, .att-month tbody td { vertical-align: middle; }
 
 /* ══════════ 수업 장 진도(선생님 지시 2026-11-14) ══════════ */
