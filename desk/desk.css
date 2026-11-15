@@ -1523,3 +1523,10 @@ table.pa-table td.pa-cell + td.pa-cell, table.pa-table th.pa-cls + th.pa-cls { b
 /* 진도표 줄의 x 도 마우스를 올릴 때만(전체 표 칸과 같게) */
 .pc-del { opacity: 0; }
 .pc-li:hover .pc-del, .pc-del:focus-visible { opacity: 1; }
+
+/* 담임 한 달 표(2026-11-15): 위 하루 칸에서 고른 날(오늘이 아닐 때) 열 표시, 맨 아래 수업 일수 줄 */
+table.att-month thead th.pick { color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+table.att-month td.pick { background: var(--surface-2); }
+table.att-month tfoot td, table.att-month tfoot th { height: 36px; border-top: 1px solid var(--line); border-bottom: 0; background: var(--surface-2); color: var(--muted); font-size: var(--t3); font-weight: 600; cursor: default; font-variant-numeric: tabular-nums; }
+table.att-month tfoot th.days-k { position: sticky; left: 0; z-index: 2; min-width: 140px; }
+table.att-month tfoot td.days-tot { color: var(--ink); font-weight: 700; }

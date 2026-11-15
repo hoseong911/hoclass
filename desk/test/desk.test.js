@@ -832,8 +832,9 @@ function checkEntries() {
   A.$("attToday").click();
   await until(() => A.$("attDate").textContent.includes("오늘") && A.d.querySelectorAll("#classBody .stu.결석").length === 1, "오늘로 돌아오면 오늘 기록");
   if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_day.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
-  A.d.querySelector('#attMode [data-mode="month"]').click();
-  await until(() => A.$("attMonth") && A.$("attMonthCopy"), "한 달 표");
+  assert(!A.$("attMode"), "하루, 한 달 고르기 없이 한 화면");
+  await until(() => A.$("attMonth") && A.$("attMonthCopy") && A.$("attSide"), "하루 칸 아래 한 달 표");
+  assert(/^[0-9]+일$/.test(A.$("attDays").textContent), "표 맨 아래 수업 일수: " + A.$("attDays").textContent);
   const monthRows = () => [...A.$("attMonth").querySelectorAll("tbody tr")];
   assert.strictEqual(monthRows().length, 2, "학생 줄 둘");
   const weekend = [0, 6].includes(new Date().getDay());   // 한 달 표는 평일 칸만 있어 주말엔 오늘 칸이 없다
@@ -843,12 +844,10 @@ function checkEntries() {
     await until(() => monthRows()[0].textContent.includes("지"), "지난날 지각도 표에 찍힌다");
     const cell = [...monthRows()[0].querySelectorAll("td.m")].find(td => td.textContent === "지");
     cell.click();
-    await until(() => A.$("attToday") && A.d.querySelectorAll("#classBody .stu.지각").length === 1, "표의 칸을 누르면 그날 하루 보기로 간다");
+    await until(() => A.$("attToday") && A.d.querySelectorAll("#classBody .stu.지각").length === 1 && A.$("attEd"), "표의 칸을 누르면 위가 그날로 가고 그 학생 고르개가 열린다");
+    assert(A.d.querySelector("#attMonth thead th.pick"), "고른 날 열 표시");
     A.$("attToday").click();
     await until(() => A.$("attDate").textContent.includes("오늘"), "다시 오늘");
-  } else {
-    A.d.querySelector('#attMode [data-mode="day"]').click();
-    await until(() => A.$("attDate"), "하루 보기로");
   }
 
   /* ---------- 교무수첩 장의 기록 화면 ---------- */
