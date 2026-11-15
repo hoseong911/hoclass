@@ -198,7 +198,8 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
     tab: (p) => {
       const page = { student: "담임", consult: "담임", ann: "담임", lesson: "수업", prog: "수업", work: "업무", todo: "업무", week: "업무", month: "업무" }[p];
       [...d.querySelectorAll("#pagebar .pg-nb")].find(b => b.textContent === page).click();
-      d.querySelector('#nbSeg [data-tab="' + p + '"]').click();
+      const t = { work: "plan", week: "plan", month: "plan" }[p] || p;   // 업무 장은 한 화면으로 합쳤다(2026-11-16)
+      d.querySelector('#nbSeg [data-tab="' + t + '"]').click();
     },
     setTab: (k) => {
       if ($("setPanel").hidden) $("toolSet").click();
@@ -370,16 +371,17 @@ function checkHiddenRule() {
 /* 출결 한 건 읽기: 옛 기록("결석" 글자 하나)은 사유 미정 한 건으로, 새 기록은 배열로 읽는다 */
 function checkEntries() {
   const src = fs.readFileSync(path.join(DIR, "desk.js"), "utf8");
-  const a = src.indexOf("function marksIn(v)"), b = src.indexOf("function entryText(e)");
+  const a = src.indexOf("function marksIn(v)"), b = src.indexOf("function entryText(e)");   // 한 덩어리 글자(2026-11-16)
   const c = src.indexOf("\n}", b) + 2;
   assert(a > 0 && b > a && c > b, "desk.js 에서 출결 읽기 함수를 못 찾았다");
   const { entriesOf, entryText } = new Function(src.slice(a, c) + "; return { entriesOf, entryText };")();
   assert.deepStrictEqual(entriesOf({ marks: { s1: "결석" } }, "s1"), [{ k: "결석", r: "", p: [], memo: "" }], "옛 글자 기록");
-  assert.strictEqual(entryText(entriesOf({ marks: { s1: "지각" } }, "s1")[0]), "사유 미정 지각", "옛 기록은 사유 미정");
+  assert.strictEqual(entryText(entriesOf({ marks: { s1: "지각" } }, "s1")[0]), "사유 미정 지각", "사유 없는 옛 기록만 띈다");
   assert.deepStrictEqual(entriesOf({ marks: { s1: "출석" } }, "s1"), [], "모르는 글자는 버린다");
   const v = { marks: { s1: [{ k: "결과", r: "미인정", p: [3, 2] }, { k: "지각", r: "인정", p: [0] }, { k: "x" }] } };
-  assert.deepStrictEqual(entriesOf(v, "s1").map(entryText), ["미인정 결과(2교시, 3교시)", "출석인정 지각(조회까지)"], "새 기록, 교시 차례");
-  assert.strictEqual(entryText({ k: "조퇴", r: "질병", p: [8], memo: "" }), "질병 조퇴(종례부터)");
+  assert.deepStrictEqual(entriesOf(v, "s1").map(entryText), ["미인정결과(2교시, 3교시)", "출석인정지각(조회까지)"], "새 기록, 교시 차례");
+  assert.strictEqual(entryText({ k: "조퇴", r: "질병", p: [8], memo: "" }), "질병조퇴(종례부터)");
+  assert.strictEqual(entryText({ k: "결석", r: "질병", p: [], memo: "감기" }), "질병결석(감기)", "메모는 괄호에");
 }
 
 (async () => {
@@ -808,14 +810,15 @@ function checkEntries() {
   if (process.env.DUMP_CLASS) { for (const i of A.d.querySelectorAll("#nb input")) i.setAttribute("value", i.value); fs.writeFileSync(process.env.DUMP_CLASS + "_ed.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML); }
   A.d.querySelector('#attEd .att-k [data-v="결석"]').click();
   const edText = () => A.$("attEd").textContent;
-  assert(edText().includes("미인정 결과(2교시, 3교시)") && edText().includes("보건실"), "결과는 빠진 교시 여럿과 메모: " + edText());
-  assert(edText().includes("질병 조퇴(6교시부터)"), "조퇴는 몇 교시부터");
+  assert(edText().includes("미인정결과(2교시, 3교시, 보건실)"), "결과는 빠진 교시 여럿과 메모를 괄호에: " + edText());
+  assert(edText().includes("질병조퇴(6교시부터)"), "조퇴는 몇 교시부터");
   A.$("attAdd").click();
   await until(() => A.$("attEd").querySelector(".form-err").textContent.includes("사유"), "사유 없이는 안 들어간다");
   A.d.querySelector('#attEd .att-k [data-v="지각"]').click();
   A.d.querySelector('#attEd .att-r [data-v="인정"]').click();
   A.$("attAdd").click();
   await until(() => A.$("attEd").querySelector(".form-err").textContent.includes("몇 교시까지"), "지각은 교시를 골라야 한다");
+  assert(A.$("attAdd").closest(".att-ed-row").querySelector("#attMemo"), "「추가」는 메모 줄에 같이 있다(혼자 한 줄 금지)");
   A.d.querySelector("#attEd .att-ed-item .del").click();
   await until(() => A.d.querySelectorAll("#attEd .att-ed-item").length === 1, "한 건만 지운다");
   A.btn("#attEd", "닫기").click();
@@ -899,7 +902,10 @@ function checkEntries() {
   assert(!allStored().includes("교과협의회 자료"), "계획 내용 평문 금지");
 
   /* ---------- 업무 장: 월간 계획(주간과 같은 계획), 제목 옆 탭 한 줄 ---------- */
-  assert.deepStrictEqual([...A.d.querySelectorAll("#nbSeg button")].map(b => b.textContent), ["주간 계획", "월간 계획", "할 일", "업무 기록"], "업무 탭 넷");
+  assert.deepStrictEqual([...A.d.querySelectorAll("#nbSeg button")].map(b => b.textContent), ["계획과 업무", "할 일"], "업무 탭 둘(계획과 업무를 합쳤다)");
+  assert(A.$("moGrid") && A.d.querySelectorAll("#wkGrid .wk-day").length === 5 && A.$("woForm"), "한 화면에 월간 달력, 이번 주 닷새, 새 업무");
+  assert(A.d.querySelector("#moGrid .mo-cell.today") && A.d.querySelector("#wkGrid .wk-day.today") || [0, 6].includes(new Date().getDay()),
+    "오늘은 달력과 주간 둘 다 칠한다(주말엔 주간에 오늘 칸이 없다)");
   assert(A.d.querySelector(".nb-head > #nbSeg") && A.d.querySelector(".nb-head > .nb-tools"), "탭과 도구가 제목 줄에 있다");
   A.tab("month");
   await until(() => A.$("moGrid"), "월간 계획 달력");
@@ -908,9 +914,9 @@ function checkEntries() {
   const moDay = () => A.d.querySelector("#classBody .mo-day");
   assert(moCell().textContent.includes("교과협의회 자료 준비"), "주간에서 적은 계획이 월간 달력에 보인다");
   moCell().click();
-  await until(() => moDay() && moDay().dataset.day === mon && A.$("plan_" + mon), "달력 칸을 누르면 그날 칸이 열린다");
-  A.fill("plan_" + mon, "월간에서 적은 계획");
-  A.$("plan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
+  await until(() => moDay() && moDay().dataset.day === mon && A.$("moplan_" + mon), "달력 칸을 누르면 옆 칸이 그날로");
+  A.fill("moplan_" + mon, "월간에서 적은 계획");
+  A.$("moplan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
   await until(() => moDay().textContent.includes("월간에서 적은 계획"), "월간에서 계획을 적는다");
   A.tab("week");
   await until(() => monCol() && monCol().textContent.includes("월간에서 적은 계획"), "월간에서 적은 것이 주간에 그대로");

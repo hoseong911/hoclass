@@ -930,9 +930,9 @@ let arranging = false, curPage = 1;
 const NB = [
   { key: "lesson", name: "수업", tabs: [["prog", "진도"], ["student", "학생"], ["att", "출결"]] },
   { key: "home", name: "담임", tabs: [["att", "출결"], ["col", "수합"], ["ann", "전달사항"], ["student", "학생"], ["consult", "상담 민원"]] },
-  { key: "work", name: "업무", tabs: [["week", "주간 계획"], ["month", "월간 계획"], ["todo", "할 일"], ["work", "업무 기록"]] },
+  { key: "work", name: "업무", tabs: [["plan", "계획과 업무"], ["todo", "할 일"]] },
 ];
-const nbTab = { lesson: "prog", home: "att", work: "week" };
+const nbTab = { lesson: "prog", home: "att", work: "plan" };
 const dashPages = () => okPages(state.pages);
 const allPages = () => dashPages() + NB.length;
 const nbOf = (p) => NB[p - dashPages() - 1] || null;
@@ -2682,9 +2682,7 @@ function renderNb() {
   if (nb.key === "work") {
     if (tab === "todo") { wrap([]); if (TODO_CARD) body.append(TODO_CARD); return; }
     if (!bookReady()) { wrap(note("기록을 여는 중입니다.")); return; }
-    if (tab === "week") { wrap(weekView()); return; }
-    if (tab === "month") { wrap(monthView()); return; }
-    cols(workPage()); return;
+    wrap(planWorkView()); return;
   }
   if (!state.year.configured) { wrap([h("div", { class: "lock-panel" }, h("h3", { text: "담임 반과 수업 반을 넣어 주세요" }), h("div", { class: "row" }, openSetBtn()))]); return; }
   ensureAtt(attDate(), pick);
@@ -2773,7 +2771,7 @@ function attEditor(st, A, day = attDate(), cls = picked()) {
       h("b", { text: (nbKey() === "lesson" ? cls + " " : "") + who(st) }), h("span", { class: "muted", text: mdw(day) }),
       h("button", { class: "text-btn", type: "button", text: "닫기", onclick: () => { attEdit = ""; renderNb(); } })),
     list.length ? h("ul", { class: "att-ed-list" }, ...list.map((e, i) => h("li", { class: "att-ed-item " + e.k },
-      h("span", { text: entryText(e) }), e.memo ? h("span", { class: "muted", text: e.memo }) : null,
+      h("span", { text: entryText(e) }),
       h("button", { class: "del", type: "button", "aria-label": "이 기록 지우기", text: "×", onclick: () => remove(i) })))) : null,
     h("div", { class: "att-ed-row" }, h("span", { class: "lbl", text: "종류" }),
       pick("att-k", ATT_KINDS.map(k => [k, k]), v => d.k === v, v => { d.k = v; d.p = []; })),
@@ -2783,9 +2781,10 @@ function attEditor(st, A, day = attDate(), cls = picked()) {
       h("span", { class: "lbl", text: d.k === "지각" ? "언제까지" : d.k === "조퇴" ? "언제부터" : "빠진 교시" }),
       pick("att-p", PERIOD_NAMES.map((t, i) => [i, t.replace("교시", "")]), v => d.p.includes(v),
         v => { d.p = multi ? (d.p.includes(v) ? d.p.filter(x => x !== v) : [...d.p, v]) : [v]; })),
-    h("div", { class: "att-ed-row" }, h("span", { class: "lbl", text: "메모" }), memoIn),
-    err,
-    h("div", { class: "att-ed-foot" }, h("button", { class: "btn small", type: "button", id: "attAdd", text: "추가", onclick: save })));
+    // 「추가」는 메모 줄 끝에(선생님 지적 2026-11-16 "추가 버튼이 혼자 한 줄 차지하고 있네")
+    h("div", { class: "att-ed-row" }, h("span", { class: "lbl", text: "메모" }), memoIn,
+      h("button", { class: "btn small", type: "button", id: "attAdd", text: "추가", onclick: save })),
+    err);
 }
 /* 표 아래 칸(선생님 지시 2026-11-16 "하루짜리랑 1달짜리를 아예 하나로 합쳐, 카드 명단은 없애고 칸 클릭하면 아래에서 체크"):
    학생 카드 명단과 오른쪽 칸, 날짜 앞뒤 단추를 걷었다. 한 달 표의 칸을 누르면 그날 그 학생을 여기서 적는다.
@@ -2801,7 +2800,7 @@ function attBottom() {
     const parts = [];
     for (const k of ATT_KINDS) {
       const ss = by(k);
-      if (ss.length) parts.push(`${k} ${ss.length}명(${ss.map(st => who(st) + " " + entriesOf(A.value, st.id).filter(e => e.k === k).map(e => entryText(e).replace(" " + k, "")).join(", ")).join(", ")})`);
+      if (ss.length) parts.push(`${k} ${ss.length}명(${ss.map(st => who(st) + " " + entriesOf(A.value, st.id).filter(e => e.k === k).map(e => entryText({ ...e, memo: "" }).replace(k, "")).join(", ")).join(", ")})`);
     }
     return `${mdw(when).replace(/ \(.\)$/, "")} ${classLabel(picked())} 출결: 재적 ${list.length}명, 출석 ${present}명` + (parts.length ? ", " + parts.join(", ") : ", 전원 출석");
   };
@@ -2828,7 +2827,7 @@ function attDayList(list, A) {
   return h("div", { class: "att-day-list" },
     h("h4", { class: "att-side-hd", text: rows.length ? `기록 ${rows.length}건` : "전원 출석" }),
     rows.length ? h("ul", { class: "att-ed-list" }, ...rows.map(({ st, e }) => h("li", { class: "att-ed-item click " + e.k, onclick: () => openAttEdit(st.id) },
-      h("b", { class: "who", text: who(st) }), h("span", { text: entryText(e) }), e.memo ? h("span", { class: "muted", text: e.memo }) : null)))
+      h("b", { class: "who", text: who(st) }), h("span", { text: entryText(e) }))))
       : h("p", { class: "tip", text: "위 표에서 그 학생의 날짜 칸을 누르면 여기서 적습니다." }));
 }
 /* 한 달 표 글자: 결석과 결과가 둘 다 "결"이라 결과는 "과" */
@@ -2860,7 +2859,7 @@ function attMonthView() {
       const k = es.length ? es[0].k : "";
       // 사유는 칸 모양으로: 미인정 진하게 채움, 질병 옅게 채움, 인정 테두리만(범례는 표 위)
       return h("td", { "data-d": d, class: [k ? "m " + k : "", k && es[0].r ? "r-" + es[0].r : "", es.some(e => !e.r) ? "undecided" : "", off ? "off" : "", d === today ? "today" : "", d === pickD && d !== today ? "pick" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "),
-        title: `${mdw(d)} ${es.length ? es.map(e => entryText(e) + (e.memo ? " " + e.memo : "")).join(", ") : off || (d > today ? "" : "출석")}`,
+        title: `${mdw(d)} ${es.length ? es.map(e => entryText(e)).join(", ") : off || (d > today ? "" : "출석")}`,
         text: es.map(e => ATT_ABBR[e.k]).join(""),
         onclick: d > today ? null : () => { attPick = d === today ? "" : d; attYm = ym; attDraft = null;
           attEdit = attEditKey(st.id, d, cls); renderNb(); const s = document.getElementById("attBelow"); if (s && s.scrollIntoView) s.scrollIntoView({ block: "nearest" }); } });
@@ -2873,7 +2872,7 @@ function attMonthView() {
     const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
     const lines = [];
     for (const r of rows) for (const k of ATT_KINDS) for (const { d, e } of r.cnt[k])
-      lines.push({ d, line: `${who(r.st)} ${md(d)} ${entryText(e)}${e.memo ? " (" + e.memo + ")" : ""}` });
+      lines.push({ d, line: `${who(r.st)} ${md(d)} ${entryText(e)}` });
     lines.sort((a, b) => a.d.localeCompare(b.d));
     return `${y}년 ${m}월 ${classLabel(cls)} 출결\n` + (lines.length ? lines.map(x => x.line).join("\n") : "결석, 지각, 조퇴, 결과 없음");
   };
@@ -3275,10 +3274,13 @@ function entriesOf(v, sid) {
   return Array.isArray(x) ? x.filter(e => e && ATT_KINDS.includes(e.k)).map(e => ({ k: e.k, r: e.r || "", p: Array.isArray(e.p) ? e.p : [], memo: e.memo || "" })) : [];
 }
 const reasonName = (r) => r === "인정" ? "출석인정" : r || "사유 미정";
+/* 한 덩어리로 붙여 쓴다(선생님 지시 2026-11-16 "질병결석(감기) 이런식으로"): 사유+종류에 괄호로 교시와 메모.
+   사유를 아직 안 고른 옛 기록만 "사유 미정 결석"처럼 띈다. 메모를 빼려면 { ...e, memo: "" } 로 부른다. */
 function entryText(e) {
   const ps = e.p.slice().sort((a, b) => a - b).map(i => PERIOD_NAMES[i]).filter(Boolean);
-  const when = !ps.length ? "" : e.k === "지각" ? `(${ps[0]}까지)` : e.k === "조퇴" ? `(${ps[0]}부터)` : e.k === "결과" ? `(${ps.join(", ")})` : "";
-  return `${reasonName(e.r)} ${e.k}${when}`;
+  const when = !ps.length ? "" : e.k === "지각" ? ps[0] + "까지" : e.k === "조퇴" ? ps[0] + "부터" : e.k === "결과" ? ps.join(", ") : "";
+  const inner = [when, e.memo].filter(Boolean).join(", ");
+  return `${reasonName(e.r)}${e.r ? "" : " "}${e.k}${inner ? `(${inner})` : ""}`;
 }
 const attKeyOf = (day, cls) => `y${yearOpen}_att_${day}_${cls}`;
 function attValueOf(day, cls) {
@@ -4208,7 +4210,8 @@ function dayPanel(d, label, opts = {}) {
     ...W.value.items.filter(x => x.due === d).map(x => h("li", { class: "wk-ev wk-due" + (x.done ? " done" : "") }, h("span", { class: "tag", text: "기한" }), x.title)),
   ];
   const mine = livePlans(plansOf()).filter(p => p.d === d);
-  const input = h("input", { type: "text", id: "plan_" + d, maxlength: "100", autocomplete: "off", "aria-label": label + " 계획" });
+  const pre = opts.pre || "";                          // 한 화면에 하루 칸이 둘(달력 옆, 주간)이라 id 가 겹친다
+  const input = h("input", { type: "text", id: pre + "plan_" + d, maxlength: "100", autocomplete: "off", "aria-label": label + " 계획" });
   return h("section", { class: "wk-day" + (d === today ? " today" : "") + (off ? " wk-offday" : "") + (opts.cls ? " " + opts.cls : ""), "data-day": d },
     h("h4", { class: "wk-head" }, ...opts.head, d === today ? h("span", { class: "tag", text: "오늘" }) : null),
     ev.length ? h("ul", { class: "wk-evs" }, ...ev) : null,
@@ -4223,7 +4226,7 @@ function dayPanel(d, label, opts = {}) {
       e.preventDefault();
       const t = input.value.trim(); if (!t) return;
       planAdd(d, t);
-      const again = $("plan_" + d); if (again) again.focus();
+      const again = $(pre + "plan_" + d); if (again) again.focus();
     } }, input));
 }
 
@@ -4238,8 +4241,7 @@ function weekView() {
         navBtn("앞 주", CHEV_L, () => { weekMon = addDaysIso(mon, -7); renderNb(); }),
         h("span", { class: "att-date wk-range", id: "wkRange", text: `${md(days[0])} ~ ${md(days[4])}` }),
         navBtn("다음 주", CHEV_R, () => { weekMon = addDaysIso(mon, 7); renderNb(); }),
-        mon === thisMon ? null : h("button", { class: "text-btn", type: "button", id: "wkThis", text: "이번 주", onclick: () => { weekMon = ""; renderNb(); } })),
-      planStatus()),
+        mon === thisMon ? null : h("button", { class: "text-btn", type: "button", id: "wkThis", text: "이번 주", onclick: () => { weekMon = ""; renderNb(); } }))),
     h("div", { class: "wk-grid", id: "wkGrid" }, ...days.map((d, i) => dayPanel(d, WD5[i] + "요일",
       { head: [h("span", { class: "wd", text: WD5[i] }), h("span", { class: "md", text: md(d) })] }))),
   ];
@@ -4285,7 +4287,20 @@ function monthView() {
       planStatus()),
     h("div", { class: "mo-wrap" },
       h("div", { class: "mo-grid", id: "moGrid" }, ...WD7.map((w, i) => h("div", { class: "mo-wd" + (i === 0 ? " sun" : i === 6 ? " sat" : ""), text: w })), ...cells),
-      dayPanel(pick, pLabel, { cls: "mo-day", head: [h("span", { class: "wd", text: WD7[pd.getDay()] }), h("span", { class: "md", text: pLabel })] })),
+      dayPanel(pick, pLabel, { cls: "mo-day", pre: "mo", head: [h("span", { class: "wd", text: WD7[pd.getDay()] }), h("span", { class: "md", text: pLabel })] })),
+  ];
+}
+
+/* 업무 장 한 화면(선생님 지시 2026-11-16 "주간계획, 월간계획, 업무 추가하는 거 하나 메뉴로"):
+   맨 위 월간 달력(고른 날 칸은 옆), 그 밑에 이번 주 닷새, 그 아래 새 업무와 업무 목록. 오늘은 달력과 주간 둘 다 칠한다. */
+function planWorkView() {
+  return [
+    h("h4", { class: "lt-title", text: "월간 계획" }),
+    ...monthView(),
+    h("h4", { class: "lt-title", text: "주간 계획" }),
+    ...weekView(),
+    h("h4", { class: "lt-title", text: "업무" }),
+    h("div", { class: "book-cols" }, ...workPage()),
   ];
 }
 

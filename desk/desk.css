@@ -178,7 +178,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 /* 업무 장 주간 계획: 월~금 다섯 칸 */
 .wk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; flex: 1 1 auto; min-height: 320px; }
 .wk-day { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); min-width: 0; }
-.wk-day.today { border-color: var(--accent); }
+.wk-day.today { border-color: var(--accent); background: var(--accent-soft); }
 .wk-day.wk-offday { background: var(--surface-2); }
 .wk-head { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; }
 .wk-head .md { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -234,7 +234,6 @@ table.prog { width: 100%; border-collapse: collapse; font-size: 14px; }
 .att-ed-item .del { margin-left: auto; opacity: 1; }
 .att-ed-item.결석 { background: var(--danger-soft); } .att-ed-item.지각 { background: var(--warn-soft); }
 .att-ed-item.조퇴 { background: var(--blue-soft); } .att-ed-item.결과 { background: #EFEAF8; }
-.att-ed-foot { display: flex; justify-content: flex-end; }
 .stu.결과 { background: #EFEAF8; border-color: #CFC2EA; } .stu.결과 .st { color: #6B4FA8; }
 .stu[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
 .att-sum .outk, .att-sum .outk b { color: #6B4FA8; }
@@ -1213,8 +1212,9 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 }
 .mo-cell.blank { border: 0; background: none; cursor: default; }
 .mo-cell:hover { border-color: var(--faint); }
-.mo-cell.today { border-color: var(--accent); }
-.mo-cell.pick { background: var(--accent-soft); border-color: var(--accent); }
+.mo-cell.today { border-color: var(--accent); background: var(--accent-soft); }
+.mo-cell.today .mo-num { color: var(--accent); font-weight: 800; }
+.mo-cell.pick { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
 .mo-cell.offday { background: var(--surface-2); }
 .mo-num { font-size: var(--fs-sm); font-weight: 700; color: var(--ink); }
 .mo-ev { font-size: 11.5px; line-height: 1.35; padding: 1px 5px; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--surface-2); color: var(--ink); }
