@@ -1450,3 +1450,73 @@ table.tt-base th.ph { width: 64px; font-size: 13px; }
 .undo-bar { display: flex; align-items: center; gap: 14px; }
 .undo-bar[hidden] { display: none; }
 .undo-btn { border: 0; background: none; color: #9BD3FF; font: inherit; font-weight: 700; cursor: pointer; padding: 0; }
+
+/* ---------- 스크롤바 대신 흐림(2026-11-15 "모든 영역에서 스크롤 대신 아래 페이드아웃") ----------
+   스크롤바는 모두 숨긴다. 더 볼 것이 있는 칸은 desk.js fadeScan 이 fade-b(아래), fade-r(옆)을 붙인다. */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.fade-b { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent); }
+.fade-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }
+.fade-b.fade-r {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent), linear-gradient(to right, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent), linear-gradient(to right, #000 calc(100% - 44px), transparent);
+  -webkit-mask-composite: source-in; mask-composite: intersect; }
+
+/* ---------- 표 다시(2026-11-15 "표 너무 구려"): 담임 한 달 표, 수업 한 달 표, 전체 진도 표를 한 모양으로 ----------
+   둥근 테두리 상자, 가로줄만, 머리는 옅은 바탕 한 줄, 칸은 가로 세로 가운데, 번호와 이름은 따로 칸(둘 다 가운데, 옆으로 넘겨도 고정). */
+:root { --t1: 16px; --t2: 14px; --t3: 12px; }
+.att-month-scroll, .prog-scroll { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow-x: auto; }
+.att-month-scroll { width: fit-content; max-width: 100%; }   /* 열이 적으면 상자도 표만큼(칸이 늘어나 벌어지지 않게) */
+table.att-month { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+table.pa-table { border-collapse: separate; border-spacing: 0; }
+table.att-month th, table.att-month td, table.pa-table th, table.pa-table td {
+  border: 0; border-bottom: 1px solid var(--line); height: 44px; padding: 0 10px; min-width: 0;
+  text-align: center; vertical-align: middle; white-space: nowrap; }
+table.att-month tbody tr:last-child > *, table.pa-table tbody tr:last-child > * { border-bottom: 0; }
+table.att-month thead th, table.pa-table thead th { height: 40px; background: var(--surface-2); color: var(--muted); font-size: var(--t3); font-weight: 600; }
+table.att-month tbody tr:nth-child(even) > th, table.pa-table tbody tr:nth-child(even) > :is(.pa-n, .pa-topic) { background: var(--surface); }
+table.att-month thead th.tot { vertical-align: middle; }
+table.att-month tbody tr:hover > *, table.pa-table tbody tr:hover > .pa-n, table.pa-table tbody tr:hover > .pa-topic { background: var(--surface-2); }
+/* 열 머리 한 줄: 담임 "5(목)", 수업 "11.5(목) 5교시" */
+.att-month thead .dn, .att-month thead .dw, .att-month thead .dp { display: inline; font-size: inherit; color: inherit; font-weight: inherit; }
+.att-month thead .dp { margin-left: 5px; }
+table.att-month thead th.today { color: var(--accent); }
+table.att-month td.today, table.att-month thead th.today { background: var(--accent-soft) !important; }
+table.att-month .wk { border-left: 1px solid var(--line); }
+/* 번호, 이름 */
+table.att-month th.who-n { width: 52px; min-width: 52px; position: sticky; left: 0; z-index: 2; background: var(--surface); color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+table.att-month th.who-nm { min-width: 88px; text-align: center; position: sticky; left: 52px; z-index: 2; background: var(--surface); color: var(--ink); font-weight: 600; border-right: 1px solid var(--line); }
+table.att-month thead th.who-n, table.att-month thead th.who-nm { background: var(--surface-2); color: var(--muted); }
+/* 칸 */
+table.att-month td { min-width: 44px; cursor: pointer; }
+table.att-month td.m { font-size: var(--t3); font-weight: 700; letter-spacing: 0; }
+table.att-month td.m::before { inset: 8px 6px; border-radius: 8px; }
+table.att-month .tot, table.att-month .tot.first { min-width: 56px; border-left: 1px solid var(--line); background: var(--surface); font-variant-numeric: tabular-nums; }
+table.att-month thead .tot { background: var(--surface-2); }
+/* 전체 진도 표 */
+table.pa-table .pa-n { color: var(--muted); font-weight: 600; background: var(--surface); }
+table.pa-table .pa-topic { text-align: left; padding: 0 14px; background: var(--surface); font-weight: 600; border-right: 1px solid var(--line); }
+table.pa-table thead .pa-n, table.pa-table thead .pa-topic { background: var(--surface-2); }
+table.pa-table th.pa-cls { color: var(--ink); }
+table.pa-table td.pa-cell { position: relative; border-left: 0; padding: 0 8px; }
+table.pa-table td.pa-cell + td.pa-cell, table.pa-table th.pa-cls + th.pa-cls { border-left: 1px solid var(--line); }
+.pa-cell .pa-d, .pa-cell .pa-p { display: inline; }
+.pa-cell .pa-p { margin-left: 6px; color: var(--muted); }
+/* 칸에 마우스를 올리면 지우기(2026-11-15) */
+.pa-del { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; border-radius: 6px; padding: 4px; display: inline-flex;
+  background: var(--surface); color: var(--muted); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .12s; }
+.pa-cell:hover .pa-del, .pa-del:focus-visible { opacity: 1; pointer-events: auto; }
+.pa-del:hover { color: var(--danger); background: var(--danger-soft); }
+
+/* ---------- 글자 3단계(2026-11-15 "교무수첩 모든 영역에서 제목, 본문, 보조"): 교무수첩 장과 설정 창. 위젯과 잠금 화면은 뺀다 ----------
+   제목 --t1, 본문 --t2, 보조 --t3 만 쓴다. 나머지 글자 크기는 모두 물려받게 해 두 단계 사이 값이 끼지 않게 한다. */
+#nb:not(.locked), #setPanel { font-size: var(--t2); }
+#nb:not(.locked) *, #setPanel * { font-size: inherit !important; }
+:is(#nb:not(.locked), #setPanel) :is(h1, h2, h3, h4, .nb-title, .set-page, .set-title, .lt-p, .lt-cls, .count .v, .att-date, .who > .nm) { font-size: var(--t1) !important; }
+:is(#nb:not(.locked), #setPanel) :is(.tip, .hint, .muted, .meta, .empty, .set-state, .set-lead p, .text-btn, .tag, thead th, .pa-legend, .att-legend,
+  .pc-p, .pc-month, .stu .nm, .stu .st, .stu-pick .nm, .when, .count .k, .field, .set-field, .att-sum, .ls-g .muted, .ls-rows .muted, .dp,
+  .bell, .undo-btn, td.m, .tot, small, .missing) { font-size: var(--t3) !important; }
+:is(#nb:not(.locked), #setPanel) :is(.field, .set-field) :is(input, select, textarea) { font-size: var(--t2) !important; }
+/* 진도표 줄의 x 도 마우스를 올릴 때만(전체 표 칸과 같게) */
+.pc-del { opacity: 0; }
+.pc-li:hover .pc-del, .pc-del:focus-visible { opacity: 1; }

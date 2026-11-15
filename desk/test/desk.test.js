@@ -742,7 +742,7 @@ function checkEntries() {
   await until(() => [...A.d.querySelectorAll("#classPick .cpick")].length === 3, "수업 장: 전체와 호클래스 두 반");
   assert.deepStrictEqual([...A.d.querySelectorAll("#classPick .cpick")].map(x => x.textContent),
     ["전체", "3-1", "3-2"], "수업 장 진도 탭: 전체와 두 반. 담임 반(3-9)은 수업 반에 넣지 않아 없다");
-  assert.deepStrictEqual([...A.d.querySelectorAll("#nbSeg button")].map(b => b.textContent), ["진도", "학생", "출결", "수합"],
+  assert.deepStrictEqual([...A.d.querySelectorAll("#nbSeg button")].map(b => b.textContent), ["진도", "학생", "출결"],
     "수업 장 탭: 진도와 수업 기록을 합쳤다");
   A.pick("3-1");
   await until(() => A.$("pcAdd"), "3-1 진도표");
@@ -994,20 +994,14 @@ function checkEntries() {
   assert.strictEqual(JSON.parse(store.get("hoclass_course_lessons/cl2")).date, TODAY, "2차시 날짜");
   assert(hcWrites.includes("hoclass_course_lessons/cl2"), "차시 문서에 썼다");
 
-  A.sub("col");
-  await until(() => A.$("colName"), "수합 칸");
-  A.fill("colName", "1차시 미션");
-  A.$("colCl").value = "cl1"; A.$("colPart").value = "mission";
-  A.submit("colForm");
-  await until(() => A.d.querySelectorAll("#classBody .stu.got").length === 2, "1번과 3번만 제출로 보인다", 30000);
-  assert(A.text().includes("미제출 1명"), "미제출 1명: " + A.text().slice(0, 120));
+  // 수업 장 수합 탭은 걷어 두었다(선생님 지시 2026-11-15 "일단 없애줘"). 호클래스 제출로 걷기 시험도 같이 쉰다
 
   /* ---------- 6단계: 결석 보내기 ---------- */
   A.sub("att");
   await until(() => A.d.querySelectorAll("#classBody .stu").length === 3, "출결 탭");
   assert.strictEqual(A.absent(), 1, "수업 출결에서 1번이 결석");
   if (process.env.DUMP_CLASS) {                   // 우리 반 세 보기를 떠 둔다(눈으로 볼 때)
-    for (const t of ["att", "col"]) { A.sub(t); await wait(60);
+    for (const t of ["att"]) { A.sub(t); await wait(60);
       fs.writeFileSync(process.env.DUMP_CLASS + "_" + t + ".html", A.$("nb").outerHTML + A.$("pagebar").outerHTML); }
     A.sub("att"); await wait(60);
   }
@@ -1166,17 +1160,7 @@ function checkEntries() {
   await until(() => A.d.querySelectorAll("#pcList .pc-row").length === socN - 1 && A.$("undoBtn"), "줄의 x 는 한 번에 지운다");
   A.$("undoBtn").click();
   await until(() => A.d.querySelectorAll("#pcList .pc-row").length === socN, "실행취소로 되돌린다");
-  /* 과목 미정 수업은 어느 과목에도 안 보이고, 기초 시간표 칸의 과목으로 정한다 */
-  A.d.querySelector("#pcList .pc-row").click();
-  await until(() => A.$("leSubj"), "3-9 는 두 과목이라 수업에 과목 고르기");
-  A.$("leSubj").value = ""; A.$("leSubj").dispatchEvent(new A.w.Event("change", { bubbles: true }));
-  await until(() => A.$("subjUnknown") && A.d.querySelectorAll("#pcList .pc-row").length === socN - 1, "과목 미정이 되면 사회 진도표에서 빠지고 위에 알림");
-  A.d.querySelector('#nbSubj [data-subj="역사"]').click();
-  await until(() => A.$("subjUnknown") && A.d.querySelector('#nbSubj [data-subj="역사"][aria-pressed="true"]'), "역사에도 안 보이고 알림만");
-  A.$("subjFix").click();
-  await until(() => !A.$("subjUnknown"), "기초 시간표로 과목을 정한다");
-  A.d.querySelector('#nbSubj [data-subj="사회"]').click();
-  await until(() => A.d.querySelectorAll("#pcList .pc-row").length === socN, "사회로 돌아간다");
+  assert(!A.$("subjUnknown") && !A.$("subjFix"), "과목 미정 단추는 걷었다");
   A.d.querySelector('#nbSubj [data-subj="역사"]').click();
   await until(() => A.d.querySelector('#nbSubj [data-subj="역사"][aria-pressed="true"]'), "역사로 돌아온다");
 
@@ -1184,6 +1168,13 @@ function checkEntries() {
   const cntSubj = (subj) => A.d.querySelectorAll("#pcList .pc-row").length;
   A.d.querySelector("#classPick .cpick").click();   // 전체
   await until(() => A.$("progAll"), "역사 전체 표");
+  /* 전체 표 칸: 마우스를 올리면 뜨는 x 로 그 수업만 지우고 실행취소 */
+  const n31 = () => A.d.querySelectorAll('#progAll td.pa-cell[data-cls="3-1"]').length;
+  const n31a = n31();
+  A.d.querySelector('#progAll td.pa-cell[data-cls="3-1"] .pa-del').click();
+  await until(() => n31() === n31a - 1 && !A.$("leEd"), "칸 x 는 그 수업만 지우고 반 화면으로 넘어가지 않는다");
+  A.$("undoBtn").click();
+  await until(() => A.$("progAll") && n31() === n31a, "실행취소");
   const rowsBefore = paRows().length;
   assert(A.$("genPlan").closest(".prog-bar-row") === A.$("clearEmpty").closest(".prog-bar-row"), "만들기와 지우기는 한 줄");
   A.$("clearEmpty").click();
