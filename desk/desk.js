@@ -3612,18 +3612,35 @@ async function genPlan(from, to) {
   const have = new Set(D.value.items.map(x => x.cls + "|" + x.at + "|" + x.period));
   const subjects = N.subjects.filter(s => s.name && s.classes.length);
   let added = 0, byTT = 0;
+  const filled = (g) => g.flat().filter(Boolean).length;
+  const fetchWeek = async (mon) => {
+    if (!N.school || !subjects.length) return null;
+    try {
+      const d = parseDate(mon);
+      const g = await Neis.loadMyWeek(N.school, academicYear(d), Neis.semesterOf(d), mon.replace(/-/g, ""), subjects, N.key);
+      return filled(g) ? g : null;
+    } catch (e) { return null; }
+  };
   try {
+    // 1) 주마다 나이스에서 받는다
+    const weeks = [];
     for (let mon = mondayIso(parseDate(from)); mon <= to; mon = addDaysIso(mon, 7)) {
-      let grid = null;
-      if (N.school && subjects.length) {
-        try {
-          const d = parseDate(mon);
-          grid = await Neis.loadMyWeek(N.school, academicYear(d), Neis.semesterOf(d), mon.replace(/-/g, ""), subjects, N.key);
-          if (!grid.flat().some(Boolean)) grid = null;
-        } catch (e) { grid = null; }
-      }
-      let subjGrid = grid && grid.subj;
-      if (!grid) { if (state.ttExample) continue; grid = state.tt; subjGrid = state.ttSubj; byTT++; }
+      weeks.push({ mon, grid: await fetchWeek(mon) });
+      genNote = `${+mon.slice(5, 7)}월 ${+mon.slice(8)}일 주까지 받았습니다`; renderNb();
+    }
+    // 2) 나이스에 아직 없는 주는 가장 꽉 찬 나이스 주 모양으로 채운다. 이번 주 시간표(설정)는 재량휴업, 시간표 변경이 든
+    //    특별한 주일 수 있어 그대로 베끼면 안 된다(선생님 지적 2026-11-15 "3학년 2반 역사 시간표 왜 저래": 11/16 주는 수, 목, 금이 비어
+    //    12월이 수요일 3교시 한 번만 들어갔다). 범위 안에 나이스 주가 하나도 없으면 앞 4주에서 찾고, 그래도 없으면 설정 시간표.
+    let best = weeks.filter(w => w.grid).sort((a, b) => filled(b.grid) - filled(a.grid))[0];
+    for (let i = 1; !best && i <= 4; i++) {
+      const mon = addDaysIso(mondayIso(parseDate(from)), -7 * i), g = await fetchWeek(mon);
+      if (g) best = { mon, grid: g };
+    }
+    const base = best ? { grid: best.grid, subj: best.grid.subj } : state.ttExample ? null : { grid: state.tt, subj: state.ttSubj };
+    for (const w of weeks) {
+      const mon = w.mon;
+      let grid = w.grid, subjGrid = grid && grid.subj;
+      if (!grid) { if (!base) continue; grid = base.grid; subjGrid = base.subj; byTT++; }
       for (let di = 0; di < 5; di++) {
         const d = addDaysIso(mon, di);
         if (d < from || d > to || offName(d)) continue;
@@ -3638,10 +3655,10 @@ async function genPlan(from, to) {
           added++;
         }
       }
-      genNote = `${+mon.slice(5, 7)}월 ${+mon.slice(8)}일 주까지 받았습니다`; renderNb();
     }
     saveEnc(D);
-    genNote = `수업 ${added}개를 넣었습니다` + (byTT ? `. 나이스에 없는 ${byTT}주는 주간 시간표 모양으로 채웠습니다.` : ".");
+    const how = best ? `나이스 ${+best.mon.slice(5, 7)}월 ${+best.mon.slice(8)}일 주 모양으로` : "주간 시간표 모양으로";
+    genNote = `수업 ${added}개를 넣었습니다` + (byTT ? `. 나이스에 없는 ${byTT}주는 ${how} 채웠습니다.` : ".");
   } finally { genBusy = false; renderNb(); }
 }
 function genBar() {
@@ -3660,7 +3677,7 @@ function genBar() {
    onlyEmpty: 단원, 계획, 기록, 과제가 다 빈 수업만(나이스로 만든 뒤 손대지 않은 것). all: 과목 상관없이 전부(설정의 초기화). */
 function clearLessons(onlyEmpty, all = false) {
   const D = docs.lessons, before = D.value.items.length;
-  const empty = (x) => !(x.unit || x.plan || x.body || x.hw);
+  const empty = (x) => !(x.unit || x.plan || x.body || x.hw || absOf(x).length);
   D.value.items = D.value.items.filter(x => !((all || inSubj(x)) && (!onlyEmpty || empty(x))));
   const n = before - D.value.items.length;
   progPick = ""; genNote = "";

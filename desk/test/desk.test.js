@@ -150,10 +150,14 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
       if (!subjects.length || subjects.some(x => !x.name || !x.classes.length)) {
         throw new Error("과목과 반 없이 받아오면 첫 반이 모든 칸을 먹는다");
       }
-      const tt = [["3-1", "", "", "", "3-9", "", ""], ["", "", "", "", "", "", ""],
-              ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]];
-      // 월요일 1교시 3-1 역사, 5교시 3-9 사회(3-9 는 역사, 사회 둘 다 가르친다)
-      tt.subj = [["역사", "", "", "", "사회", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]];
+      const blank = () => Array.from({ length: 5 }, () => Array(7).fill(""));
+      const tt = blank(); tt.subj = blank();
+      const put = (d, p, c, s) => { tt[d][p] = c; tt.subj[d][p] = s; };
+      const now = new Date(), ym = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, "0");
+      if (a[3].slice(0, 6) > ym) return tt;           // 다음 달은 나이스에 아직 없다
+      put(0, 4, "3-9", "사회");                        // 월요일 5교시 3-9 사회(3-9 는 역사, 사회 둘 다 가르친다)
+      if (a[3] === "20261109") { put(2, 2, "3-1", "역사"); return tt; }   // 이번 주(설정에 받는 주)는 시간표가 바뀐 특별한 주
+      put(0, 0, "3-1", "역사"); put(3, 1, "3-1", "역사");   // 보통 주: 월 1교시, 목 2교시 3-1 역사
       return tt; },
     loadClassDay: async () => [],
     loadRoomCounts: async () => ({ 1: 10, 2: 10, 3: 10 }),
@@ -1116,6 +1120,13 @@ function checkEntries() {
   await until(() => A.$("genNote") && A.$("genNote").textContent.includes("넣었습니다"), "진도 계획을 만든다", 30000);
   const paRows = () => [...A.$("progAll").querySelectorAll("tbody tr")];
   assert(paRows().length >= 6, "월요일 1교시 3-1 수업이 주마다 들어가 차시가 여럿: " + paRows().length);
+  {
+    const nm = new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2;
+    const next = [...A.$("progAll").querySelectorAll('td.pa-cell[data-cls="3-1"]')].map(td => td.textContent).filter(t => t.startsWith(nm + "."));
+    assert(next.length && next.every(t => !t.includes("(수)")) && next.some(t => t.includes("(목)")),
+      "나이스에 없는 다음 달은 특별한 주(수 3교시)가 아니라 가장 꽉 찬 나이스 주 모양(월, 목)으로: " + next.join(" "));
+    assert(A.$("genNote").textContent.includes("주 모양으로"), A.$("genNote").textContent);
+  }
   assert.deepStrictEqual([...A.$("progAll").querySelectorAll("thead .pa-cls")].map(x => x.textContent), ["3-1", "3-9"], "열은 역사 반");
   assert(![...A.$("progAll").querySelectorAll('td.pa-cell[data-cls="3-9"]')].some(td => !td.classList.contains("na") && td.textContent.includes("5교시")),
     "3-9 사회 수업(5교시)은 역사 표에 안 들어온다");
