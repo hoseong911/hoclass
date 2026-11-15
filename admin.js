@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261108g';
+import * as M from './model.js?v=20261115a';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -1151,7 +1151,31 @@ function studentDetailCols(sno){
     <div class="sectionlabel">과목별 성적</div>
     <div class="dscroll">${scoreRows}</div></div>`;
 
-  return left + right;
+  return left + right + studentNotesCol(sno);
+}
+
+/* 세부 특기사항과 메모(선생님 지시 2026-11-15): 교무수첩 수업 장 학생 화면과 같은 문서(hoclass_student_notes)를 같이 쓴다.
+   머리줄 과목(state.subject) 것만. 학생을 열 때 받아 오고, 적는 동안은 noteDraft 에 두어 다시 그려도 안 지워진다. */
+const noteDraft = {};
+const noteKey = (sno) => `${state.year}|${state.subject}|${sno}`;
+function studentNotesCol(sno){
+  const head = '<div class="sectionlabel">세부 특기사항과 메모</div>';
+  if (!state.subject) return `<div class="dcol dnote">${head}<div class="empty">머리줄에서 과목을 고르면 적을 수 있습니다.</div></div>`;
+  const k = noteKey(sno), n = noteDraft[k];
+  if (n === undefined){
+    noteDraft[k] = null;
+    M.loadStudentNote(state.year, state.subject, sno)
+      .then(v => { noteDraft[k] = v; }, () => { noteDraft[k] = { err:true }; })
+      .then(() => render());
+  }
+  const body = !n ? '<div class="empty">불러오는 중입니다.</div>'
+    : n.err ? '<div class="empty">불러오지 못했습니다.</div>'
+    : `<label class="m-label" for="stu-seteuk">세부 특기사항</label>
+       <textarea class="f stu-note" id="stu-seteuk" data-note="seteuk" data-no="${sno}" rows="10">${esc(n.seteuk)}</textarea>
+       <label class="m-label" for="stu-memo">메모</label>
+       <textarea class="f stu-note" id="stu-memo" data-note="memo" data-no="${sno}" rows="6">${esc(n.memo)}</textarea>
+       <div class="stu-note-acts"><button class="btn-chip" data-act="stu-note-save" data-no="${sno}" ${n.dirty ? '' : 'disabled'}>${icon('check',13)}저장</button></div>`;
+  return `<div class="dcol dnote">${head}<div class="dscroll">${body}</div></div>`;
 }
 
 /* 학생 추가 팝업(요구사항 1): 개별 추가 / 엑셀 명단. 개별은 학년, 반, 번호, 이름만 받는다.
@@ -3210,7 +3234,18 @@ document.getElementById('shell').addEventListener('click', e => {
 
     case 'stu-add-open': openStudentModal(); break;
     case 'stu-open':
+      // 고치지 않은 세특과 메모는 열 때마다 다시 받는다(교무수첩에서 적은 것이 보이게)
+      if (noteDraft[noteKey(no)] && !noteDraft[noteKey(no)].dirty) delete noteDraft[noteKey(no)];
       state.studentDetailNo = (!WIDE.matches && state.studentDetailNo === no) ? null : no; render(); break;
+    case 'stu-note-save': {
+      const n = noteDraft[noteKey(no)];
+      if (!n || n.err) break;
+      el.disabled = true;
+      M.saveStudentNote(state.year, state.subject, no, n)
+        .then(() => { n.dirty = false; toast('저장했습니다.'); }, () => { el.disabled = false; toast('저장하지 못했습니다. 다시 해 보세요.'); })
+        .then(() => render());
+      break;
+    }
     case 'stu-reset':   // 학생 관리 페이지의 초기화 버튼 (강의실 상세의 stu-pw-reset과 같은 길)
     case 'stu-pw-reset': {
       const nm = el.dataset.name || '';
@@ -3907,6 +3942,12 @@ document.getElementById('shell').addEventListener('change', e => {
 });
 
 document.getElementById('shell').addEventListener('input', e => {
+  if (e.target.dataset.note){   // 학생 관리 세특, 메모: 적는 대로 초안에 두고 저장 단추를 켠다
+    const n = noteDraft[noteKey(e.target.dataset.no)];
+    if (n && !n.err){ n[e.target.dataset.note] = e.target.value; n.dirty = true;
+      e.target.closest('.dnote')?.querySelector('[data-act="stu-note-save"]')?.removeAttribute('disabled'); }
+    return;
+  }
   /* 디자인 탭 슬라이더: 끄는 대로 미리보기를 즉시 바꾼다(다시 그리지 않고 CSS만 갈아 끼운다).
      저장은 손을 뗄 때(change)만 한다. */
   const dsa = e.target.dataset.act;

@@ -41,7 +41,10 @@ function seedHoclass() {
 
   put("hoclass_lessons/L1", { id: "L1", title: "3단원 조선의 성립", order: 1, parts: { concept: true, mission: true, question: true } });
   put("hoclass_lessons/L2", { id: "L2", title: "4단원 조선의 문화", order: 2, parts: { concept: true, mission: true } });
-  put("hoclass_course_lessons/cl1", { id: "cl1", courseId: "c_h301", lessonId: "L1", order: "1", isOpen: true, date: TODAY });
+  put("hoclass_course_lessons/cl1", { id: "cl1", courseId: "c_h301", lessonId: "L1", order: "1", isOpen: true, date: TODAY, gradePublished: true });
+  put("hoclass_settings/grade", { lessons: ["L1"] });   // 급간 표는 기본값
+  put("hoclass_course_grades/cl1_30101", { clId: "cl1", studentNo: "30101", concept: { achievedN: 1, onTimeN: 1 }, mission: { achievedN: 1, onTimeN: 0 }, question: { achievedN: 0, onTimeN: 0 }, feedback: "잘함" });
+  put("hoclass_student_notes/2027_역사_30101", { seteuk: "어드민에서 적은 세특", memo: "", updatedAt: 1 });
   put("hoclass_course_lessons/cl2", { id: "cl2", courseId: "c_h301", lessonId: "L2", order: "2", isOpen: true, date: "" });
   for (const no of ["30101", "30103"]) {
     put("hoclass_course_submissions/cl1_mission_" + no, { clId: "cl1", part: "mission", courseId: "c_h301", studentNo: no, answer: "냈어요" });
@@ -745,24 +748,27 @@ function checkEntries() {
   await until(() => A.d.querySelector('.lt-card[data-cls="3-1"]') && !A.d.querySelector('.lt-card[data-cls="3-2"]'), "오늘 수업이 든 반(3-1)만 하루 표");
   assert(A.$("attMonth"), "아래에 한 달 표");
   assert(!A.$("attMode"), "수업 출결에는 하루, 한 달 고르기가 없다");
-  await until(() => A.d.querySelector("#attMonth tbody td.today"), "한 달 표의 열은 진도표 수업 날(오늘)");
+  await until(() => A.d.querySelector("#attMonth tbody td.today"), "한 달 표의 열은 진도표 수업(오늘)");
+  assert(A.d.querySelector("#attMonth thead th.today .dp").textContent.endsWith("교시"), "열 머리에 교시");
+  assert.deepStrictEqual([...A.$("attMonth").querySelectorAll("thead th.tot")].map(x => x.textContent), ["결석"], "합계는 결석 하나");
   A.d.querySelector("#attMonth tbody td.today").click();
-  await until(() => A.$("attEd") && A.$("attEd").textContent.includes("3-1"), "한 달 표 칸을 누르면 오른쪽에서 바로 적는다");
-  A.btn("#attEd", "닫기").click();
-  await until(() => !A.$("attEd"), "닫기");
+  await until(() => A.d.querySelector("#attMonth tbody td.today.m.결석") && A.d.querySelector('.lt-card[data-cls="3-1"] .stu.결석'),
+    "한 달 표 칸을 누르면 결석, 오늘 표에도 보인다");
+  A.d.querySelector("#attMonth tbody td.today").click();
+  await until(() => !A.d.querySelector("#attMonth tbody td.m") && !A.$("attEd"), "한 번 더 누르면 출석, 고르개는 없다");
   await until(() => A.stu().length === 3, "3-1 학생 3명이 호클래스에서 들어온다");
   assert(A.text().includes("김지우") && A.text().includes("박세찌"), "호클래스 이름: " + A.text().slice(0, 80));
   assert(!A.$("rosterBtn") && !A.$("rosterEditor"), "교무수첩 장에는 명단 편집이 없다(설정으로 옮겼다)");
 
-  /* ---------- 출결은 학번으로 묶인다 ---------- */
-  await A.mark(0, "결석", "미인정");
-  await until(() => A.absent() === 1, "3-1 결석 1명");
+  /* ---------- 수업 출결은 교시별 출석, 결석. 학번으로 묶여 진도표 수업에 들어간다 ---------- */
+  A.stu()[0].click();
+  await until(() => A.absent() === 1 && A.stu()[0].getAttribute("aria-pressed") === "true", "학생 칸을 누르면 결석");
+  assert(A.text().includes("결석 1"), "오늘 표 요약");
   const day = todayKey();
-  await until(() => store.has("desk_att/2027_3-1_" + day), "3-1 출결 문서");
-  const att = JSON.parse(store.get("desk_att/2027_3-1_" + day));
-  assert.deepStrictEqual(Object.keys(att).sort(), ["at", "c", "date", "iv", "room", "v", "year"], "꼬리표는 평문, 내용은 암호문");
-  assert.strictEqual(att.room, "3-1"); assert.strictEqual(att.year, "2027"); assert.strictEqual(att.date, day);
   await wait(900);
+  assert(!store.has("desk_att/2027_3-1_" + day), "수업 출결은 담임 출결 문서에 쓰지 않는다");
+  const les = JSON.parse(store.get("desk_lessons/2027"));
+  assert(les.v && les.iv && !store.get("desk_lessons/2027").includes("30101"), "진도표 문서에 암호문으로");
   for (const nm of ["김지우", "이주서", "박세찌"]) assert(!allStored().includes(nm), "수첩 쪽에 평문 금지: " + nm);
 
   /* ---------- 담임 반은 손으로 넣고, 학번을 만들어 준다 ---------- */
@@ -963,10 +969,19 @@ function checkEntries() {
   await wait(900);
   assert(!allStored().includes("조선 건국 과정"), "수업 기록 평문 금지");
   A.pick("3-1"); A.sub("student");
-  await until(() => A.d.querySelector("#classBody .stu-pick button"), "수업 장 학생 화면");
-  A.d.querySelector("#classBody .stu-pick button").click();
-  await until(() => A.$("stuNote"), "학생을 고르면 메모 칸");
-  assert(A.book().includes("수업 메모") && !A.book().includes("상담 민원"), "수업 장 학생 화면은 수업 메모, 상담은 뺀다");
+  await until(() => A.$("lsList") && A.$("lsSeteuk"), "수업 장 학생 화면: 왼쪽 목록, 첫 학생의 세특 칸");
+  assert(A.d.querySelector('#lsList .ls-row[aria-pressed="true"]').textContent.includes("김지우"), "처음엔 첫 학생");
+  assert.strictEqual(A.$("lsSeteuk").value, "어드민에서 적은 세특", "호클래스에 있는 세특을 받아 온다");
+  await until(() => A.$("lsGrade"), "호클래스 성적");
+  assert(A.$("lsGrade").textContent.includes("57 / 100점"), "성적은 호클래스 셈과 같다(개념 30, 미션 24, 질문 3): " + A.$("lsGrade").textContent);
+  assert(A.$("lsGrade").textContent.includes("잘함"), "차시 피드백");
+  assert(A.$("lsSave").disabled, "고친 것이 없으면 저장 단추는 꺼져 있다");
+  typeIn("lsMemo", "발표를 잘함");
+  assert(!A.$("lsSave").disabled, "적으면 저장 단추가 켜진다");
+  A.$("lsSave").click();
+  await until(() => (JSON.parse(store.get("hoclass_student_notes/2027_역사_30101") || "{}").memo === "발표를 잘함"), "호클래스에 올린다");
+  assert.strictEqual(JSON.parse(store.get("hoclass_student_notes/2027_역사_30101")).seteuk, "어드민에서 적은 세특", "세특은 그대로");
+  assert(!A.book().includes("상담 민원"), "수업 장 학생 화면에 상담은 없다");
   A.sub("prog");
   await until(() => A.$("leEd"), "다시 진도");
 
@@ -986,8 +1001,7 @@ function checkEntries() {
   /* ---------- 6단계: 결석 보내기 ---------- */
   A.sub("att");
   await until(() => A.d.querySelectorAll("#classBody .stu").length === 3, "출결 탭");
-  await A.mark(1, "지각", "질병", [0]);
-  await until(() => A.d.querySelectorAll("#classBody .stu.지각").length === 1, "2번 지각");
+  assert.strictEqual(A.absent(), 1, "수업 출결에서 1번이 결석");
   if (process.env.DUMP_CLASS) {                   // 우리 반 세 보기를 떠 둔다(눈으로 볼 때)
     for (const t of ["att", "col"]) { A.sub(t); await wait(60);
       fs.writeFileSync(process.env.DUMP_CLASS + "_" + t + ".html", A.$("nb").outerHTML + A.$("pagebar").outerHTML); }
@@ -998,7 +1012,6 @@ function checkEntries() {
   await until(() => A.book().includes("호클래스 차시"), "차시 칸");
   A.btn("#classBody", "결석 보내기").click();
   await until(() => A.book().includes("결석 보내기 확인"), "확인 화면", 30000);
-  assert(A.book().includes("지각, 조퇴"), "지각은 안 보낸다고 알려 준다");
   assert(A.book().includes("결석 1명 보내기"), "결석 1명: " + A.book().slice(0, 200));
   A.btn("#classBody", "결석 1명 보내기").click();
   await until(() => !A.book().includes("결석 보내기 확인"), "보내고 나면 확인 화면이 닫힌다", 30000);
@@ -1011,10 +1024,10 @@ function checkEntries() {
     assert.deepStrictEqual(g[a], { achievedN: 0, onTimeN: 0 }, a + " 는 미달성으로 고정");
     assert.strictEqual(g.manual[a], true, a + " manual 표시");
   }
-  assert(!store.has("hoclass_course_grades/cl1_30102"), "지각한 학생은 보내지 않았다");
+  assert(!store.has("hoclass_course_grades/cl1_30102"), "출석한 학생은 보내지 않았다");
   assert(!store.has("hoclass_course_grades/cl1_30103"), "출석한 학생은 보내지 않았다");
   assert.deepStrictEqual([...new Set(hcWrites.map(p => p.split("/")[0]))].sort(),
-    ["hoclass_course_grades", "hoclass_course_lessons"], "호클래스에 쓴 컬렉션: " + hcWrites.join(", "));
+    ["hoclass_course_grades", "hoclass_course_lessons", "hoclass_student_notes"], "호클래스에 쓴 컬렉션: " + hcWrites.join(", "));
 
   /* ---------- 나이스에서 받아오기 ---------- */
   A.setTab("year");
@@ -1120,6 +1133,18 @@ function checkEntries() {
   await until(() => A.$("pcList") && A.d.querySelector('#nbSubj [data-subj="사회"][aria-pressed="true"]'), "사회 진도표");
   assert(A.$("classPick").hidden, "사회는 3-9 한 반이라 반 고르기가 없다");
   assert([...A.d.querySelectorAll("#pcList .pc-row")].every(r => r.textContent.includes("5교시")), "사회 진도표는 3-9 5교시 수업만");
+  /* 과목 미정 수업은 어느 과목에도 안 보이고, 주간 시간표 칸의 과목(나이스로 받은 것)으로 정한다 */
+  const socN = A.d.querySelectorAll("#pcList .pc-row").length;
+  A.d.querySelector("#pcList .pc-row").click();
+  await until(() => A.$("leSubj"), "3-9 는 두 과목이라 수업에 과목 고르기");
+  A.$("leSubj").value = ""; A.$("leSubj").dispatchEvent(new A.w.Event("change", { bubbles: true }));
+  await until(() => A.$("subjUnknown") && A.d.querySelectorAll("#pcList .pc-row").length === socN - 1, "과목 미정이 되면 사회 진도표에서 빠지고 위에 알림");
+  A.d.querySelector('#nbSubj [data-subj="역사"]').click();
+  await until(() => A.$("subjUnknown") && A.d.querySelector('#nbSubj [data-subj="역사"][aria-pressed="true"]'), "역사에도 안 보이고 알림만");
+  A.$("subjFix").click();
+  await until(() => !A.$("subjUnknown"), "주간 시간표로 과목을 정한다");
+  A.d.querySelector('#nbSubj [data-subj="사회"]').click();
+  await until(() => A.d.querySelectorAll("#pcList .pc-row").length === socN, "사회로 돌아간다");
   A.d.querySelector('#nbSubj [data-subj="역사"]').click();
   await until(() => A.d.querySelector('#nbSubj [data-subj="역사"][aria-pressed="true"]'), "역사로 돌아온다");
 
@@ -1187,7 +1212,7 @@ function checkEntries() {
     fr.readAsText(saved[0]);
   }));
   assert.strictEqual(file.v, 2, "백업 판 번호");
-  for (const k of ["desk_crypto/keys", "desk_years/all", "desk_roster/2027", "desk_att/2027_3-1_" + day]) {
+  for (const k of ["desk_crypto/keys", "desk_years/all", "desk_roster/2027", "desk_lessons/2027"]) {
     assert(file.docs[k], "백업에 " + k);
   }
   assert(!Object.keys(file.docs).some(k => k.startsWith("hoclass_")), "백업에 호클래스 자료는 담지 않는다");

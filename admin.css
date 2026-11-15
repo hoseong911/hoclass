@@ -154,7 +154,7 @@ h2{font-size:var(--fs-title);margin:0 0 4px;letter-spacing:-.2px}
 .split.split-stu{grid-template-columns:210px minmax(0,1fr)}
 /* 학생 관리 상세: 수강 과목은 강의실 이름 몇 줄뿐이라 좁게, 남는 폭은 과목별 성적이 받는다(선생님 지시 2026-10-29) */
 .split-stu .pane .dcol:first-child{flex:0 1 220px}
-.split-stu .pane .dcol:last-child{flex:1 1 0;min-width:320px}
+.split-stu .pane .dcol:nth-child(2){flex:1 1 0;min-width:320px}
 /* 성적 조회 두 단(선생님 지시 2026-10-29): 왼쪽이 표라 다른 화면과 거꾸로 왼쪽이 넓다.
    오른쪽은 강의 차수와 OX뿐이라 --w-sc-detail로 좁게 둔다 */
 .split.split-scview{grid-template-columns:minmax(0,1fr) var(--w-sc-detail)}
@@ -997,3 +997,8 @@ label.checkline{cursor:pointer}   /* 강의 라이브러리의 강의실 연결 
 .mi-verdicts{margin-top:8px;flex-wrap:wrap;align-self:flex-start!important}
 /* 안내 한 줄(마일리지 설정·검토 머리말) */
 .hint{color:var(--sub);font-size:13px;margin:2px 0 10px;line-height:1.5}
+
+/* 학생 관리 상세 셋째 칸: 세부 특기사항과 메모(2026-11-15, 교무수첩과 같이 쓴다) */
+.split-stu .pane .dcol.dnote{flex:1 1 0;min-width:280px}
+.dnote textarea.f{display:block;width:100%;height:auto;padding:8px 10px;resize:vertical;font:inherit;line-height:1.5;margin:4px 0 10px}
+.stu-note-acts{display:flex;justify-content:flex-end}

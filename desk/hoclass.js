@@ -1,4 +1,4 @@
-// 호클래스에 쓰는 곳은 맨 아래 둘뿐이다.
+// 호클래스에 쓰는 곳은 맨 아래 셋뿐이다.
 
 export const roomOf = (c) => String(c.grade) + String(c.classNo).padStart(2, "0");
 export const roomToCls = (room) => String(room).slice(0, 1) + "-" + String(Number(String(room).slice(1)));
@@ -90,7 +90,8 @@ export async function loadLessons(FB, hc) {
     FB.getDocs(FB.collection(FB.db, "hoclass_lessons")),
   ]);
   const title = {};
-  lessons.forEach(d => { const l = d.data() || {}; title[d.id] = String(l.title || ""); });
+  const parts = {};
+  lessons.forEach(d => { const l = d.data() || {}; title[d.id] = String(l.title || ""); parts[d.id] = l.parts || {}; });
   const idToCls = {}, subjOf = {};
   for (const c of hc.courses) { idToCls[c.id] = c.cls; subjOf[c.id] = c.subject || ""; }
   cls.forEach(d => {
@@ -101,6 +102,7 @@ export async function loadLessons(FB, hc) {
       clId: d.id, courseId: cl.courseId, lessonId: cl.lessonId || "",
       order: Number(cl.order) || 0, date: String(cl.date || ""),
       isOpen: cl.isOpen !== false, title: title[cl.lessonId] || "", subject: subjOf[cl.courseId] || "",
+      parts: parts[cl.lessonId] || {}, gradePublished: !!cl.gradePublished,
     });
   });
   for (const k of Object.keys(byCls)) byCls[k].sort((a, b) => a.order - b.order);
@@ -119,6 +121,58 @@ export async function loadSubmissions(FB, clId) {
     (out[no] = out[no] || {})[String(r.part || "")] = true;
   });
   return out;
+}
+
+/* ---------- 성적(읽기만) ----------
+   model.js studentGrade 와 같은 셈: 성적 설정의 반영 강의 중 그 반에 성적을 공개한 차시만, 영역마다 달성과 기한을 세어
+   급간 표(hoclass_settings/grade)로 점수를 낸다. lessons 는 loadLessons 가 준 그 반(그 과목) 차시들. */
+const DEFAULT_BANDS = [   // model.js DEFAULT_BANDS 와 같아야 한다
+  { min: 90, concept: 30, mission: 40, question: 30 }, { min: 80, concept: 27, mission: 36, question: 27 },
+  { min: 70, concept: 24, mission: 32, question: 24 }, { min: 60, concept: 21, mission: 28, question: 21 },
+  { min: 50, concept: 18, mission: 24, question: 18 }, { min: 40, concept: 15, mission: 20, question: 15 },
+  { min: 30, concept: 12, mission: 16, question: 12 }, { min: 20, concept: 9, mission: 12, question: 9 },
+  { min: 10, concept: 6, mission: 8, question: 6 }, { min: 0, concept: 3, mission: 4, question: 3 },
+];
+export const AREA_NAMES = { concept: "개념 노트", mission: "미션 활동", question: "오늘의 질문" };
+export async function loadGrade(FB, lessons, studentNo) {
+  const conf = await FB.getDoc(FB.doc(FB.db, "hoclass_settings", "grade"));
+  const c = (conf.exists() && conf.data()) || {};
+  const bands = Array.isArray(c.bands) && c.bands.length ? c.bands : DEFAULT_BANDS;
+  const picked = new Set(c.lessons || []);
+  const use = lessons.filter(x => picked.has(x.lessonId) && x.gradePublished).sort((a, b) => a.order - b.order);
+  const recs = await Promise.all(use.map(x => FB.getDoc(FB.doc(FB.db, "hoclass_course_grades", x.clId + "_" + studentNo))
+    .then(s => (s.exists() && s.data()) || {})));
+  const sum = {};
+  for (const a of GRADE_AREAS) sum[a] = { achieved: 0, total: 0 };
+  const rows = use.map((x, i) => {
+    const rec = recs[i];
+    for (const a of GRADE_AREAS) {
+      if (!x.parts[a]) continue;
+      const b = rec[a] || {};
+      sum[a].achieved += Math.min(1, b.achievedN || 0) + Math.min(1, b.onTimeN || 0);
+      sum[a].total += 2;
+    }
+    return { order: x.order, title: x.title, absent: !!rec.absent, feedback: String(rec.feedback || "") };
+  });
+  const areas = {};
+  for (const a of GRADE_AREAS) {
+    const { achieved, total } = sum[a];
+    const pct = total ? Math.round(achieved / total * 100) : 0;
+    const band = total ? (bands.find(b => pct >= b.min) || bands[bands.length - 1]) : null;
+    areas[a] = { achieved, total, pct, score: band ? (+band[a] || 0) : 0 };
+  }
+  const maxScore = GRADE_AREAS.reduce((n, a) => n + (+(bands[0] || {})[a] || 0), 0);
+  const total = GRADE_AREAS.reduce((n, a) => n + areas[a].score, 0);
+  return { areas, total, maxScore, rows, has: use.length > 0 };
+}
+
+/* ---------- 세부 특기사항과 메모(선생님 지시 2026-11-15, 어드민 학생 관리와 같이 쓴다) ----------
+   hoclass_student_notes, 문서 id = 학년도_과목_학번. 교사만 읽고 쓴다(규칙에서 막음). */
+export const noteId = (year, subject, studentNo) => `${year}_${subject}_${studentNo}`;
+export async function loadNote(FB, year, subject, studentNo) {
+  const s = await FB.getDoc(FB.doc(FB.db, "hoclass_student_notes", noteId(year, subject, studentNo)));
+  const v = (s.exists() && s.data()) || {};
+  return { seteuk: String(v.seteuk || ""), memo: String(v.memo || ""), at: Number(v.updatedAt) || 0 };
 }
 
 /* ---------- 호클래스에 쓰는 곳 ---------- */
@@ -155,4 +209,12 @@ export async function fillLessonDate(FB, clId, date) {
   cl.date = date;
   await FB.setDoc(ref, cl);
   return true;
+}
+
+export async function saveNote(FB, year, subject, studentNo, { seteuk, memo }) {
+  const id = noteId(year, subject, studentNo);
+  await FB.setDoc(FB.doc(FB.db, "hoclass_student_notes", id), {
+    id, year: String(year), subject: String(subject), studentNo: String(studentNo),
+    seteuk: String(seteuk || "").slice(0, 3000), memo: String(memo || "").slice(0, 3000), updatedAt: Date.now(),
+  });
 }

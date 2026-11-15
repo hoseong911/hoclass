@@ -64,7 +64,22 @@ export const COLLECTIONS = {
   // 열공 마일리지 (hismile 재설계 이식, 2026-11-02). 과목별로 돈다.
   mileageCerts:       'hoclass_mileage_certs',   // 인증 한 건 { subject, year, studentNo, name, date, photoURL, content, feeling, result, checks, reason, photoDate } id = 과목__학번__날짜
   mileageConfig:      'hoclass_mileage_config',  // 과목별 설정 { subject, scopeLessonIds:[], note } id = 과목
+
+  // 세부 특기사항과 메모 (선생님 지시 2026-11-15). 교무수첩(desk) 수업 장 학생 화면과 같이 쓴다. 교사만 읽는다(규칙)
+  studentNotes:       'hoclass_student_notes',   // { year, subject, studentNo, seteuk, memo, updatedAt } id = 학년도_과목_학번
 };
+
+// 세특과 메모는 학생 관리에서 학생을 열 때만 한 장씩 읽는다(loadCore 에 넣지 않는다). desk/hoclass.js 와 같은 모양.
+export async function loadStudentNote(year, subject, studentNo){
+  const s = await getDoc(doc(db, COLLECTIONS.studentNotes, `${year}_${subject}_${studentNo}`));
+  const v = (s.exists() && s.data()) || {};
+  return { seteuk: String(v.seteuk || ''), memo: String(v.memo || '') };
+}
+export async function saveStudentNote(year, subject, studentNo, { seteuk, memo }){
+  const id = `${year}_${subject}_${studentNo}`;
+  await setDoc(doc(db, COLLECTIONS.studentNotes, id), { id, year: String(year), subject: String(subject), studentNo: String(studentNo),
+    seteuk: String(seteuk || '').slice(0, 3000), memo: String(memo || '').slice(0, 3000), updatedAt: Date.now() });
+}
 
 // 강의 안 네 칸: 각 강의에 최대 1개, 순서 자유.
 //   portfolio: 성적(포트폴리오)에 들어가는가   submits: 학생 제출물이 생기는가

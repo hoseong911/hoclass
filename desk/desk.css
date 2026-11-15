@@ -1400,3 +1400,32 @@ table.pa-table { table-layout: fixed; width: 100%; min-width: calc(300px + var(-
 .pa-cell { padding: 8px 6px; }
 .pa-d, .pa-p { display: inline; }
 .pa-p { margin-left: 6px; font-size: 12px; }
+
+/* 수업 출결 한 달 표: 앞으로 올 수업 칸은 누르지 않는다 */
+.att-month td.fut { cursor: default; }
+.att-month td.fut:hover { background: none; }
+
+/* 수업 장 학생(선생님 지시 2026-11-15): 4단. 1단 학생 목록(세로로 길게), 2~4단 성적, 세특, 메모 */
+.ls-split { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(0, 3fr); gap: 16px; align-items: start; }
+.ls-left { position: sticky; top: 0; max-height: calc(100vh - 220px); }
+.ls-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+.ls-row { width: 100%; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left;
+  border: 1px solid transparent; background: none; border-radius: 8px; padding: 7px 8px; cursor: pointer; font-size: 14px; color: var(--ink); }
+.ls-row:hover { background: var(--surface); }
+.ls-row[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.ls-row .n { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--muted); }
+.ls-row[aria-pressed="true"] .n { color: var(--accent); }
+.ls-row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ls-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ls-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.ls-acts { margin-left: auto; }
+.ls-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.ls-ta { min-height: 360px; resize: vertical; }
+.ls-grade { display: flex; flex-direction: column; gap: 6px; }
+.ls-g { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; gap: 8px; align-items: baseline; font-size: 14px; }
+.ls-g b { text-align: right; font-variant-numeric: tabular-nums; }
+.ls-g .muted, .ls-rows .muted { color: var(--muted); font-size: 12px; margin: 0; font-variant-numeric: tabular-nums; }
+.ls-g.tot { border-top: 1px solid var(--line); padding-top: 6px; }
+.ls-rows { margin-top: 6px; max-height: 260px; overflow-y: auto; }
+@media (max-width: 1200px) { .ls-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ls-cols > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 900px) { .ls-split, .ls-cols { grid-template-columns: minmax(0, 1fr); } .ls-left { position: static; max-height: 300px; } .ls-ta { min-height: 200px; } }
