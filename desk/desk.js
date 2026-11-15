@@ -2890,7 +2890,7 @@ function attMonthView() {
     });
     const nm = shownName(st);
     return { st, cnt, tr: h("tr", null, h("th", { class: "who-n", text: String(st.n) }), h("th", { class: "who-nm", text: nm || "" }), ...cells,
-      ...ATT_KINDS.map((k, i) => h("td", { class: "tot" + (i === 0 ? " first" : "") + (cnt[k].length ? " " + k : ""), text: cnt[k].length ? String(cnt[k].length) : "" }))) };
+      h("td", { class: "fill" }), ...ATT_KINDS.map((k, i) => h("td", { class: "tot" + (i === 0 ? " first" : "") + (cnt[k].length ? " " + k : ""), text: cnt[k].length ? String(cnt[k].length) : "" }))) };
   });
   const copy = () => {
     const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
@@ -2920,7 +2920,7 @@ function attMonthView() {
         ...days.map(d => { const off = offName(d), wd = parseDate(d).getDay();
           return h("th", { class: ["day", off ? "off" : "", d === today ? "today" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "), title: off || mdw(d) },
             h("span", { class: "dn", text: String(+d.slice(8)) }), h("span", { class: "dw", text: "(" + WD[wd] + ")" })); }),
-        ...ATT_KINDS.map((k, i) => h("th", { class: "tot" + (i === 0 ? " first" : ""), text: k })))),
+        h("th", { class: "fill" }), ...ATT_KINDS.map((k, i) => h("th", { class: "tot" + (i === 0 ? " first" : ""), text: k })))),
       h("tbody", null, ...rows.map(r => r.tr)))),
     h("p", { class: "tip", text: "칸을 누르면 그날로 가서 고칩니다. 마우스를 올리면 사유와 교시, 빗금 칸은 학사 일정의 쉬는 날입니다." }),
   ];
@@ -3972,14 +3972,14 @@ function lessonMonthView() {
         return h("td", { class: [a ? "m 결석 r-미인정" : "", s.at === today ? "today" : "", wk(i) ? "wk" : "", fut ? "fut" : ""].filter(Boolean).join(" "),
           title: `${mdw(s.at)} ${s.period}교시 ${who(st)} ${a ? "결석" : fut ? "" : "출석"}`.trim(), text: a ? "결석" : "",
           onclick: fut ? null : () => toggleAbs(s, st.id) }); }),
-      h("td", { class: "tot first" + (n ? " 결석" : ""), text: n ? String(n) : "" }));
+      h("td", { class: "fill" }), h("td", { class: "tot first" + (n ? " 결석" : ""), text: n ? String(n) : "" }));
   });
   return [nav,
     h("div", { class: "att-month-scroll" }, h("table", { class: "att-month", id: "attMonth" },
       h("thead", null, h("tr", null, h("th", { class: "who-n", text: "번호" }), h("th", { class: "who-nm", text: "이름" }),
         ...ss.map((s, i) => h("th", { class: ["day", s.at === today ? "today" : "", wk(i) ? "wk" : ""].filter(Boolean).join(" "), title: `${mdw(s.at)} ${s.period}교시` },
           h("span", { class: "dn", text: `${+s.at.slice(5, 7)}.${+s.at.slice(8)}` }), h("span", { class: "dw", text: "(" + WD[parseDate(s.at).getDay()] + ")" }), h("span", { class: "dp", text: s.period + "교시" }))),
-        h("th", { class: "tot first", text: "결석" }))),
+        h("th", { class: "fill" }), h("th", { class: "tot first", text: "결석" }))),
       h("tbody", null, ...rows))),
     h("p", { class: "tip", text: "열은 진도표의 이 반 수업입니다. 칸을 누르면 출석과 결석이 바뀝니다." })];
 }

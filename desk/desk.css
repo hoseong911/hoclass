@@ -1466,7 +1466,10 @@ table.tt-base th.ph { width: 64px; font-size: 13px; }
    둥근 테두리 상자, 가로줄만, 머리는 옅은 바탕 한 줄, 칸은 가로 세로 가운데, 번호와 이름은 따로 칸(둘 다 가운데, 옆으로 넘겨도 고정). */
 :root { --t1: 16px; --t2: 14px; --t3: 12px; }
 .att-month-scroll, .prog-scroll { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow-x: auto; }
-.att-month-scroll { width: fit-content; max-width: 100%; }   /* 열이 적으면 상자도 표만큼(칸이 늘어나 벌어지지 않게) */
+/* 표는 늘 전체 폭(선생님 지시 2026-11-15). 칸은 내용만큼 좁게 두고, 남는 폭은 빈 칸(.fill)이 먹어 합계는 맨 오른쪽 */
+table.att-month { width: 100%; }
+table.att-month th, table.att-month td { width: 1%; }
+table.att-month .fill { width: auto; min-width: 0; padding: 0; cursor: default; }
 table.att-month { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
 table.pa-table { border-collapse: separate; border-spacing: 0; }
 table.att-month th, table.att-month td, table.pa-table th, table.pa-table td {
