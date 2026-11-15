@@ -727,7 +727,7 @@ function checkEntries() {
   await until(() => dots().length === 0, "빈 2장은 지워진다");
 
   const back = () => A.btn("#setPanel", "기본 배치로 되돌리기") || A.btn("#setPanel", "한 번 더 누르면 되돌리기");
-  back().click(); back().click();
+  back().click();                                  // 한 번에 되돌린다(실행취소가 있다)
   await until(() => deck.style.getPropertyValue("--cols") === "24", "되돌리면 24칸");
   assert.strictEqual(A.area("tt"), "1 / 7 / span 16 / span 6", "되돌린 2단 자리");
   A.d.dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -1119,13 +1119,29 @@ function checkEntries() {
   A.$("genPlan").click();
   await until(() => A.$("genNote") && A.$("genNote").textContent.includes("넣었습니다"), "진도 계획을 만든다", 30000);
   const paRows = () => [...A.$("progAll").querySelectorAll("tbody tr")];
-  assert(paRows().length >= 6, "월요일 1교시 3-1 수업이 주마다 들어가 차시가 여럿: " + paRows().length);
+  assert(paRows().length >= 4, "월요일 1교시 3-1 수업이 주마다 들어가 차시가 여럿: " + paRows().length);
+  const nm = new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2;
+  const cells31 = () => [...A.$("progAll").querySelectorAll('td.pa-cell[data-cls="3-1"]')].map(td => td.textContent);
+  // 다음 달 7일 이후 = 월요일이 다음 달인 주(나이스 가짜는 그 주를 비워 준다)
+  const late = (t) => t.startsWith(nm + ".") && parseInt(t.split(".")[1]) >= 7;
+  assert(!cells31().some(late) && A.$("genNote").textContent.includes("비워 두었습니다"),
+    "기초 시간표가 없으면 나이스에 없는 다음 달은 비워 둔다: " + A.$("genNote").textContent);
+  /* 기초 시간표(설정 수업 탭): 칸마다 학급과 과목. 나이스에 없는 주를 채운다 */
+  A.setTab("lesson");
+  await until(() => A.$("baseSet"), "설정 수업 탭의 기초 시간표");
+  const baseCell = (label, v) => { const s = A.d.querySelector(`#baseSet select[aria-label="기초 ${label}"]`);
+    s.value = v; s.dispatchEvent(new A.w.Event("change", { bubbles: true })); };
+  assert([...A.d.querySelectorAll('#baseSet select[aria-label="기초 월 1교시"] option')].some(o => o.value === "3-9|사회"), "칸 고르기는 학급과 과목");
+  baseCell("화 2교시", "3-1|역사"); baseCell("월 5교시", "3-9|사회");
+  A.$("setClose").click();
+  await until(() => A.$("setPanel").hidden && A.$("genPlan"), "설정 닫기");
+  A.$("genPlan").click();
+  await until(() => A.$("genNote").textContent.includes("기초 시간표로 채웠습니다"), "나이스에 없는 주는 기초 시간표로", 30000);
   {
-    const nm = new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2;
-    const next = [...A.$("progAll").querySelectorAll('td.pa-cell[data-cls="3-1"]')].map(td => td.textContent).filter(t => t.startsWith(nm + "."));
-    assert(next.length && next.every(t => !t.includes("(수)")) && next.some(t => t.includes("(목)")),
-      "나이스에 없는 다음 달은 특별한 주(수 3교시)가 아니라 가장 꽉 찬 나이스 주 모양(월, 목)으로: " + next.join(" "));
-    assert(A.$("genNote").textContent.includes("주 모양으로"), A.$("genNote").textContent);
+    const next = cells31().filter(late), now = cells31().filter(t => !late(t));
+    assert(next.length && next.every(t => t.includes("(화)") && t.includes("2교시")), "다음 달은 기초 시간표(화 2교시): " + next.join(" "));
+    assert(!now.some(t => t.includes("(화)")), "나이스에 있는 주는 나이스대로(기초에만 있는 화 2교시는 안 넣는다): " + now.join(" "));
+    assert(now.some(t => t.includes("(수)")), "나이스의 특별한 주(수 3교시)는 나이스대로");
   }
   assert.deepStrictEqual([...A.$("progAll").querySelectorAll("thead .pa-cls")].map(x => x.textContent), ["3-1", "3-9"], "열은 역사 반");
   assert(![...A.$("progAll").querySelectorAll('td.pa-cell[data-cls="3-9"]')].some(td => !td.classList.contains("na") && td.textContent.includes("5교시")),
@@ -1144,8 +1160,13 @@ function checkEntries() {
   await until(() => A.$("pcList") && A.d.querySelector('#nbSubj [data-subj="사회"][aria-pressed="true"]'), "사회 진도표");
   assert(A.$("classPick").hidden, "사회는 3-9 한 반이라 반 고르기가 없다");
   assert([...A.d.querySelectorAll("#pcList .pc-row")].every(r => r.textContent.includes("5교시")), "사회 진도표는 3-9 5교시 수업만");
-  /* 과목 미정 수업은 어느 과목에도 안 보이고, 주간 시간표 칸의 과목(나이스로 받은 것)으로 정한다 */
+  /* 진도표 줄마다 바로 지우고 실행취소 */
   const socN = A.d.querySelectorAll("#pcList .pc-row").length;
+  A.d.querySelector("#pcList .pc-del").click();
+  await until(() => A.d.querySelectorAll("#pcList .pc-row").length === socN - 1 && A.$("undoBtn"), "줄의 x 는 한 번에 지운다");
+  A.$("undoBtn").click();
+  await until(() => A.d.querySelectorAll("#pcList .pc-row").length === socN, "실행취소로 되돌린다");
+  /* 과목 미정 수업은 어느 과목에도 안 보이고, 기초 시간표 칸의 과목으로 정한다 */
   A.d.querySelector("#pcList .pc-row").click();
   await until(() => A.$("leSubj"), "3-9 는 두 과목이라 수업에 과목 고르기");
   A.$("leSubj").value = ""; A.$("leSubj").dispatchEvent(new A.w.Event("change", { bubbles: true }));
@@ -1153,7 +1174,7 @@ function checkEntries() {
   A.d.querySelector('#nbSubj [data-subj="역사"]').click();
   await until(() => A.$("subjUnknown") && A.d.querySelector('#nbSubj [data-subj="역사"][aria-pressed="true"]'), "역사에도 안 보이고 알림만");
   A.$("subjFix").click();
-  await until(() => !A.$("subjUnknown"), "주간 시간표로 과목을 정한다");
+  await until(() => !A.$("subjUnknown"), "기초 시간표로 과목을 정한다");
   A.d.querySelector('#nbSubj [data-subj="사회"]').click();
   await until(() => A.d.querySelectorAll("#pcList .pc-row").length === socN, "사회로 돌아간다");
   A.d.querySelector('#nbSubj [data-subj="역사"]').click();
@@ -1164,19 +1185,26 @@ function checkEntries() {
   A.d.querySelector("#classPick .cpick").click();   // 전체
   await until(() => A.$("progAll"), "역사 전체 표");
   const rowsBefore = paRows().length;
-  const clearBtn = (t) => A.btn("#classBody .pa-clear", t);
-  clearBtn("빈 계획 지우기").click();
-  assert(A.$("progAll") && paRows().length === rowsBefore, "한 번 누르면 아직 안 지운다");
-  clearBtn("한 번 더 누르면 빈 계획 지우기").click();
-  await until(() => A.$("progAll") && paRows().length < rowsBefore, "빈 계획을 지운다");
+  assert(A.$("genPlan").closest(".prog-bar-row") === A.$("clearEmpty").closest(".prog-bar-row"), "만들기와 지우기는 한 줄");
+  A.$("clearEmpty").click();
+  await until(() => A.$("progAll") && paRows().length < rowsBefore, "한 번 누르면 빈 계획을 지운다");
   assert(A.$("progAll").textContent.includes("3단원 1 조선 건국"), "단원을 적은 수업은 남는다");
-  clearBtn("역사 진도표 모두 지우기").click(); clearBtn("한 번 더 누르면 역사 진도표 모두 지우기").click();
+  const afterEmpty = paRows().length;
+  A.$("undoBtn").click();
+  await until(() => A.$("progAll") && paRows().length === rowsBefore, "실행취소로 되돌린다");
+  A.$("clearEmpty").click();
+  await until(() => A.$("progAll") && paRows().length === afterEmpty, "다시 지운다");
+  A.$("clearAll").click();
   await until(() => !A.$("progAll") && A.$("genPlan"), "역사 진도표를 다 지운다");
+  A.$("progUndo").click();
+  await until(() => A.$("progAll") && paRows().length === afterEmpty, "진도 줄의 실행취소");
+  A.$("clearAll").click();
+  await until(() => !A.$("progAll") && A.$("genPlan"), "다시 다 지운다");
   A.d.querySelector('#nbSubj [data-subj="사회"]').click();
   await until(() => A.d.querySelectorAll("#pcList .pc-row").length > 0, "사회 진도표는 남아 있다");
   A.setTab("lesson");
   await until(() => A.$("lessonCount"), "설정 수업 탭 진도 초기화");
-  A.btn("#setPanel", "모두 지우기").click(); A.btn("#setPanel", "한 번 더 누르면 모두 지우기").click();
+  A.btn("#setPanel", "모두 지우기").click();
   await until(() => A.$("lessonCount").textContent.includes("없습니다"), "모든 과목 진도와 기록을 지운다");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden && !A.d.querySelector("#pcList"), "사회 진도표도 비었다");

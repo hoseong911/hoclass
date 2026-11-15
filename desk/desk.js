@@ -51,6 +51,29 @@ function toast(msg) {
   t.textContent = msg; t.hidden = false;
   clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2200);
 }
+/* 지우기는 한 번 누르면 바로, 대신 실행취소(선생님 지시 2026-11-15 "두 번 눌러서 지우기 없애고 한 번 누르면 지우되
+   되돌리기 버튼"). 지우기 직전 값을 떠 두었다가 「실행취소」로 되돌린다. 마지막 한 번만 되돌린다.
+   back 은 누를 때 값을 떠서 되돌리는 함수를 돌려준다. run 이 글을 돌려주면 그 글을 띄운다. */
+let undoBack = null, undoT = 0;
+const docBack = (D) => () => { const v = clone(D.value); return () => { D.value = v; saveEnc(D); }; };
+function undoable(back, run, msg = "지웠습니다") {
+  const b = back(), said = run();
+  undoBack = b;
+  let bar = document.querySelector(".undo-bar");
+  if (!bar) { bar = h("div", { class: "toast undo-bar", role: "status" }); document.body.append(bar); }
+  bar.replaceChildren(h("span", { text: typeof said === "string" ? said : msg }),
+    h("button", { class: "undo-btn", type: "button", id: "undoBtn", text: "실행취소", onclick: undoNow }));
+  bar.hidden = false;
+  const t = document.querySelector(".toast:not(.undo-bar)"); if (t) t.hidden = true;
+  clearTimeout(undoT); undoT = setTimeout(() => { bar.hidden = true; }, 10000);
+}
+function undoNow() {
+  if (!undoBack) return;
+  const b = undoBack; undoBack = null; b();
+  const bar = document.querySelector(".undo-bar"); if (bar) bar.hidden = true;
+  renderNb(); if (setOpen) renderSet();
+  toast("되돌렸습니다");
+}
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); toast("복사했습니다"); }
   catch (e) {
@@ -121,7 +144,10 @@ const state = {
   bells: DEFAULT_BELLS.map(b => ({ ...b })),
   lunchAfter: 4,
   tt: EXAMPLE_TT.map(r => [...r]),
-  ttSubj: Array.from({ length: 5 }, () => Array(7).fill("")),   // 칸마다 과목(나이스로 받을 때 채운다). 같은 반을 두 과목 가르칠 때 가른다
+  ttSubj: Array.from({ length: 5 }, () => Array(7).fill("")),
+  // 기초 시간표(선생님 지시 2026-11-15): 진도 계획의 바탕. 칸마다 학급과 과목. 위젯 주간 시간표는 나이스가 매주 덮어써서 따로 둔다
+  baseTT: Array.from({ length: 5 }, () => Array(7).fill("")),
+  baseSubj: Array.from({ length: 5 }, () => Array(7).fill("")),   // 칸마다 과목(나이스로 받을 때 채운다). 같은 반을 두 과목 가르칠 때 가른다
   ttExample: true,
   ttAuto: "",                   // 시간표를 저절로 받은 날(하루 한 번)
   idleMin: 15,
@@ -213,7 +239,7 @@ const SPECS = [
   { key: "desk_settings",
     /* 주간 시간표는 5×7 이지만 **한 줄로 펴서** 담는다.
        파이어스토어는 배열 안에 배열을 담지 못한다(넣으려 들면 저장이 통째로 막힌다). */
-    pick: () => ({ links: state.links, officials: true, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttSubj: state.ttSubj.flat(), ttExample: state.ttExample, ttAuto: state.ttAuto, idleMin: state.idleMin, school: state.school, neis: state.neis,
+    pick: () => ({ links: state.links, officials: true, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttSubj: state.ttSubj.flat(), baseTT: state.baseTT.flat(), baseSubj: state.baseSubj.flat(), ttExample: state.ttExample, ttAuto: state.ttAuto, idleMin: state.idleMin, school: state.school, neis: state.neis,
       gcalCal: state.gcalCal || "", gcalPick: Array.isArray(state.gcalPick) ? state.gcalPick : null }),
     put: (s) => {
       if (arr(s.links)) {
@@ -234,7 +260,10 @@ const SPECS = [
         const flat = arr(s.tt[0]) ? s.tt.flat() : s.tt;
         state.tt = Array.from({ length: 5 }, (_, d) => Array.from({ length: 7 }, (_, p) => String(flat[d * 7 + p] || "")));
       }
-      if (arr(s.ttSubj)) state.ttSubj = Array.from({ length: 5 }, (_, d) => Array.from({ length: 7 }, (_, p) => String(s.ttSubj[d * 7 + p] || "").slice(0, 20)));
+      const grid35 = (a, n) => Array.from({ length: 5 }, (_, d) => Array.from({ length: 7 }, (_, p) => String(a[d * 7 + p] || "").slice(0, n)));
+      if (arr(s.ttSubj)) state.ttSubj = grid35(s.ttSubj, 20);
+      if (arr(s.baseTT)) state.baseTT = grid35(s.baseTT, 12);
+      if (arr(s.baseSubj)) state.baseSubj = grid35(s.baseSubj, 20);
       state.ttExample = !!s.ttExample;
       if (typeof s.ttAuto === "string") state.ttAuto = s.ttAuto.slice(0, 10);
       if ([5, 15, 30, 60].includes(s.idleMin)) state.idleMin = s.idleMin;
@@ -1163,12 +1192,15 @@ function gridSection() {
   const off = WIDGETS.filter(def => !state.layout[def.id].on);
   if (off.length) pageList.push(h("p", { class: "set-state", text: "쓰지 않는 위젯: " + off.map(d => d.name).join(", ") }));
   return setSec(["화면 배치", h("button", { class: "btn small secondary", type: "button", text: arranging ? "배치 끝내기" : "배치 시작", onclick: () => { setArrange(!arranging); renderSet(); } }),
-    armed("되돌리기", "기본 배치로 되돌리기", () => {
+    delBtn("기본 배치로 되돌리기", () => {
+      const s = clone({ grid: state.grid, pages: state.pages, layout: state.layout }), p = curPage;
+      return () => { Object.assign(state, s); curPage = p; save(true); applyGrid(); };
+    }, () => {
       state.grid = { ...DEFAULT_GRID };
       state.pages = DEFAULT_PAGES; curPage = 1;
       state.layout = normalize(null, state.grid, state.pages);
       save(true); applyGrid(); renderSet();
-      toast("기본 배치로 되돌렸습니다");
+      return "기본 배치로 되돌렸습니다";
     })], [
     setBlock("칸 수", [
       h("div", { class: "set-grid" },
@@ -1679,6 +1711,41 @@ function renderLinks() {
   }));
 }
 
+/* ---------- 설정: 기초 시간표(진도 계획의 바탕) ---------- */
+const baseFilled = () => state.baseTT.some(r => r.some(c => String(c).trim()));
+function baseSection() {
+  const ss = mySubjects();
+  if (!ss.length) return setSec("기초 시간표", [h("p", { class: "set-state", text: "기본 탭의 내 과목에서 과목과 가르치는 반을 먼저 넣어 주세요." })]);
+  // 칸 하나 = 학급과 과목 하나. 고를 것은 내 과목마다 그 과목을 가르치는 반
+  const opts = ss.flatMap(s => s.classes.slice().sort(byClass).map(c => [c + "|" + s.name, c + " " + s.name]));
+  const rows = [h("tr", null, h("th", { class: "ph" }, h("span", { class: "pl", text: "교시" })), ...WD5.map(d => h("th", { text: d })))];
+  for (let p = 0; p < 7; p++) {
+    rows.push(h("tr", null, h("th", { class: "ph", text: (p + 1) + "교시" }), ...[0, 1, 2, 3, 4].map(d => {
+      const v = state.baseTT[d][p] ? state.baseTT[d][p] + "|" + state.baseSubj[d][p] : "";
+      const sel = h("select", { "aria-label": `기초 ${WD5[d]} ${p + 1}교시`, onchange: (e) => {
+        const [c, s] = e.target.value ? e.target.value.split("|") : ["", ""];
+        state.baseTT[d][p] = c; state.baseSubj[d][p] = s; save(); td.className = c ? "on" : "";
+      } }, h("option", { value: "", text: "" }), ...opts.map(([val, t]) => h("option", { value: val, text: t })));
+      sel.value = opts.some(o => o[0] === v) ? v : "";
+      const td = h("td", { class: sel.value ? "on" : "" }, sel);
+      return td;
+    })));
+  }
+  // 주간 시간표(나이스로 받은 이번 주)를 바탕으로 가져온다. 특별한 주일 수 있어 가져온 뒤 고친다
+  const pull = h("button", { class: "btn small secondary", type: "button", id: "basePull", text: "주간 시간표에서 가져오기", onclick: () => {
+    let n = 0;
+    for (let d = 0; d < 5; d++) for (let p = 0; p < 7; p++) {
+      const c = String(state.tt[d][p] || "").trim(), one = subjOfCls(c);
+      const s = (state.ttSubj[d] || [])[p] && one.includes(state.ttSubj[d][p]) ? state.ttSubj[d][p] : one.length === 1 ? one[0] : "";
+      state.baseTT[d][p] = s ? c : ""; state.baseSubj[d][p] = s; if (s) n++;
+    }
+    save(); renderSet(); toast(`${n}칸을 가져왔습니다. 이번 주만 다른 칸은 고쳐 주세요`);
+  } });
+  return setSec(["기초 시간표", pull], [
+    h("p", { class: "set-state", text: "진도 계획의 바탕입니다. 나이스에 그 주 시간표가 있으면 나이스를 따르고, 없는 주는 이 표로 채웁니다." }),
+    h("div", { class: "tt-scroll" }, h("table", { class: "tt tt-edit tt-base", id: "baseSet" }, ...rows))]);
+}
+
 /* ---------- 설정: 주간 시간표 ---------- */
 function ttSection() {
   return setSec("주간 시간표", [
@@ -1821,7 +1888,7 @@ function renderSet() {
   const old = p.querySelector(".set-main"), keepTop = old && old.dataset.tab === setTab ? old.scrollTop : 0;
   /* 2단(선생님 지시 2026-11-14: 늘어지지 않게). [왼쪽, 오른쪽, 아래 전체 폭]. 좁으면 왼쪽, 오른쪽, 아래 차례로 한 줄. */
   const [left, right, full] = setTab === "screen" ? [[gridSection()], [linksSection()], []]
-    : setTab === "lesson" ? [[yearSection("lesson"), rosterSec("lesson")], [neisSection("lesson"), lessonResetSec()], [ttSection()]]
+    : setTab === "lesson" ? [[yearSection("lesson"), rosterSec("lesson")], [neisSection("lesson"), lessonResetSec()], [baseSection(), ttSection()]]
     : setTab === "home" ? [[yearSection("home")], [rosterSec("home")], []]
     : setTab === "work" ? [[neisSection("work"), calPasteSec()], [gcalSection(), planImportSec()], []]
     : [[yearSection(), C.body && C.body.pass ? passSection() : null], [neisSection("year"), backupSection()], []];
@@ -2348,7 +2415,7 @@ function lessonResetSec() {
   const D = docs.lessons;
   if (!D || !D.ready || keyStateNow() !== "open") return setSec("진도 초기화", [h("p", { class: "set-state", text: "교무수첩을 열면 쓸 수 있습니다." })]);
   const n = D.value.items.length;
-  return setSec(["진도 초기화", n ? armed("모두 지우기", "모두 지우기", () => clearLessons(false, true)) : null], [
+  return setSec(["진도 초기화", n ? delBtn("모두 지우기", docBack(D), () => clearLessons(false, true)) : null], [
     h("p", { class: "set-state", id: "lessonCount", text: n
       ? `${state.year.current}학년도 진도표와 수업 기록 ${n}개가 있습니다. 모든 과목 것을 지웁니다. 출결, 학생 메모, 수합은 남습니다.`
       : "진도표와 수업 기록이 없습니다." })]);
@@ -2604,7 +2671,7 @@ function renderNb() {
   }
   if (encDocs().some(d => d.broken)) { wrap(note("일부 기록을 풀지 못했습니다. 페이지를 새로고침한 뒤 다시 열어 주세요. 기록은 그대로 있습니다.")); return; }
   if (encDocs().some(d => !d.ready)) { wrap(note("기록을 여는 중입니다.")); return; }
-  if (tab === "prog") { wrap(allView ? progressAll() : [unknownBar(), progressClass(pick)]); return; }
+  if (tab === "prog") { wrap(allView ? progressAll() : [progBar(), progressClass(pick)]); return; }
   if (!roster().length && tab !== "lesson") {
     wrap([h("div", { class: "lock-panel" }, h("h3", { text: "학생 명단이 비어 있습니다" }),
       h("p", { text: hcHas(pick) ? "호클래스 이 강의실에 학생이 아직 없습니다. 호클래스 어드민의 학생 관리에서 넣어 주세요."
@@ -2630,11 +2697,7 @@ function stuTile(st, cls, label, statusText, onclick, pressed) {
 /* 우리 반 세 보기(선생님 지적 2026-11-13 "보기 안 좋다"): 빨간 단추를 줄이고(복사, 지우기는 글자 단추),
    위에 한 줄 요약, 가운데 학생 칸(남는 높이를 나눠 가짐), 맨 아래 드물게 쓰는 단추. */
 const foot = (...kids) => h("div", { class: "cls-foot" }, ...kids.filter(Boolean));
-/* 한 번 더 눌러야 실행되는 글자 단추(지우기류) */
-const armBtn = (label, again, fn) => h("button", { class: "text-btn danger", type: "button", text: label, onclick: (e) => {
-  if (e.currentTarget.dataset.armed) { fn(); return; }
-  e.currentTarget.dataset.armed = "1"; e.currentTarget.textContent = again;
-} });
+
 /* 출결은 날짜를 골라 지난날도 고친다. 한 달 보기는 학생 줄, 날짜 칸으로 쌓아 본다(선생님 지적 2026-11-13:
    "결석은 매일 기록하는 거 아니면 의미 없다"). 기본은 전원 출석이고 결석, 지각, 조퇴만 누른다. */
 let attPick = "", attMode = "day", attYm = "";
@@ -2756,7 +2819,7 @@ function attView() {
     h("div", { class: "att-split" },
       h("div", { class: "students att-tiles" }, ...tiles),
       h("aside", { class: "att-side", id: "attSide" }, editing ? attEditor(editing, A) : attDayList(list, A))),
-    Object.keys(A.value.marks).length ? foot(armBtn(isToday ? "오늘 기록 비우기" : "이 날 기록 비우기", "한 번 더 누르면 초기화", () => { A.value.marks = {}; attEdit = ""; saveEnc(A); renderClass(); })) : null,
+    Object.keys(A.value.marks).length ? foot(delBtn(isToday ? "오늘 기록 비우기" : "이 날 기록 비우기", docBack(A), () => { A.value.marks = {}; attEdit = ""; saveEnc(A); renderClass(); }, "text-btn danger")) : null,
   ];
 }
 /* 오른쪽 칸(아무도 안 골랐을 때): 그날 기록 목록. 줄을 누르면 그 학생 고르개 */
@@ -2896,7 +2959,7 @@ function collectView() {
         : h("span", { class: "k done" }, h("b", { text: "전원 제출" }))),
       missing.length ? h("button", { class: "text-btn", type: "button", id: "colCopy", text: "미제출 명단 복사", onclick: () => copyText(missText) }) : null),
     h("div", { class: "students" }, ...tiles),
-    foot(armBtn("이 수합 삭제", "한 번 더 누르면 삭제", () => { D.value.items = items.filter(x => x.id !== c.id); activeCollect = null; saveEnc(D); renderClass(); })),
+    foot(delBtn("이 수합 삭제", docBack(D), () => { D.value.items = items.filter(x => x.id !== c.id); activeCollect = null; saveEnc(D); renderClass(); }, "text-btn danger")),
   ];
 }
 
@@ -3268,11 +3331,9 @@ function countFor(cls, sid, ym) {
 function panel(title, ...kids) { return h("section", { class: "panel" }, h("h3", { text: title }), ...kids); }
 function noneLine(text) { return h("p", { class: "empty", text }); }
 function field(label, el) { return h("label", { class: "field" }, label, el); }
-function armed(btn, text, run) {
-  return h("button", { class: "btn small secondary", type: "button", text, onclick: (e) => {
-    if (e.currentTarget.dataset.armed) { run(); return; }
-    e.currentTarget.dataset.armed = "1"; e.currentTarget.textContent = "한 번 더 누르면 " + btn;
-  } });
+/* 지우는 단추(바로 지우고 실행취소). cls 로 글자 단추(text-btn danger)도 쓴다 */
+function delBtn(label, back, run, cls = "btn small secondary", id) {
+  return h("button", { class: cls, type: "button", text: label, id, onclick: () => undoable(back, run) });
 }
 
 /* ---------- 나이스 시간표, 급식 ---------- */
@@ -3511,7 +3572,7 @@ function consultLine(x) {
       h("button", { class: "btn small secondary", type: "button", text: x.done ? "다시 하는 중" : "마무리", onclick: () => { x.done = !x.done; saveEnc(D); renderBook(); } }),
       h("button", { class: "btn small secondary", type: "button", text: "복사", onclick: () => copyText(
         [`${x.at} ${x.kind} (${x.who}${x.cls ? ", " + x.cls + (st ? " " + who(st) : "") : ""})`, x.title, x.body, x.action ? "조치: " + x.action : ""].filter(Boolean).join("\n")) }),
-      armed("삭제", "삭제", () => { D.value.items = D.value.items.filter(y => y.id !== x.id); saveEnc(D); renderBook(); })));
+      delBtn("삭제", docBack(D), () => { D.value.items = D.value.items.filter(y => y.id !== x.id); saveEnc(D); renderBook(); })));
 }
 function consultPage() {
   const D = docs.consults, cls = bCls();
@@ -3601,46 +3662,33 @@ const unitOf = (s) => s.unit || (hcOf(s) || {}).title || "";
 const sessState = (s, today) => s.at === today ? "today" : s.body ? "done" : s.at < today ? "miss" : "plan";
 const mdd = (iso) => { const d = parseDate(iso); return `${d.getMonth() + 1}.${d.getDate()}(${WD[d.getDay()]})`; };
 
-/* 나이스 시간표로 진도 계획 만들기: 주마다 나이스에서 내 과목 시간표를 받아 그 반 수업을 넣는다.
-   나이스에 아직 없는 주는 설정의 주간 시간표 모양으로. 학사 일정의 쉬는 날은 뺀다. 이미 있는 반, 날, 교시는 건너뛴다. */
+/* 진도 계획 만들기(선생님 지시 2026-11-15 "알고리즘을 다시"): 바탕은 설정의 기초 시간표(칸마다 학급과 과목).
+   나이스에 그 주 시간표가 올라와 있으면 그 주는 나이스대로(기초에만 있는 칸은 빼고, 나이스에만 있는 칸은 넣는다:
+   재량휴업, 시간표 변경이 나이스에 먼저 올라온다). 나이스에 아직 없는 주는 기초 시간표로. 학사 일정의 쉬는 날은 뺀다.
+   이미 있는 반, 날, 교시는 건너뛴다. 나이스 칸은 자리만 잡아 둔 것일 수 있어 진도표에서 줄마다 바로 고치고 지운다. */
 async function genPlan(from, to) {
   if (genBusy || !from || !to || from > to) return;
   genBusy = true; genNote = "나이스 시간표를 받는 중입니다"; renderNb();
+  const D = docs.lessons, N = state.neis, back = docBack(D)();
   // 과목이 있으면 내 과목 반 전부(과목마다 따로 누르지 않게 한 번에), 없으면 수업 반
-  const D = docs.lessons, N = state.neis;
   const classes = mySubjects().length ? [...new Set(mySubjects().flatMap(s => s.classes))] : lessonClasses();
   const have = new Set(D.value.items.map(x => x.cls + "|" + x.at + "|" + x.period));
   const subjects = N.subjects.filter(s => s.name && s.classes.length);
-  let added = 0, byTT = 0;
-  const filled = (g) => g.flat().filter(Boolean).length;
-  const fetchWeek = async (mon) => {
-    if (!N.school || !subjects.length) return null;
-    try {
-      const d = parseDate(mon);
-      const g = await Neis.loadMyWeek(N.school, academicYear(d), Neis.semesterOf(d), mon.replace(/-/g, ""), subjects, N.key);
-      return filled(g) ? g : null;
-    } catch (e) { return null; }
-  };
+  const base = baseFilled() ? { grid: state.baseTT, subj: state.baseSubj } : null;
+  let added = 0, byBase = 0, none = 0;
   try {
-    // 1) 주마다 나이스에서 받는다
-    const weeks = [];
     for (let mon = mondayIso(parseDate(from)); mon <= to; mon = addDaysIso(mon, 7)) {
-      weeks.push({ mon, grid: await fetchWeek(mon) });
-      genNote = `${+mon.slice(5, 7)}월 ${+mon.slice(8)}일 주까지 받았습니다`; renderNb();
-    }
-    // 2) 나이스에 아직 없는 주는 가장 꽉 찬 나이스 주 모양으로 채운다. 이번 주 시간표(설정)는 재량휴업, 시간표 변경이 든
-    //    특별한 주일 수 있어 그대로 베끼면 안 된다(선생님 지적 2026-11-15 "3학년 2반 역사 시간표 왜 저래": 11/16 주는 수, 목, 금이 비어
-    //    12월이 수요일 3교시 한 번만 들어갔다). 범위 안에 나이스 주가 하나도 없으면 앞 4주에서 찾고, 그래도 없으면 설정 시간표.
-    let best = weeks.filter(w => w.grid).sort((a, b) => filled(b.grid) - filled(a.grid))[0];
-    for (let i = 1; !best && i <= 4; i++) {
-      const mon = addDaysIso(mondayIso(parseDate(from)), -7 * i), g = await fetchWeek(mon);
-      if (g) best = { mon, grid: g };
-    }
-    const base = best ? { grid: best.grid, subj: best.grid.subj } : state.ttExample ? null : { grid: state.tt, subj: state.ttSubj };
-    for (const w of weeks) {
-      const mon = w.mon;
-      let grid = w.grid, subjGrid = grid && grid.subj;
-      if (!grid) { if (!base) continue; grid = base.grid; subjGrid = base.subj; byTT++; }
+      let grid = null;
+      if (N.school && subjects.length) {
+        try {
+          const d = parseDate(mon);
+          grid = await Neis.loadMyWeek(N.school, academicYear(d), Neis.semesterOf(d), mon.replace(/-/g, ""), subjects, N.key);
+          if (!grid.flat().some(Boolean)) grid = null;
+        } catch (e) { grid = null; }
+      }
+      let subjGrid = grid && grid.subj;
+      if (!grid && base) { grid = base.grid; subjGrid = base.subj; byBase++; }
+      if (!grid) { none++; continue; }
       for (let di = 0; di < 5; di++) {
         const d = addDaysIso(mon, di);
         if (d < from || d > to || offName(d)) continue;
@@ -3648,33 +3696,52 @@ async function genPlan(from, to) {
           const c = String((grid[di] || [])[p] || "").trim();
           if (!classes.includes(c) || have.has(c + "|" + d + "|" + (p + 1))) continue;
           have.add(c + "|" + d + "|" + (p + 1));
-          // 과목: 나이스(또는 나이스로 받은 주간 시간표) 칸에 적힌 것, 없으면 그 반을 한 과목만 가르칠 때 그 과목, 아니면 과목 미정
+          // 과목: 칸에 적힌 것, 없으면 그 반을 한 과목만 가르칠 때 그 과목, 아니면 과목 미정
           const one = subjOfCls(c);
           const subj = (subjGrid && subjGrid[di] && subjGrid[di][p]) || (one.length === 1 ? one[0] : "");
           D.value.items.push({ id: uid(), cls: c, subj, at: d, period: p + 1, unit: "", plan: "", body: "", hw: "", clId: "" });
           added++;
         }
       }
+      genNote = `${+mon.slice(5, 7)}월 ${+mon.slice(8)}일 주까지 받았습니다`; renderNb();
     }
     saveEnc(D);
-    const how = best ? `나이스 ${+best.mon.slice(5, 7)}월 ${+best.mon.slice(8)}일 주 모양으로` : "주간 시간표 모양으로";
-    genNote = `수업 ${added}개를 넣었습니다` + (byTT ? `. 나이스에 없는 ${byTT}주는 ${how} 채웠습니다.` : ".");
+    if (added) undoBack = back;          // 진도 줄의 「실행취소」로 방금 넣은 것을 걷는다
+    genNote = `수업 ${added}개를 넣었습니다.` + (byBase ? ` 나이스에 없는 ${byBase}주는 기초 시간표로 채웠습니다.` : "")
+      + (none ? ` 나이스에 없는 ${none}주는 비워 두었습니다. 설정 수업 탭에서 기초 시간표를 넣으면 채웁니다.` : "");
   } finally { genBusy = false; renderNb(); }
 }
-function genBar() {
+
+/* 진도 단추 한 줄(선생님 지시 2026-11-15 "한 줄로 묶어서, 중구난방으로 하지 말고"): 기간, 만들기, 과목 미정 정하기와 지우기,
+   빈 계획 지우기, 과목 진도표 모두 지우기, 실행취소. 전체 표와 반 하나 화면이 같이 쓴다. */
+function progBar() {
   const t = todayKey(), [y, m] = t.split("-").map(Number);
   const nextEnd = isoOf(new Date(y, m + 1, 0));                // 다음 달 끝(11월이면 12월 31일)
   const fromIn = h("input", { type: "date", id: "genFrom", value: genFrom || `${y}-${pad(m)}-01`, "aria-label": "시작 날", oninput: (e) => { genFrom = e.target.value; } });
   const toIn = h("input", { type: "date", id: "genTo", value: genTo || nextEnd, "aria-label": "끝 날", oninput: (e) => { genTo = e.target.value; } });
-  return h("div", { class: "cls-line gen-bar" },
-    h("div", { class: "row" }, fromIn, h("span", { class: "tip", text: "~" }), toIn,
-      h("button", { class: "btn small secondary", type: "button", id: "genPlan", disabled: genBusy,
-        text: genBusy ? "만드는 중…" : "나이스 시간표로 진도 계획 만들기", onclick: () => genPlan(fromIn.value, toIn.value) })),
+  const D = docs.lessons, subj = curSubj(), unk = D.value.items.filter(subjUnknown), fix = unk.filter(s => baseSlot(s));
+  const mine = D.value.items.some(inSubj), tb = (label, id, fn) => h("button", { class: "text-btn", type: "button", id, text: label, onclick: fn });
+  return h("div", { class: "prog-bar" },
+    h("div", { class: "row prog-bar-row" },
+      fromIn, h("span", { class: "tip", text: "~" }), toIn,
+      h("button", { class: "btn small", type: "button", id: "genPlan", disabled: genBusy,
+        text: genBusy ? "만드는 중…" : "진도 계획 만들기", onclick: () => genPlan(fromIn.value, toIn.value) }),
+      h("span", { class: "prog-bar-sep", "aria-hidden": "true" }),
+      unk.length ? h("span", { class: "tip", id: "subjUnknown", text: `과목 미정 ${unk.length}개` }) : null,
+      fix.length ? tb("기초 시간표로 과목 정하기", "subjFix", () => {
+        for (const s of fix) s.subj = baseSlot(s);
+        saveEnc(D); renderNb(); toast(`${fix.length}개 수업의 과목을 정했습니다`);
+      }) : null,
+      unk.length ? delBtn("과목 미정 지우기", docBack(D), () => {
+        D.value.items = D.value.items.filter(x => !subjUnknown(x)); saveEnc(D); renderNb(); return `과목 미정 수업 ${unk.length}개를 지웠습니다`;
+      }, "text-btn danger", "subjDel") : null,
+      mine ? delBtn("빈 계획 지우기", docBack(D), () => clearLessons(true), "text-btn danger", "clearEmpty") : null,
+      mine ? delBtn((subj ? subj + " " : "") + "진도표 모두 지우기", docBack(D), () => clearLessons(false), "text-btn danger", "clearAll") : null,
+      undoBack ? tb("실행취소", "progUndo", undoNow) : null),
     genNote ? h("span", { class: "tip", id: "genNote", text: genNote }) : null);
 }
 
-/* 진도표 지우기(선생님 지시 2026-11-14 "초기화, 삭제하는 기능도"). 한 번 더 눌러야 지운다.
-   onlyEmpty: 단원, 계획, 기록, 과제가 다 빈 수업만(나이스로 만든 뒤 손대지 않은 것). all: 과목 상관없이 전부(설정의 초기화). */
+/* 진도표 지우기. onlyEmpty: 단원, 계획, 기록, 과제, 결석이 다 빈 수업만(만든 뒤 손대지 않은 것). all: 과목 상관없이 전부(설정의 초기화). */
 function clearLessons(onlyEmpty, all = false) {
   const D = docs.lessons, before = D.value.items.length;
   const empty = (x) => !(x.unit || x.plan || x.body || x.hw || absOf(x).length);
@@ -3682,7 +3749,7 @@ function clearLessons(onlyEmpty, all = false) {
   const n = before - D.value.items.length;
   progPick = ""; genNote = "";
   saveEnc(D); renderNb(); if (setOpen) renderSet();
-  toast(n ? `수업 ${n}개를 지웠습니다` : "지울 수업이 없습니다");
+  return n ? `수업 ${n}개를 지웠습니다` : "지울 수업이 없습니다";
 }
 /* 전체: 줄 = 차시, 열 = 반, 칸 = 그 반 그 차시 날짜. 칸을 누르면 그 반 진도표의 그 수업 */
 function progressAll() {
@@ -3702,13 +3769,8 @@ function progressAll() {
           h("span", { class: "pa-d", text: mdd(s.at) }), h("span", { class: "pa-p", text: s.period + "교시" }));
       })));
   }
-  const subj = curSubj();
   return [
-    genBar(),
-    unknownBar(),
-    maxN ? h("div", { class: "row pa-clear" },
-      armed("빈 계획 지우기", "빈 계획 지우기", () => clearLessons(true)),
-      armed((subj ? subj + " " : "") + "진도표 모두 지우기", (subj ? subj + " " : "") + "진도표 모두 지우기", () => clearLessons(false))) : null,
+    progBar(),
     h("div", { class: "pa-legend" }, ...[["done", "기록함"], ["today", "오늘"], ["plan", "계획"], ["miss", "지났는데 기록 없음"]]
       .map(([k, t]) => h("span", { class: "pa-lg" }, h("i", { class: "pa-sw " + k }), t))),
     // 2단(선생님 지시 2026-11-14): 왼쪽 차시와 강의명은 좁게 고정, 오른쪽 반 칸은 남는 폭을 나눠 쓰고 넘치면 옆으로 넘긴다
@@ -3717,29 +3779,19 @@ function progressAll() {
       h("thead", null, h("tr", null, h("th", { class: "pa-n", text: "차시" }), h("th", { class: "pa-topic", text: "강의명" }),
         ...classes.map(c => h("th", { class: "pa-cls", text: c })))),
       h("tbody", null, ...rows)))
-      : noneLine("진도 계획이 없습니다. 위에서 나이스 시간표로 만들거나 반을 골라 수업을 추가해 주세요."),
+      : noneLine("진도 계획이 없습니다. 위에서 진도 계획을 만들거나 반을 골라 수업을 추가해 주세요."),
   ];
 }
 
-/* 과목 미정 수업(두 과목을 가르치는 반인데 과목이 빈 것: 과목을 나누기 전 수업, 과목 없는 주간 시간표로 만든 수업).
-   어느 과목에도 안 보이므로 여기서 주간 시간표 칸의 과목으로 정하거나 지운다. */
-function unknownBar() {
-  const D = docs.lessons, unk = D.value.items.filter(subjUnknown);
-  if (!unk.length) return null;
-  const slot = (s) => { const i = dayIdx(parseDate(s.at)), p = s.period - 1;
-    if (i < 0 || String((state.tt[i] || [])[p] || "").trim() !== s.cls) return "";
-    const sj = (state.ttSubj[i] || [])[p] || "";
-    return subjOfCls(s.cls).includes(sj) ? sj : ""; };
-  const fix = unk.filter(slot);
-  return h("div", { class: "row pa-clear", id: "subjUnknown" },
-    h("span", { class: "tip", text: `과목 미정 수업 ${unk.length}개는 어느 과목에도 보이지 않습니다.` }),
-    fix.length ? h("button", { class: "text-btn", type: "button", id: "subjFix", text: `주간 시간표로 ${fix.length}개 과목 정하기`, onclick: () => {
-      for (const s of fix) s.subj = slot(s);
-      saveEnc(D); renderNb(); toast(`${fix.length}개 수업의 과목을 정했습니다`);
-    } }) : null,
-    armed("과목 미정 수업 지우기", "과목 미정 수업 지우기", () => {
-      D.value.items = D.value.items.filter(x => !subjUnknown(x)); saveEnc(D); renderNb();
-    }));
+/* 과목 미정 수업(두 과목을 가르치는 반인데 과목이 빈 것)의 과목: 기초 시간표의 그 요일, 교시 칸이 그 반이면 그 칸 과목.
+   기초 시간표가 비었으면 주간 시간표(나이스로 받은 주) 칸 과목. */
+function baseSlot(s) {
+  const i = dayIdx(parseDate(s.at)), p = s.period - 1;
+  if (i < 0) return "";
+  const [tt, sj] = baseFilled() ? [state.baseTT, state.baseSubj] : [state.tt, state.ttSubj];
+  if (String((tt[i] || [])[p] || "").trim() !== s.cls) return "";
+  const x = (sj[i] || [])[p] || "";
+  return subjOfCls(s.cls).includes(x) ? x : "";
 }
 
 /* 반 하나: 왼쪽 진도표(길게), 오른쪽 고른 수업 적기 */
@@ -3767,20 +3819,24 @@ function progressClass(cls) {
     const ym = s.at.slice(0, 7);
     if (ym !== month) { month = ym; rows.push(h("li", { class: "pc-month", text: `${+ym.slice(5)}월` })); }
     const st = sessState(s, today);
-    rows.push(h("li", null, h("button", { class: "pc-row " + st, type: "button", "data-id": s.id, "aria-pressed": String(s === cur),
+    // 줄마다 바로 지우기(나이스 칸은 자리만 잡아 둔 것일 수 있다. 실행취소로 되돌린다)
+    const del = h("button", { class: "pc-del", type: "button", "aria-label": `${mdd(s.at)} ${s.period}교시 수업 지우기`, html: svgIc("x", 14),
+      onclick: () => undoable(docBack(D), () => { D.value.items = D.value.items.filter(y => y.id !== s.id); if (progPick === s.id) progPick = "";
+        saveEnc(D); renderNb(); return `${mdd(s.at)} ${s.period}교시 수업을 지웠습니다`; }) });
+    rows.push(h("li", { class: "pc-li" }, h("button", { class: "pc-row " + st, type: "button", "data-id": s.id, "aria-pressed": String(s === cur),
       onclick: () => { progPick = s.id; renderNb(); } },
       h("span", { class: "pc-n", text: (i + 1) + "차시" }),
       h("span", { class: "pc-d", text: mdd(s.at) }),
       h("span", { class: "pc-p", text: s.period + "교시" }),
       h("span", { class: "pc-u", text: (subjUnknown(s) ? "과목 미정 " : "") + (unitOf(s) || (s.plan || "").split("\n")[0] || "") }),
-      h("i", { class: "pc-dot", "aria-hidden": "true" }))));
+      h("i", { class: "pc-dot", "aria-hidden": "true" })), del));
   });
   const left = h("section", { class: "panel pc-left" },
     h("div", { class: "set-hd" }, h("h3", { text: `진도표 ${list.length}차시` }),
       h("div", { class: "set-acts" },
         hcL.length ? h("button", { class: "text-btn", type: "button", id: "pcFillHc", text: "호클래스 차시 잇기", onclick: fillHc }) : null,
         h("button", { class: "btn small secondary", type: "button", id: "pcAdd", text: "추가", "aria-label": "수업 추가", onclick: add }))),
-    list.length ? h("ul", { class: "pc-list", id: "pcList" }, ...rows) : noneLine("수업이 없습니다. 「전체」에서 나이스 시간표로 진도 계획을 만들 수 있습니다."));
+    list.length ? h("ul", { class: "pc-list", id: "pcList" }, ...rows) : noneLine("수업이 없습니다. 위 「진도 계획 만들기」로 만들거나 「추가」로 넣어 주세요."));
   return h("div", { class: "pc-split" }, left,
     h("div", { class: "pc-side" }, cur ? lessonEditor(cur, list.indexOf(cur) + 1) : null, hcPanel(cls, hcL)));
 }
@@ -3809,7 +3865,7 @@ function lessonEditor(s, n) {
       h("div", { class: "set-acts" },
         h("button", { class: "btn small secondary", type: "button", text: "복사", onclick: () => copyText(
           [`${s.at} ${classLabel(s.cls)} ${s.period}교시 ${n}차시`, unitOf(s), s.plan ? "계획: " + s.plan : "", s.body ? "기록: " + s.body : "", s.hw ? "과제: " + s.hw : ""].filter(Boolean).join("\n")) }),
-        armed("삭제", "삭제", () => { D.value.items = D.value.items.filter(y => y.id !== s.id); progPick = ""; saveEnc(D); renderNb(); }))),
+        delBtn("삭제", docBack(D), () => { D.value.items = D.value.items.filter(y => y.id !== s.id); progPick = ""; saveEnc(D); renderNb(); }))),
     h("div", { class: "form-grid" },
       field("날짜", atIn), field("교시", perIn), subjIn ? field("과목", subjIn) : null,
       clIn ? h("label", { class: "field wide" }, "호클래스 차시", clIn) : null,
@@ -4044,7 +4100,7 @@ function workPage() {
       x.memo ? h("div", { class: "body", text: x.memo }) : null,
       h("div", { class: "row" },
         h("button", { class: "btn small secondary", type: "button", text: x.done ? "다시 하기" : "다 했습니다", onclick: () => { x.done = !x.done; saveEnc(D); renderBook(); } }),
-        armed("삭제", "삭제", () => { D.value.items = items.filter(y => y.id !== x.id); saveEnc(D); renderBook(); })));
+        delBtn("삭제", docBack(D), () => { D.value.items = D.value.items.filter(y => y.id !== x.id); saveEnc(D); renderBook(); })));
   });
   const left = items.filter(x => !x.done).length;
   const over = items.filter(x => !x.done && x.due && dnum(x.due) < 0).length;

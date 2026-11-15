@@ -1429,3 +1429,24 @@ table.pa-table { table-layout: fixed; width: 100%; min-width: calc(300px + var(-
 .ls-rows { margin-top: 6px; max-height: 260px; overflow-y: auto; }
 @media (max-width: 1200px) { .ls-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ls-cols > :first-child { grid-column: 1 / -1; } }
 @media (max-width: 900px) { .ls-split, .ls-cols { grid-template-columns: minmax(0, 1fr); } .ls-left { position: static; max-height: 300px; } .ls-ta { min-height: 200px; } }
+
+/* 기초 시간표(설정 수업 탭): 칸마다 학급과 과목 고르기 */
+table.tt-base th.ph { width: 64px; font-size: 13px; }
+.tt-base td select { width: 100%; height: 36px; padding: 0 4px; border: 1px solid transparent; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; }
+.tt-base td select:hover { border-color: var(--line); }
+.tt-base td.on select { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* 진도 단추 한 줄(2026-11-15) */
+.prog-bar { display: flex; flex-direction: column; gap: 6px; }
+.prog-bar-row { flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.prog-bar-sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
+.prog-bar .text-btn { font-size: 13px; }
+/* 진도표 줄마다 바로 지우기 */
+.pc-li { display: flex; align-items: center; gap: 2px; }
+.pc-li .pc-row { flex: 1; min-width: 0; }
+.pc-del { flex: none; border: 0; background: none; color: var(--faint); padding: 6px; border-radius: 6px; cursor: pointer; display: inline-flex; }
+.pc-del:hover { color: var(--danger); background: var(--danger-soft); }
+/* 실행취소 줄: 알림과 같은 자리, 오른쪽에 단추 */
+.undo-bar { display: flex; align-items: center; gap: 14px; }
+.undo-bar[hidden] { display: none; }
+.undo-btn { border: 0; background: none; color: #9BD3FF; font: inherit; font-weight: 700; cursor: pointer; padding: 0; }
