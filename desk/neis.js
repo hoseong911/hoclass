@@ -150,29 +150,54 @@ export async function loadRoomCounts(school, ay, key) {
    subjects = [{ name: "역사", classes: ["3-1", "3-2"] }, ...]
    같은 과목을 다른 선생님도 가르치면 그 칸까지 들어오므로 뒤에 손으로 고친다.
    창체(진로활동, 동아리활동 같은 것)는 넣지 않는다. 담임 반 것을 넣어 봤으나 스포츠클럽처럼
-   내가 안 들어가는 시간까지 들어와서 뺐다(선생님 지시 2026-11-13 "수업 시간표에서는 창체활동 빼라"). */
+   내가 안 들어가는 시간까지 들어와서 뺐다(선생님 지시 2026-11-13 "수업 시간표에서는 창체활동 빼라").
+
+   인증키가 있으면 **학교 한 주를 한 번에** 받는다(인천동양중 2026-11-09~13 은 549줄, 호출 한 번).
+   키가 없으면 나이스가 무슨 질문에든 다섯 줄만 주므로 한 번에 받을 수 없고, 전처럼
+   "하루 × 반"으로 쪼개 묻는다(한 반 하루는 6~7줄이라 다섯 줄에 거의 안 걸린다. 호출 5 × 반 개수). */
 export async function loadMyWeek(school, ay, sem, mondayYmd, subjects, key) {
   const tt = Array.from({ length: 5 }, () => Array.from({ length: 7 }, () => ""));
   // 같은 반을 두 과목 가르치면(역사, 사회) 반 이름만으로는 못 가른다. 칸마다 과목을 tt.subj 에 같이 둔다(선생님 지적 2026-11-14).
   tt.subj = Array.from({ length: 5 }, () => Array.from({ length: 7 }, () => ""));
+  const path = TT_PATH[school.kind] || "misTimetable";
+  const base = { ATPT_OFCDC_SC_CODE: school.atpt, SD_SCHUL_CODE: school.code, AY: String(ay), SEM: String(sem) };
+  const days = Array.from({ length: 5 }, (_, d) => addDays(mondayYmd, d));
+  // 내가 가르치는 (반, 과목) 줄. 순서가 곧 우선순위다(한 칸을 둘이 다툴 때 앞의 것이 이긴다).
+  const mine = [];
+  for (const s of subjects || []) {
+    const name = String(s.name || "").trim();
+    if (!name) continue;
+    for (const cls of s.classes || []) if (/^\d+-\d+$/.test(cls)) mine.push({ cls, name });
+  }
+  const put = (day, period, cls, name) => {
+    if (period >= 1 && period <= 7 && !tt[day][period - 1]) { tt[day][period - 1] = cls; tt.subj[day][period - 1] = name; }
+  };
+
+  if (key) {
+    const { rows, short } = await call(path, { ...base, TI_FROM_YMD: days[0], TI_TO_YMD: days[4], pSize: 1000 }, key);
+    if (short) tt.short = true;
+    const byCls = new Map();   // "3-1" → [{ day, period, subject }]
+    for (const r of rows) {
+      const day = days.indexOf(String(r.ALL_TI_YMD || ""));
+      if (day < 0) continue;
+      const cls = Number(r.GRADE) + "-" + Number(r.CLASS_NM);
+      if (!byCls.has(cls)) byCls.set(cls, []);
+      byCls.get(cls).push({ day, period: Number(r.PERIO), subject: String(r.ITRT_CNTNT || "").trim() });
+    }
+    for (const { cls, name } of mine) {
+      for (const x of byCls.get(cls) || []) if (x.subject.includes(name)) put(x.day, x.period, cls, name);
+    }
+    return tt;
+  }
+
   const got = new Map();   // 같은 날 같은 반을 두 번 받지 않는다(과목 줄끼리 반이 겹친다)
   for (let day = 0; day < 5; day++) {
-    const ymd = addDays(mondayYmd, day);
-    for (const s of subjects || []) {
-      const want = String(s.name || "").trim();
-      if (!want) continue;
-      for (const cls of s.classes || []) {
-        const m = /^(\d+)-(\d+)$/.exec(cls);
-        if (!m) continue;
-        const k = ymd + " " + cls;
-        if (!got.has(k)) got.set(k, await loadClassDay(school, ay, sem, ymd, m[1], m[2], key));
-        const rows = got.get(k);
-        if (rows.short) tt.short = true;
-        for (const x of rows) {
-          if (!x.subject.includes(want)) continue;
-          if (!tt[day][x.period - 1]) { tt[day][x.period - 1] = cls; tt.subj[day][x.period - 1] = want; }
-        }
-      }
+    for (const { cls, name } of mine) {
+      const m = /^(\d+)-(\d+)$/.exec(cls), k = days[day] + " " + cls;
+      if (!got.has(k)) got.set(k, await loadClassDay(school, ay, sem, days[day], m[1], m[2], key));
+      const rows = got.get(k);
+      if (rows.short) tt.short = true;
+      for (const x of rows) if (x.subject.includes(name)) put(day, x.period, cls, name);
     }
   }
   return tt;
