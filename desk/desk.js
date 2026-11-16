@@ -168,6 +168,8 @@ const state = {
   lunchAfter: 4,
   tt: EXAMPLE_TT.map(r => [...r]),
   ttSubj: Array.from({ length: 5 }, () => Array(7).fill("")),
+  // 담임 반 주간 시간표(과목 이름). 오늘 시간표 위젯이 내 수업 옆에 우리 반 줄을 보인다(선생님 지시 2026-11-17)
+  ttCls: Array.from({ length: 5 }, () => Array(7).fill("")),
   // 기초 시간표(선생님 지시 2026-11-15): 진도 계획의 바탕. 칸마다 학급과 과목. 위젯 주간 시간표는 나이스가 매주 덮어써서 따로 둔다
   baseTT: Array.from({ length: 5 }, () => Array(7).fill("")),
   baseSubj: Array.from({ length: 5 }, () => Array(7).fill("")),   // 칸마다 과목(나이스로 받을 때 채운다). 같은 반을 두 과목 가르칠 때 가른다
@@ -262,7 +264,7 @@ const SPECS = [
   { key: "desk_settings",
     /* 주간 시간표는 5×7 이지만 **한 줄로 펴서** 담는다.
        파이어스토어는 배열 안에 배열을 담지 못한다(넣으려 들면 저장이 통째로 막힌다). */
-    pick: () => ({ links: state.links, officials: true, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttSubj: state.ttSubj.flat(), baseTT: state.baseTT.flat(), baseSubj: state.baseSubj.flat(), ttExample: state.ttExample, ttAuto: state.ttAuto, idleMin: state.idleMin, school: state.school, neis: state.neis,
+    pick: () => ({ links: state.links, officials: true, bells: state.bells, lunchAfter: state.lunchAfter, tt: state.tt.flat(), ttSubj: state.ttSubj.flat(), ttCls: state.ttCls.flat(), baseTT: state.baseTT.flat(), baseSubj: state.baseSubj.flat(), ttExample: state.ttExample, ttAuto: state.ttAuto, idleMin: state.idleMin, school: state.school, neis: state.neis,
       gcalCal: state.gcalCal || "", gcalPick: Array.isArray(state.gcalPick) ? state.gcalPick : null }),
     put: (s) => {
       if (arr(s.links)) {
@@ -285,6 +287,7 @@ const SPECS = [
       }
       const grid35 = (a, n) => Array.from({ length: 5 }, (_, d) => Array.from({ length: 7 }, (_, p) => String(a[d * 7 + p] || "").slice(0, n)));
       if (arr(s.ttSubj)) state.ttSubj = grid35(s.ttSubj, 20);
+      if (arr(s.ttCls)) state.ttCls = grid35(s.ttCls, 20);
       if (arr(s.baseTT)) state.baseTT = grid35(s.baseTT, 12);
       if (arr(s.baseSubj)) state.baseSubj = grid35(s.baseSubj, 20);
       state.ttExample = !!s.ttExample;
@@ -1588,7 +1591,14 @@ function renderPeriods(now = new Date()) {
   if (!row) { $("todayAside").textContent = WD[now.getDay()] + "요일"; list.replaceChildren(h("li", { class: "empty", text: "주말에는 수업이 없습니다." })); return; }
   $("todayAside").textContent = `${WD[now.getDay()]}요일`;
   const m = now.getHours() * 60 + now.getMinutes();
+  // 담임이면 우리 반 줄을 한 단 더 보인다(선생님 지시 2026-11-17). 비담임이거나 아직 못 받았으면 전처럼 세 단
+  const crow = cfg().homeroom ? state.ttCls[dayIdx(now)] : null;
+  const two = !!crow && crow.some(c => String(c).trim());
+  list.className = "periods" + (two ? " two" : "");
   const items = [];
+  if (two) items.push(h("li", { class: "period head" },
+    h("span", { class: "p", text: "" }), h("span", { class: "tm", text: "" }),
+    h("span", { class: "c", text: "내 수업" }), h("span", { class: "hc", text: classLabel(cfg().homeroom) })));
   for (let i = 0; i < 7; i++) {
     const b = state.bells[i];
     const s = toMin(b.s), e = toMin(b.e);
@@ -1598,7 +1608,8 @@ function renderPeriods(now = new Date()) {
     items.push(h("li", { class: cls.join(" ") },
       h("span", { class: "p", text: `${i + 1}교시` }),
       h("span", { class: "tm", text: `${b.s}~${b.e}` }),
-      h("span", { class: "c", text: row[i].trim() || "공강" })
+      h("span", { class: "c", text: row[i].trim() || "공강" }),
+      two ? h("span", { class: "hc", text: String(crow[i] || "").trim() }) : null
     ));
     if (i + 1 === state.lunchAfter) {
       const ls = toMin(b.e), le = toMin(state.bells[i + 1].s);
@@ -3349,24 +3360,27 @@ async function fetchWeek(now = new Date()) {
   if (!subjects.length) throw new Error("내 과목과 그 과목을 가르치는 반을 먼저 넣어 주세요.");
   // 나이스가 아는 학년도는 받아오는 그 주의 학년도다. 수첩이 보는 학년도와 다를 수 있다.
   const tt = await Neis.loadMyWeek(N.school, academicYear(now), Neis.semesterOf(now),
-    Neis.mondayOf(now), subjects, N.key);
+    Neis.mondayOf(now), subjects, N.key, cfg().homeroom);
   const n = tt.flat().filter(Boolean).length;
   if (!n) throw new Error(tt.short
     ? "인증키가 없어 1~5교시만 받았습니다. 설정에 인증키를 넣고 다시 받아 주세요."
     : "그 주에 내 과목 수업을 찾지 못했습니다. 과목 이름을 확인해 주세요.");
   state.tt = tt; state.ttSubj = tt.subj; state.ttExample = false;
+  state.ttCls = tt.cls || Array.from({ length: 5 }, () => Array(7).fill(""));   // 담임이 아니면 빈 격자
   save(true); renderTT(); renderPeriods(); renderNow(new Date());
   return { n, short: !!tt.short };
 }
 /* 시간표는 하루 한 번 저절로 받고 토스트로 알린다(선생님 지시 2026-11-13).
    클라우드 설정을 받은 뒤에만 한다: 옛 사본 위에서 받으면 다른 기기 것을 덮는다.
    주말에는 다음 주를 받는다. 손으로 고친 칸은 다음 날 다시 덮인다. */
-let weekBusy = false;
+let weekBusy = false, clsTried = false;
 async function autoWeek() {
   const sd = settingsDoc(), day = todayKey();
-  if (weekBusy || !sd || !sd.confirmed || !state.neis.school || state.ttAuto === day) return;
+  // 담임인데 우리 반 줄이 비어 있으면(이 기능이 생기기 전에 받은 사본) 오늘 안에 한 번 더 받는다
+  const needCls = !clsTried && !!cfg().homeroom && !state.ttCls.some(r => r.some(c => c));
+  if (weekBusy || !sd || !sd.confirmed || !state.neis.school || (state.ttAuto === day && !needCls)) return;
   if (!state.neis.subjects.some(s => s.name && s.classes.length)) return;
-  weekBusy = true;
+  weekBusy = true; clsTried = true;
   state.ttAuto = day;                     // 못 받아도 오늘은 다시 묻지 않는다
   const now = new Date(), w = now.getDay();
   if (w === 6 || w === 0) now.setDate(now.getDate() + (w === 6 ? 2 : 1));
@@ -3383,13 +3397,15 @@ function renderMeal() {
   if (!box) return;
   const today = todayKey();
   const list = mealToday && mealToday.day === today ? mealToday.list : null;
+  // 중식 하나만 오는 날은 "중식" 글자를 뺀다. 조식, 석식까지 오면 그때만 종류를 적는다(선생님 지시 2026-11-17).
+  const one = list && list.length === 1;
   box.replaceChildren(!state.neis.school ? noneLine("설정의 기본 탭에서 학교를 정하면 급식이 보입니다.")
     : !list ? noneLine("급식을 받는 중입니다.")
     : !list.length ? noneLine("오늘 급식이 없습니다.")
-    : h("ul", { class: "lines" }, ...list.map(m => h("li", { class: "line" },
-        h("span", { class: "ttl", text: m.kind }),
-        h("span", { class: "body", text: m.dishes.join(", ") }),
-        m.kcal ? h("span", { class: "when", text: m.kcal }) : null))));
+    : h("ul", { class: "meal" }, ...list.map(m => h("li", null,
+        one ? null : h("span", { class: "kind", text: m.kind }),
+        h("span", { class: "dish", text: m.dishes.join(", ") }),
+        m.kcal ? h("span", { class: "kcal", text: m.kcal }) : null))));
 }
 /* 오늘 급식은 하루 한 번만 받는다. */
 let mealBusy = false;

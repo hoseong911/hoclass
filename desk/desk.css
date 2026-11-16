@@ -130,6 +130,13 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .period.past .c { color: var(--sub); font-weight: 400; }
 .period.current { background: var(--accent-fade); }
 .period.current .c { color: var(--accent); }
+/* 내 수업 옆 우리 반 단(담임일 때만). 머리줄이 어느 단이 무엇인지 알린다 */
+.periods.two .period { grid-template-columns: 68px 112px minmax(0, 1fr) minmax(0, 1fr); }
+.period .hc { color: var(--muted); overflow-wrap: anywhere; }
+.period.past .hc { color: var(--faint); }
+.period.head { padding-block: 4px; }
+.period.head .c, .period.head .hc { font-size: 12px; font-weight: 600; color: var(--faint); }
+.period.head + .period { border-top: 0; }
 .period.lunch .c { color: var(--muted); font-size: 13px; }
 
 /* 할 일 */
@@ -1079,7 +1086,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 }
 
 .wg > .card, #classBody, #bookBody, .todo-list, .dday-list,
-.periods, .lines, .tt-scroll, .memo, .students, .stu-pick, #gcalBody {
+.periods, .lines, .tt-scroll, .memo, .students, .stu-pick, #gcalBody, #mealBody {
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .wg > .card::-webkit-scrollbar,
@@ -1088,7 +1095,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .periods::-webkit-scrollbar, .lines::-webkit-scrollbar,
 .tt-scroll::-webkit-scrollbar, .memo::-webkit-scrollbar,
 .students::-webkit-scrollbar, .stu-pick::-webkit-scrollbar,
-#gcalBody::-webkit-scrollbar { width: 0; height: 0; }
+#gcalBody::-webkit-scrollbar, #mealBody::-webkit-scrollbar { width: 0; height: 0; }
 
 .deck.arranging .wg > .card { overflow: hidden; }
 
@@ -1175,6 +1182,30 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .wg[data-w="periods"] .period.lunch .p { display: none; }
   .wg[data-w="periods"] .period.lunch { grid-template-columns: minmax(0, 1fr); }
 }
+/* 우리 반 단까지 두 단일 때. 위 규칙들보다 뒤에 두어야 이긴다 */
+/* 낮고 넓어 교시가 두 줄로 서는 모양에서는 머리줄이 칸 하나를 먹으므로 걷고, 시각을 뺀 세 단으로 선다 */
+@container (max-height: 300px) and (min-width: 300px) {
+  .wg[data-w="periods"] .period.head { display: none; }
+  .wg[data-w="periods"] .periods.two .period { grid-template-columns: 38px minmax(0, 1fr) minmax(0, 1fr); }
+  .wg[data-w="periods"] .periods.two .period .tm { display: none; }
+}
+@container (max-width: 380px) {
+  .wg[data-w="periods"] .periods.two .period { grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr); }
+  .wg[data-w="periods"] .periods.two .period .tm { display: none; }
+}
+@container (max-width: 230px) {
+  .wg[data-w="periods"] .periods.two .period { grid-template-columns: 38px minmax(0, 1fr); }
+  .wg[data-w="periods"] .periods.two .period .hc, .wg[data-w="periods"] .period.head { display: none; }
+}
+
+/* ── 오늘 급식 ── */
+/* 안쪽에 또 테두리를 두지 않는다. 카드(위젯) 테두리가 곧 급식 테두리다(선생님 지시 2026-11-17) */
+.wg[data-w="meal"] #mealBody { flex: 1; min-height: 0; overflow: auto; }
+.meal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.meal li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.meal .kind { font-weight: 600; width: 100%; }
+.meal .dish { line-height: 1.6; overflow-wrap: anywhere; }
+.meal .kcal { margin-left: auto; font-family: var(--font-num); font-size: 12px; color: var(--faint); white-space: nowrap; }
 
 /* ══════════ 아이콘 단추(추가, 삭제, 고치기, 저장, 취소, 닫기) ══════════ */
 /* h() 가 글자를 보고 SVG 로 바꾼다(iconize). 크기는 원래 단추 종류(.btn, .del, .text-btn)를 따른다. */

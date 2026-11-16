@@ -146,19 +146,26 @@ export async function loadRoomCounts(school, ay, key) {
   return out;
 }
 
+/* 담임이 임장하는 창체. 이름이 "창의적체험활동" 처럼 뭉뚱그려 오면 어느 것인지 몰라 넣지 않는다. */
+const HOME_ACT = /자율|진로|학급/;
+const NOT_MINE = /동아리|스포츠|봉사/;
+
 /* 과목마다 가르치는 반이 다르다(역사는 1~6반, 사회는 3~6반 같은 식). 그래서 과목 줄을 받는다.
    subjects = [{ name: "역사", classes: ["3-1", "3-2"] }, ...]
    같은 과목을 다른 선생님도 가르치면 그 칸까지 들어오므로 뒤에 손으로 고친다.
-   창체(진로활동, 동아리활동 같은 것)는 넣지 않는다. 담임 반 것을 넣어 봤으나 스포츠클럽처럼
-   내가 안 들어가는 시간까지 들어와서 뺐다(선생님 지시 2026-11-13 "수업 시간표에서는 창체활동 빼라").
+   창체는 담임 반의 **자율, 진로, 학급활동만** 넣는다(선생님 지시 2026-11-17 "창체 임장하는 건 안 잡히네").
+   동아리활동, 스포츠클럽, 봉사활동은 내가 안 들어가므로 뺀다 — 2026-11-13 에 창체를 통째로 뺀 까닭이 그것이었다.
+   담임 반(homeroom)을 주면 그 반 하루 시간표를 tt.cls 에도 담아 준다(오늘 시간표 위젯이 우리 반 줄을 같이 보인다).
 
    인증키가 있으면 **학교 한 주를 한 번에** 받는다(인천동양중 2026-11-09~13 은 549줄, 호출 한 번).
    키가 없으면 나이스가 무슨 질문에든 다섯 줄만 주므로 한 번에 받을 수 없고, 전처럼
    "하루 × 반"으로 쪼개 묻는다(한 반 하루는 6~7줄이라 다섯 줄에 거의 안 걸린다. 호출 5 × 반 개수). */
-export async function loadMyWeek(school, ay, sem, mondayYmd, subjects, key) {
+export async function loadMyWeek(school, ay, sem, mondayYmd, subjects, key, homeroom) {
   const tt = Array.from({ length: 5 }, () => Array.from({ length: 7 }, () => ""));
   // 같은 반을 두 과목 가르치면(역사, 사회) 반 이름만으로는 못 가른다. 칸마다 과목을 tt.subj 에 같이 둔다(선생님 지적 2026-11-14).
   tt.subj = Array.from({ length: 5 }, () => Array.from({ length: 7 }, () => ""));
+  // 담임 반 하루 시간표(과목 이름 그대로). 담임이 아니거나 인증키가 없으면 빈 채로 돌아간다.
+  tt.cls = Array.from({ length: 5 }, () => Array.from({ length: 7 }, () => ""));
   const path = TT_PATH[school.kind] || "misTimetable";
   const base = { ATPT_OFCDC_SC_CODE: school.atpt, SD_SCHUL_CODE: school.code, AY: String(ay), SEM: String(sem) };
   const days = Array.from({ length: 5 }, (_, d) => addDays(mondayYmd, d));
@@ -187,9 +194,15 @@ export async function loadMyWeek(school, ay, sem, mondayYmd, subjects, key) {
     for (const { cls, name } of mine) {
       for (const x of byCls.get(cls) || []) if (x.subject.includes(name)) put(x.day, x.period, cls, name);
     }
+    for (const x of (homeroom && byCls.get(homeroom)) || []) {
+      if (x.period >= 1 && x.period <= 7) tt.cls[x.day][x.period - 1] = x.subject;
+      // 내 수업이 든 칸은 put 이 지킨다(수업이 창체보다 앞선다)
+      if (HOME_ACT.test(x.subject) && !NOT_MINE.test(x.subject)) put(x.day, x.period, x.subject, x.subject);
+    }
     return tt;
   }
 
+  // shortcut: 인증키가 없으면 담임 반 시간표와 창체는 비워 둔다(호출 다섯 번이 더 든다). 키를 뺄 일이 생기면 그때 채운다.
   const got = new Map();   // 같은 날 같은 반을 두 번 받지 않는다(과목 줄끼리 반이 겹친다)
   for (let day = 0; day < 5; day++) {
     for (const { cls, name } of mine) {

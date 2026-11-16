@@ -153,6 +153,8 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
       const blank = () => Array.from({ length: 5 }, () => Array(7).fill(""));
       const tt = blank(); tt.subj = blank();
       const put = (d, p, c, s) => { tt[d][p] = c; tt.subj[d][p] = s; };
+      // 담임 반(3-9) 하루 시간표. 오늘 시간표 위젯이 우리 반 단을 보이는지 보려고 닷새를 같게 채운다
+      if (a[6]) { tt.cls = blank(); for (let d = 0; d < 5; d++) { tt.cls[d][0] = "진로활동"; tt.cls[d][1] = "수학"; } }
       const now = new Date(), ym = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, "0");
       if (a[3].slice(0, 6) > ym) return tt;           // 다음 달은 나이스에 아직 없다
       put(0, 4, "3-9", "사회");                        // 월요일 5교시 3-9 사회(3-9 는 역사, 사회 둘 다 가르친다)
@@ -1131,12 +1133,24 @@ function checkEntries() {
       "역사는 두 반 다 넘어간다");
     assert(!sent[1].classes.includes("3-1") && sent[1].classes.includes("3-9"),
       "사회는 끈 반을 빼고 넘어간다");
+    assert.strictEqual(neisArgs.week[6], "3-9", "담임 반을 넘겨야 우리 반 시간표와 창체가 온다");
+  }
+  /* 오늘 시간표 위젯: 담임이면 내 수업 옆에 우리 반 단(선생님 지시 2026-11-17). 주말에는 오늘 줄이 없다 */
+  if (new Date().getDay() >= 1 && new Date().getDay() <= 5) {
+    await until(() => A.$("periods").classList.contains("two"), "담임이면 오늘 시간표가 두 단");
+    const hc = [...A.$("periods").querySelectorAll(".period:not(.head) .hc")].map(x => x.textContent);
+    assert.strictEqual(hc[0], "진로활동", "우리 반 1교시: " + hc[0]);
+    assert.strictEqual(hc[1], "수학", "우리 반 2교시: " + hc[1]);
+    assert.strictEqual(hc[2], "", "우리 반 3교시는 빈다");
+    assert.strictEqual(A.d.querySelector("#periods .period.head .hc").textContent, "3학년 9반", "머리줄에 담임 반 이름");
   }
   await until(() => { const st = JSON.parse(store.get("desk_settings/general") || "{}").state;
     return st && st.neis && st.neis.school && st.neis.school.code === "7331219"; }, "학교가 저장된다");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
   await until(() => A.$("mealBody").textContent.includes("흑미밥"), "오늘 급식이 급식 위젯에 보인다");
+  assert(!A.$("mealBody").textContent.includes("중식"), "급식이 중식 하나뿐이면 종류 글자를 적지 않는다(선생님 지시 2026-11-17)");
+  assert(!A.$("mealBody").querySelector(".line"), "급식은 안쪽에 또 테두리를 두지 않는다(카드 테두리가 위젯 테두리)");
 
   /* ---------- 나이스 시간표로 진도 계획 만들기(수업 장 진도 「전체」) ---------- */
   A.go("수업"); A.sub("prog");
