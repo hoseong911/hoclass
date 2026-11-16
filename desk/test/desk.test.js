@@ -234,7 +234,9 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
       const el = d.querySelector('.wg[data-w="' + id + '"]');
       return el ? el.style.gridArea : "";
     },
-    absent: () => d.querySelectorAll("#classBody .stu.결석").length,
+    // 수업 출결은 표 하나다(2026-11-16): 줄은 학생, 칸은 진도표 수업
+    lesRows: () => [...d.querySelectorAll("#attMonth tbody tr")],
+    absent: () => d.querySelectorAll("#attMonth tbody td.m.결석").length,
   };
 }
 
@@ -754,25 +756,24 @@ function checkEntries() {
   A.$("pcAdd").click();                             // 오늘 수업 하나(출결 오늘 표에 3-1 이 뜨게)
   await until(() => A.$("leEd"), "추가하면 오른쪽에서 적는다");
   A.sub("att");
-  await until(() => A.d.querySelector('.lt-card[data-cls="3-1"]') && !A.d.querySelector('.lt-card[data-cls="3-2"]'), "오늘 수업이 든 반(3-1)만 하루 표");
-  assert(A.$("attMonth"), "아래에 한 달 표");
+  await until(() => A.$("attMonth"), "수업 출결은 표 하나(오늘 수업 학생 칸 격자는 걷었다)");
+  assert(!A.d.querySelector("#classBody .stu") && !A.d.querySelector(".lt-card"), "학생 칸 격자 없음");
   assert(!A.$("attMode"), "수업 출결에는 하루, 한 달 고르기가 없다");
   await until(() => A.d.querySelector("#attMonth tbody td.today"), "한 달 표의 열은 진도표 수업(오늘)");
   assert(A.d.querySelector("#attMonth thead th.today .dp").textContent.endsWith("교시"), "열 머리에 교시");
   assert.deepStrictEqual([...A.$("attMonth").querySelectorAll("thead th.tot")].map(x => x.textContent), ["결석"], "합계는 결석 하나");
   A.d.querySelector("#attMonth tbody td.today").click();
-  await until(() => A.d.querySelector("#attMonth tbody td.today.m.결석") && A.d.querySelector('.lt-card[data-cls="3-1"] .stu.결석'),
-    "한 달 표 칸을 누르면 결석, 오늘 표에도 보인다");
+  await until(() => A.d.querySelector("#attMonth tbody td.today.m.결석"), "표 칸을 누르면 결석");
   A.d.querySelector("#attMonth tbody td.today").click();
   await until(() => !A.d.querySelector("#attMonth tbody td.m") && !A.$("attEd"), "한 번 더 누르면 출석, 고르개는 없다");
-  await until(() => A.stu().length === 3, "3-1 학생 3명이 호클래스에서 들어온다");
+  await until(() => A.lesRows().length === 3, "3-1 학생 3명이 호클래스에서 들어온다");
   assert(A.text().includes("김지우") && A.text().includes("박세찌"), "호클래스 이름: " + A.text().slice(0, 80));
   assert(!A.$("rosterBtn") && !A.$("rosterEditor"), "교무수첩 장에는 명단 편집이 없다(설정으로 옮겼다)");
 
   /* ---------- 수업 출결은 교시별 출석, 결석. 학번으로 묶여 진도표 수업에 들어간다 ---------- */
-  A.stu()[0].click();
-  await until(() => A.absent() === 1 && A.stu()[0].getAttribute("aria-pressed") === "true", "학생 칸을 누르면 결석");
-  assert(A.text().includes("결석 1"), "오늘 표 요약");
+  A.lesRows()[0].querySelector("td.today").click();
+  await until(() => A.absent() === 1, "표 칸을 누르면 결석");
+  assert(A.text().includes("결석 1건"), "한 달 요약");
   const day = todayKey();
   await wait(900);
   assert(!store.has("desk_att/2027_3-1_" + day), "수업 출결은 담임 출결 문서에 쓰지 않는다");
@@ -866,6 +867,13 @@ function checkEntries() {
     A.tab(p); await wait(40);
     assert(A.d.querySelectorAll("#classBody .panel").length > 0, p + " 화면이 비었다");
   }
+
+  /* 담임 학생도 1단 세로 표 + 3단 세부(2026-11-16, 수업 장 학생과 같은 틀) */
+  A.tab("student");
+  await wait(40);
+  assert(A.d.querySelectorAll("#stuList .ls-row").length === 2 && !A.d.querySelector("#classBody .stu-pick"),
+    "담임 학생: 카드 격자 대신 세로 표");
+  assert(A.d.querySelector(".ls-split > .ls-main > .ls-cols"), "오른쪽 3단에 세부 내용");
 
   A.tab("consult");
   await wait(40);
@@ -966,7 +974,7 @@ function checkEntries() {
 
   /* ---------- 5단계: 차시와 제출 현황 ---------- */
   A.go("수업"); A.pick("3-1"); A.sub("att");
-  await until(() => A.stu().length === 3, "3-1로 돌아옴");
+  await until(() => A.lesRows().length === 3, "3-1로 돌아옴");
   /* ---------- 수업 장 진도: 왼쪽 진도표, 오른쪽 그 수업 계획과 기록, 호클래스 차시 ---------- */
   A.sub("prog");
   await until(() => A.$("leEd") && A.book().includes("호클래스 차시"), "진도 탭: 3-1 진도표, 적는 칸, 호클래스 차시");
@@ -1011,7 +1019,7 @@ function checkEntries() {
 
   /* ---------- 6단계: 결석 보내기 ---------- */
   A.sub("att");
-  await until(() => A.d.querySelectorAll("#classBody .stu").length === 3, "출결 탭");
+  await until(() => A.lesRows().length === 3, "출결 탭");
   assert.strictEqual(A.absent(), 1, "수업 출결에서 1번이 결석");
   if (process.env.DUMP_CLASS) {                   // 우리 반 세 보기를 떠 둔다(눈으로 볼 때)
     for (const t of ["att"]) { A.sub(t); await wait(60);
