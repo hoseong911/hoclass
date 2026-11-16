@@ -1622,6 +1622,7 @@ function renderPeriods(now = new Date()) {
 
 /* ---------- 주간 시간표 ---------- */
 const WD5 = ["월", "화", "수", "목", "금"];
+const actShort = (v) => v.replace(/^(자율|진로|학급)\S*활동$/, "$1");
 /* 위젯은 보기만, 설정 수업 탭의 시간표는 고치기. 같은 함수가 둘 다 그린다. */
 function ttRows(edit) {
   const now = new Date(), di = dayIdx(now), m = now.getHours() * 60 + now.getMinutes();
@@ -1646,7 +1647,7 @@ function ttRows(edit) {
       const cls = [];
       if (!v.trim()) cls.push("empty-cell");
       if (d === di) { cls.push("todaycol"); if (v.trim() && toMin(b.s) <= m && m < toMin(b.e)) cls.push("nowcell"); }
-      return h("td", { class: cls.join(" "), text: v.trim() });
+      return h("td", { class: cls.join(" "), text: actShort(v.trim()) });
     });
     rows.push(h("tr", null, ph, ...cells));
     if (p + 1 === state.lunchAfter) rows.push(h("tr", { class: "lunch" }, h("td", { colspan: "6", text: "점심" })));
