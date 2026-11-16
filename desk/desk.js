@@ -2701,8 +2701,8 @@ function renderNb() {
       hcHas(pick) ? null : h("div", { class: "row" }, openSetBtn(nb.key === "home" ? "home" : "lesson")))]);
     return;
   }
-  if (tab === "att") wrap(nb.key === "lesson" ? lessonAttView() : [h("div", { class: "lt-main" },
-    h("h4", { class: "lt-title", text: classLabel(pick) + " 출결" }), ...attMonthView())]);
+  // 담임 출결은 반 이름 제목 없이 달 줄부터, 표와 아래 칸이 한 화면에 든다(선생님 지시 2026-11-16)
+  if (tab === "att") wrap(nb.key === "lesson" ? lessonAttView() : [h("div", { class: "lt-main att-one" }, ...attMonthView())]);
   else if (tab === "col") wrap(collectView());
   else if (tab === "ann") wrap(noticeView());
   else if (tab === "student" && nb.key === "lesson") wrap([lessonStudentPage()]);
@@ -2828,26 +2828,24 @@ function attDayList(list, A) {
   return h("div", { class: "att-day-list" },
     h("h4", { class: "att-side-hd", text: rows.length ? `기록 ${rows.length}건` : "전원 출석" }),
     rows.length ? h("ul", { class: "att-ed-list" }, ...rows.map(({ st, e }) => h("li", { class: "att-ed-item click " + e.k, onclick: () => openAttEdit(st.id) },
-      h("b", { class: "who", text: who(st) }), h("span", { text: entryText(e) }))))
-      : h("p", { class: "tip", text: "위 표에서 그 학생의 날짜 칸을 누르면 여기서 적습니다." }));
+      h("b", { class: "who", text: who(st) }), h("span", { text: entryText(e) })))) : null);
 }
-/* 한 달 표 글자: 결석과 결과가 둘 다 "결"이라 결과는 "과" */
-const ATT_ABBR = { 결석: "결", 지각: "지", 조퇴: "조", 결과: "과" };
 const monday = (iso) => parseDate(iso).getDay() === 1;
-/* 범례: 종류는 색, 사유는 모양 */
+/* 범례: 종류는 색, 사유는 모양. 칸 글자는 종류 두 글자 그대로다(선생님 지시 2026-11-16) */
 function attLegend() {
   const chip = (cls, t, label) => h("span", { class: "att-lg" }, h("span", { class: "ab " + cls, text: t }), label);
   return h("div", { class: "att-legend" },
-    ...ATT_KINDS.map(k => chip("m " + k + " r-미인정", ATT_ABBR[k], k)),
+    ...ATT_KINDS.map(k => chip("m " + k + " r-미인정", k, "")),   // 칸 글자가 곧 이름이라 따로 적지 않는다
     h("span", { class: "att-lg-sep" }),
-    chip("m 결석 r-미인정", "결", "미인정"), chip("m 결석 r-질병", "결", "질병"), chip("m 결석 r-인정", "결", "출석인정"));
+    chip("m 결석 r-미인정", "결석", "미인정"), chip("m 결석 r-질병", "결석", "질병"), chip("m 결석 r-인정", "결석", "출석인정"));
 }
 /* 한 달 출결표: 그달 평일마다 그 반 출결 문서를 받아(loadMonth) 학생 줄, 날짜 칸으로 놓는다.
-   칸에는 종류 첫 글자(여러 건이면 이어 붙임), 마우스를 올리면 사유와 교시. 칸을 누르면 그날로 가서 고친다. */
+   칸에는 종류 두 글자(여러 건이면 띄어 쓴다), 마우스를 올리면 사유와 교시. 칸을 누르면 그날로 가서 고친다. */
 function attMonthView() {
   const cls = picked(), list = roster(), ym = attYm || ymOf(attDate()), today = todayKey(), pickD = attDate();
   if (attLoaded !== ym + "|" + cls && !attBusy) loadMonth(ym, cls);
   const days = monthDays(ym);
+  const classDays = days.filter(d => !attOff(d)).length;   // 그달 수업 일수(평일에서 쉬는 날을 뺀 것)
   const esOf = (d, sid) => d > today ? [] : entriesOf(attValueOf(d, cls), sid);
   const [y, m] = ym.split("-").map(Number);
   const goYm = (n) => { const d = new Date(y, m - 1 + n, 1); attYm = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; renderNb(); };
@@ -2861,13 +2859,14 @@ function attMonthView() {
       // 사유는 칸 모양으로: 미인정 진하게 채움, 질병 옅게 채움, 인정 테두리만(범례는 표 위)
       return h("td", { "data-d": d, class: [k ? "m " + k : "", k && es[0].r ? "r-" + es[0].r : "", es.some(e => !e.r) ? "undecided" : "", off ? "off" : "", d === today ? "today" : "", d === pickD && d !== today ? "pick" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "),
         title: `${mdw(d)} ${es.length ? es.map(e => entryText(e)).join(", ") : off || (d > today ? "" : "출석")}`,
-        text: es.map(e => ATT_ABBR[e.k]).join(""),
+        text: es.map(e => e.k).join(" "),
         onclick: d > today ? null : () => { attPick = d === today ? "" : d; attYm = ym; attDraft = null;
           attEdit = attEditKey(st.id, d, cls); renderNb(); const s = document.getElementById("attBelow"); if (s && s.scrollIntoView) s.scrollIntoView({ block: "nearest" }); } });
     });
     const nm = shownName(st);
     return { st, cnt, tr: h("tr", null, h("th", { class: "who-n", text: String(st.n) }), h("th", { class: "who-nm", text: nm || "" }), ...cells,
-      h("td", { class: "fill" }), ...ATT_KINDS.map((k, i) => h("td", { class: "tot" + (i === 0 ? " first" : "") + (cnt[k].length ? " " + k : ""), text: cnt[k].length ? String(cnt[k].length) : "" }))) };
+      h("td", { class: "fill" }), h("td", { class: "tot first days-tot", text: String(classDays) }),
+      ...ATT_KINDS.map(k => h("td", { class: "tot" + (cnt[k].length ? " " + k : ""), text: cnt[k].length ? String(cnt[k].length) : "" }))) };
   });
   const copy = () => {
     const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
@@ -2879,32 +2878,26 @@ function attMonthView() {
   };
   const totals = ATT_KINDS.map(k => rows.reduce((a, r) => a + r.cnt[k].length, 0));
   const undecided = rows.some(r => ATT_KINDS.some(k => r.cnt[k].some(x => !x.e.r)));
+  // 달 고르기, 통계, 범례, 복사를 한 줄에(선생님 지시 2026-11-16)
   return [
-    h("div", { class: "cls-line" },
+    h("div", { class: "att-bar" },
       h("div", { class: "att-nav" },
         navBtn("앞 달", CHEV_L, () => goYm(-1)),
         h("span", { class: "att-date", id: "attYm", text: `${y}년 ${m}월` }),
-        navBtn("다음 달", CHEV_R, () => goYm(1), ym >= ymOf(today)))),
-    h("div", { class: "cls-line" },
+        navBtn("다음 달", CHEV_R, () => goYm(1), ym >= ymOf(today))),
       h("div", { class: "att-sum" }, ...ATT_KINDS.map((k, i) => h("span", { class: "k" + (totals[i] ? " " + ["absent", "late", "early", "outk"][i] : "") }, k + " ", h("b", { text: totals[i] + "건" })))),
-      attBusy ? h("span", { class: "tip", text: "기록을 모으는 중입니다" })
-        : h("button", { class: "text-btn", type: "button", id: "attMonthCopy", text: "한 달 요약 복사", onclick: () => copyText(copy()) })),
+      attLegend(),
+      attBusy ? h("span", { class: "tip att-right", text: "기록을 모으는 중입니다" })
+        : h("button", { class: "text-btn att-right", type: "button", id: "attMonthCopy", text: "한 달 요약 복사", onclick: () => copyText(copy()) })),
     undecided ? h("p", { class: "hint", text: "사유가 없는 옛 기록이 있습니다(점선 칸). 그날로 가서 지우고 사유를 골라 다시 적어 주세요." }) : null,
-    attLegend(),
     h("div", { class: "att-month-scroll" }, h("table", { class: "att-month", id: "attMonth" },
       h("thead", null, h("tr", null, h("th", { class: "who-n", text: "번호" }), h("th", { class: "who-nm", text: "이름" }),
         ...days.map(d => { const off = attOff(d), wd = parseDate(d).getDay();
           return h("th", { class: ["day", off ? "off" : "", d === today ? "today" : "", d === pickD && d !== today ? "pick" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "), title: off || mdw(d) },
             h("span", { class: "dn", text: String(+d.slice(8)) }), h("span", { class: "dw", text: "(" + WD[wd] + ")" })); }),
-        h("th", { class: "fill" }), ...ATT_KINDS.map((k, i) => h("th", { class: "tot" + (i === 0 ? " first" : ""), text: k })))),
-      h("tbody", null, ...rows.map(r => r.tr)),
-      (() => { let n = 0;
-        const cells = days.map(d => { const off = attOff(d); if (!off) n++;
-          return h("td", { class: [off ? "off" : "", d === today ? "today" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "), title: off || `${n}째 수업일`, text: off ? "" : String(n) }); });
-        return h("tfoot", null, h("tr", { class: "days-row" },
-          h("th", { class: "who-n days-k", colspan: "2", text: "수업 일수" }), ...cells, h("td", { class: "fill" }),
-          h("td", { class: "tot first days-tot", id: "attDays", colspan: String(ATT_KINDS.length), text: n + "일" }))); })())),
-    h("p", { class: "tip", text: "칸을 누르면 아래에서 그날 그 학생을 적습니다. 마우스를 올리면 사유와 교시, 빗금 칸은 학사 일정의 쉬는 날입니다." }),
+        h("th", { class: "fill" }), h("th", { class: "tot first days-k", text: "수업 일수" }),
+        ...ATT_KINDS.map(k => h("th", { class: "tot", text: k })))),
+      h("tbody", null, ...rows.map(r => r.tr)))),
     attBottom(),
   ];
 }
