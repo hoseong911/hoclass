@@ -1,0 +1,58 @@
+name: 교무노트 앱 만들기
+
+# 앱 껍데기(desk/src-tauri)를 고쳐 올리면 윈도 설치 파일을 만들어 Releases 에 올린다.
+# 화면과 기능은 웹판을 띄우므로 desk/ 의 다른 파일을 고칠 때는 이 일이 돌지 않는다.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "desk/src-tauri/**"
+      - ".github/workflows/desk-app.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desk-app
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "desk/src-tauri -> target"
+
+      - name: 도구 받기
+        working-directory: desk
+        run: npm ci
+
+      - name: 설치 파일 만들고 Releases 에 올리기
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desk
+          tagName: desk-v__VERSION__
+          releaseName: "오늘, 교무노트 __VERSION__"
+          releaseBody: "아래 Assets 의 setup.exe 를 받아 실행하면 설치됩니다."
+          releaseDraft: false
+          prerelease: false
+
+      - name: 실행 파일도 따로 남기기(점검용)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gyomu-note
+          path: |
+            desk/src-tauri/target/release/gyomu-note.exe
+            desk/src-tauri/target/release/bundle/nsis/*.exe

@@ -2,8 +2,7 @@
    정규식이라 뜻까지 보지는 못한다. 걸린 자리를 사람이 보고 판단하라는 뜻이다. */
 const fs = require("fs"), path = require("path");
 
-const FILES = ["desk.js", "widget.js", "gcal.js", "hoclass.js", "grid.js",
-               "index.html", "widget.html", "preview.html"];
+const FILES = ["desk.js", "gcal.js", "hoclass.js", "grid.js", "index.html", "preview.html"];
 
 /* [찾을 것, 왜] */
 const RULES = [

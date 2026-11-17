@@ -1,14 +1,19 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "위젯과 수첩 두 창이 서로를 띄울 수 있게 한다",
-  "windows": ["widget", "desk"],
+  "description": "웹판 수첩이 제 창을 위젯으로 깔고 되돌린다",
+  "windows": ["desk"],
+  "remote": {
+    "urls": ["https://hoseong911.github.io/*"]
+  },
   "permissions": [
     "core:default",
-    "core:window:allow-show",
-    "core:window:allow-hide",
-    "core:window:allow-set-focus",
-    "core:window:allow-unminimize",
-    "core:webview:allow-get-all-webviews"
+    "core:window:allow-set-decorations",
+    "core:window:allow-set-always-on-bottom",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-set-focus"
   ]
 }

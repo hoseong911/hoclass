@@ -1,11 +1,9 @@
 {
   "name": "hoclass-desk",
   "private": true,
-  "description": "나의 책상 — 교사용 수첩. 웹판은 빌드가 없고, 바탕화면 앱만 타우리로 묶는다.",
+  "description": "오늘, 교무노트: 교사용 수첩. 웹판은 빌드가 없고, 앱은 웹판을 띄우는 타우리 창이다.",
   "scripts": {
     "test": "node test/plansync.test.js && node test/neis.test.js && node test/desk.test.js",
-    "build:dist": "node build-dist.js",
-    "vendor": "node build-dist.js --vendor",
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",

@@ -272,10 +272,6 @@ function checkShrinkRules() {
     assert(m, "desk.js 에 " + name + " 가 있어야 한다");
     assert(css.includes("@media " + m[1] + " {"), "desk.css 에 desk.js 의 " + name + " 와 같은 조건이 있어야 한다: " + m[1]);
   }
-  const wg = fs.readFileSync(path.join(DIR, "widget.js"), "utf8");
-  const bells = (t) => String((/const DEFAULT_BELLS = \[([\s\S]*?)\];/.exec(t) || [])[1]).replace(/\s+/g, "");
-  assert(bells(js).length > 40 && bells(js) === bells(wg),
-    "desk.js 와 widget.js 의 종 시간 기본값이 같아야 한다(바탕화면 위젯이 다른 시각을 보인다)");
   assert(css.includes("grid-template-rows: none;"), "2단에서는 PC용 세로 칸 줄을 지워야 한다(안 지우면 간격이 틀어진다)");
   assert(css.includes(".wg { zoom: calc(var(--k, 1) * var(--z, 1)); }"),
     "해상도 배율(--k)과 칸 배율(--z)을 곱하는 규칙이 있어야 한다");
@@ -360,7 +356,7 @@ function checkFonts() {
   assert(css.includes(".now-main { font-family: var(--font-head)"),
     "지금 수업의 큰 글씨는 여기어때 잘난체(--font-head)여야 한다");
   assert(css.includes("--font-num: var(--font-body);"), "--font-num 은 수트체(--font-body)를 가리켜야 한다");
-  for (const page of ["desk.css", "widget.html", "index.html"]) {
+  for (const page of ["desk.css", "index.html"]) {
     const s = fs.readFileSync(path.join(DIR, page), "utf8");
     assert(!/monospace|Menlo|IBM Plex Mono/.test(s), page + " 에 모노체가 남아 있다");
   }

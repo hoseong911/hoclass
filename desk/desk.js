@@ -135,7 +135,7 @@ async function copyText(text) {
 }
 
 /* ---------- 일반 정보 ---------- */
-/* 08:50 시작, 45분 수업, 10분 쉬는 시간, 4교시 뒤 1시간 점심. widget.js 의 것과 같아야 한다(시험이 지킨다) */
+/* 08:50 시작, 45분 수업, 10분 쉬는 시간, 4교시 뒤 1시간 점심. */
 const DEFAULT_BELLS = [
   { s: "08:50", e: "09:35" }, { s: "09:45", e: "10:30" }, { s: "10:40", e: "11:25" }, { s: "11:35", e: "12:20" },
   { s: "13:20", e: "14:05" }, { s: "14:15", e: "15:00" }, { s: "15:10", e: "15:55" },
@@ -1319,11 +1319,51 @@ $("gateForm").addEventListener("submit", async (e) => {
 });
 $("signOut").addEventListener("click", () => { signOutNow(); });
 
-if (window.__TAURI__ && window.__TAURI__.window) {
-  $("toWidget").hidden = false;
-  $("toWidget").addEventListener("click", async () => {
-    try { await window.__TAURI__.window.getCurrentWindow().hide(); } catch (e) {}
-  });
+/* 앱(src-tauri)에서만: 창을 테두리 없이 바탕화면 맨 아래에 깔고(위젯), 다시 보통 창으로 되돌린다.
+   쓰는 창 기능은 src-tauri/capabilities/default.json 에 허락해 둔 것뿐이다. 더 쓰면 거기도 더한다. */
+const TW = window.__TAURI__ && window.__TAURI__.window;
+if (TW) {
+  const win = TW.getCurrentWindow(), btn = $("toWidget");
+  let pinned = false, before = null;
+  const show = () => {
+    btn.lastChild.textContent = pinned ? "창으로" : "위젯으로";
+    btn.title = pinned ? "보통 창으로 되돌리기" : "바탕화면 위젯으로 내리기";
+  };
+  const remember = (on) => { try { localStorage.setItem(LS_PREFIX + "pinned", on ? "1" : "0"); } catch (e) {} };
+  async function pin(on) {
+    try {
+      if (on) {
+        before = { pos: await win.outerPosition(), size: await win.outerSize(), max: await win.isMaximized() };
+        const mon = await TW.currentMonitor();
+        const area = mon && (mon.workArea || { position: mon.position, size: mon.size });
+        if (before.max) await win.unmaximize();
+        await win.setDecorations(false);
+        if (area) { await win.setPosition(area.position); await win.setSize(area.size); }
+        await win.setAlwaysOnBottom(true);
+        gotoPage(1);
+      } else {
+        await win.setAlwaysOnBottom(false);
+        await win.setDecorations(true);
+        if (before) {
+          await win.setSize(before.size); await win.setPosition(before.pos);
+          if (before.max) await win.maximize();
+        }
+        await win.setFocus();
+      }
+      pinned = on; remember(on); show();
+    } catch (e) { console.warn("위젯 전환 실패", e); }
+  }
+  btn.hidden = false;
+  btn.addEventListener("click", () => pin(!pinned));
+  (async () => {
+    let was = false;
+    try { was = localStorage.getItem(LS_PREFIX + "pinned") === "1"; } catch (e) {}
+    if (!was) return;
+    // 새로고침이면 창은 이미 깔려 있다(테두리 없음). 앱을 새로 켠 때만 다시 깐다.
+    let decorated = true;
+    try { decorated = await win.isDecorated(); } catch (e) {}
+    if (decorated) pin(true); else { pinned = true; show(); }
+  })();
 }
 
 let inFrame = true;
