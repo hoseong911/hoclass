@@ -906,12 +906,20 @@ function checkEntries() {
 
   /* ---------- 업무 장: 주간 계획 ---------- */
   A.tab("work");
-  await until(() => A.$("woForm"), "업무 기록");
+  await until(() => A.$("woAdd"), "업무 추가 단추");
+  assert(!A.$("woForm"), "업무 추가 칸은 화면에 늘 펼쳐 두지 않는다");
+  A.$("woAdd").click();
+  await until(() => A.$("woModal") && A.$("woForm"), "업무 추가는 창으로 뜬다");
+  A.$("woClose").click();
+  await until(() => !A.$("woModal"), "닫기 단추로 창을 닫는다");
+  A.$("woAdd").click();
+  await until(() => A.$("woForm"), "다시 연다");
   const mon = (() => { const t = new Date(), w = t.getDay(); t.setDate(t.getDate() + (w === 0 ? 1 : w === 6 ? 2 : 1 - w));
     return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); })();
   A.fill("woTitle", "생기부 점검 제출"); A.fill("woDue", mon);
   A.submit("woForm");
   await until(() => A.book().includes("생기부 점검 제출"), "업무 기록 추가");
+  assert(!A.$("woModal"), "넣으면 창이 닫힌다");
   A.tab("week");
   await until(() => A.$("wkGrid") && A.d.querySelectorAll("#wkGrid .wk-day").length === 5, "주간 계획 다섯 칸");
   const monCol = () => A.d.querySelector('#wkGrid .wk-day[data-day="' + mon + '"]');
@@ -931,7 +939,9 @@ function checkEntries() {
 
   /* ---------- 업무 장: 월간 계획(주간과 같은 계획), 제목 옆 탭 한 줄 ---------- */
   assert.deepStrictEqual([...A.d.querySelectorAll("#nbSeg button")].map(b => b.textContent), ["계획과 업무", "할 일"], "업무 탭 둘(계획과 업무를 합쳤다)");
-  assert(A.$("moGrid") && A.d.querySelectorAll("#wkGrid .wk-day").length === 5 && A.$("woForm"), "한 화면에 월간 달력, 이번 주 닷새, 새 업무");
+  assert(A.$("moGrid") && A.d.querySelectorAll("#wkGrid .wk-day").length === 5 && A.$("woAdd"), "한 화면에 월간 달력, 이번 주 닷새, 업무 추가 단추");
+  assert(!A.d.querySelector("#classBody .mo-day"), "달력 옆 하루 칸은 없다");
+  assert(A.d.querySelector(".pw-fit #moGrid") && A.d.querySelector(".pw-fit #wkGrid"), "월간과 주간이 한 화면 틀(.pw-fit) 안에 있다");
   assert(A.d.querySelector("#moGrid .mo-cell.today") && A.d.querySelector("#wkGrid .wk-day.today") || [0, 6].includes(new Date().getDay()),
     "오늘은 달력과 주간 둘 다 칠한다(주말엔 주간에 오늘 칸이 없다)");
   assert(A.d.querySelector(".nb-head > #nbSeg") && A.d.querySelector(".nb-head > .nb-tools"), "탭과 도구가 제목 줄에 있다");
@@ -939,13 +949,13 @@ function checkEntries() {
   await until(() => A.$("moGrid"), "월간 계획 달력");
   if (mon.slice(0, 7) !== TODAY.slice(0, 7)) { A.d.querySelector('#classBody [aria-label="다음 달"]').click(); await until(() => A.$("moThis"), "다음 달로"); }
   const moCell = () => A.d.querySelector('#moGrid .mo-cell[data-day="' + mon + '"]');
-  const moDay = () => A.d.querySelector("#classBody .mo-day");
+  const moDay = () => monCol();   // 달력 칸을 누르면 그날이 든 주가 주간 계획에 열린다
   assert(moCell().textContent.includes("교과협의회 자료 준비"), "주간에서 적은 계획이 월간 달력에 보인다");
   moCell().click();
-  await until(() => moDay() && moDay().dataset.day === mon && A.$("moplan_" + mon), "달력 칸을 누르면 옆 칸이 그날로");
-  A.fill("moplan_" + mon, "월간에서 적은 계획");
-  A.$("moplan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
-  await until(() => moDay().textContent.includes("월간에서 적은 계획"), "월간에서 계획을 적는다");
+  await until(() => moDay() && A.$("plan_" + mon), "달력 칸을 누르면 그 주가 주간 계획에 열린다");
+  A.fill("plan_" + mon, "월간에서 적은 계획");
+  A.$("plan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
+  await until(() => moDay().textContent.includes("월간에서 적은 계획") && moCell().textContent.includes("월간에서 적은 계획"), "적은 계획이 주간과 달력에 같이 보인다");
   A.tab("week");
   await until(() => monCol() && monCol().textContent.includes("월간에서 적은 계획"), "월간에서 적은 것이 주간에 그대로");
 
@@ -1383,8 +1393,10 @@ function checkEntries() {
   await until(() => A.$("moGrid"), "월간");
   if (A.$("moThis")) { A.$("moThis").click(); await until(() => !A.$("moThis"), "이번 달"); }
   A.d.querySelector('#moGrid .mo-cell[data-day="' + wkDay + '"]').click();
-  await until(() => A.d.querySelector("#classBody .mo-day").textContent.includes("학교 캘린더 일정"), "고른 학교 캘린더 일정이 보인다");
-  const dayTxt = A.d.querySelector("#classBody .mo-day").textContent;
+  // 주말이면 그 줄의 주간 칸에 오늘이 없으므로 달력 칸 글로 본다
+  const dayBox = () => A.d.querySelector('#wkGrid .wk-day[data-day="' + wkDay + '"]') || A.d.querySelector('#moGrid .mo-cell[data-day="' + wkDay + '"]');
+  await until(() => dayBox().textContent.includes("학교 캘린더 일정"), "고른 학교 캘린더 일정이 보인다");
+  const dayTxt = dayBox().textContent;
   assert(!dayTxt.includes("가족 캘린더 일정") && !dayTxt.includes("기본 캘린더 일정"), "고르지 않은 캘린더는 안 보인다: " + dayTxt);
   gfake.token = null;
   A.setTab("work");

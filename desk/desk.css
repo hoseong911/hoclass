@@ -1086,7 +1086,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 }
 
 .wg > .card, #classBody, #bookBody, .todo-list, .dday-list,
-.periods, .lines, .tt-scroll, .memo, .students, .stu-pick, #gcalBody, #mealBody {
+.periods, .lines, .tt-scroll, .memo, .students, .stu-pick, #gcalBody, #mealBody, .wk-day {
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .wg > .card::-webkit-scrollbar,
@@ -1094,7 +1094,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .todo-list::-webkit-scrollbar, .dday-list::-webkit-scrollbar,
 .periods::-webkit-scrollbar, .lines::-webkit-scrollbar,
 .tt-scroll::-webkit-scrollbar, .memo::-webkit-scrollbar,
-.students::-webkit-scrollbar, .stu-pick::-webkit-scrollbar,
+.students::-webkit-scrollbar, .stu-pick::-webkit-scrollbar, .wk-day::-webkit-scrollbar,
 #gcalBody::-webkit-scrollbar, #mealBody::-webkit-scrollbar { width: 0; height: 0; }
 
 .deck.arranging .wg > .card { overflow: hidden; }
@@ -1232,7 +1232,6 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 
 /* ══════════ 월간 계획 ══════════ */
 .plan-sync { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
-.mo-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
 .mo-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .mo-wd { font-size: var(--fs-label); font-weight: 600; color: var(--muted); text-align: center; padding: 4px 0; }
 .mo-wd.sun, .mo-cell.sun .mo-num { color: var(--danger); }
@@ -1256,9 +1255,36 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .mo-ev.dday { background: var(--pass-soft); color: var(--ink); }
 .mo-ev.due { background: var(--surface-2); color: var(--muted); }
 .mo-more { font-size: 11px; color: var(--faint); }
-.mo-day { position: sticky; top: 0; }
-@media (max-width: 1100px) { .mo-wrap { grid-template-columns: minmax(0, 1fr); } .mo-cell { min-height: 64px; } }
+@media (max-width: 1100px) { .mo-cell { min-height: 64px; } }
 @media (max-width: 600px) { .mo-ev { display: none; } .mo-cell { min-height: 44px; } }
+
+/* 업무 장: 월간 달력과 주간 닷새가 스크롤 없이 한 화면에 든다. 업무 목록은 그 아래로 굴러 내려가서 본다.
+   주간이 한 단으로 쌓이는 좁은 화면(900px 이하)에서는 풀어 둔다. */
+@media (min-width: 901px) {
+  .pw-fit { flex: 0 0 100%; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+  .pw-sec { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .pw-month { flex: 3 1 0; }
+  .pw-week { flex: 2 1 0; }
+  .pw-fit .mo-grid { flex: 1 1 auto; min-height: 0; grid-template-rows: auto; grid-auto-rows: minmax(0, 1fr); }
+  /* 칸이 낮아도 첫 일정이 보이게 날짜 숫자 옆 칸에 일정을 쌓는다 */
+  .pw-fit .mo-cell { min-height: 0; overflow: hidden; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-rows: max-content; align-content: start; column-gap: 6px; padding: 5px 6px; }
+  .pw-fit .mo-num { grid-row: 1 / span 4; line-height: 1.6; }
+  .pw-fit .mo-ev, .pw-fit .mo-more { grid-column: 2; }
+  .pw-fit .wk-grid { min-height: 0; }
+  .pw-fit .wk-day { min-height: 0; overflow-y: auto; }
+}
+
+/* 업무 추가 창 */
+.modal-back { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 42, .35); }
+.modal-card {
+  width: min(520px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px; padding: 16px 18px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modal-head h3 { margin: 0; font-size: var(--fs-strong); }
+.modal-card .book-form { border: 0; padding: 0; }
+.modal-card .row { justify-content: flex-end; }
 
 /* ══════════ 글 쓰는 칸(textarea)이 잘 보이게(선생님 지적 2026-11-14) ══════════ */
 /* 흰 카드 위 옅은 회색 상자라 칸인 줄 몰랐다. 흰 바탕, 진한 테두리, 누르면 강조색 테두리와 은은한 빛 */

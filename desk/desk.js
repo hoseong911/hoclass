@@ -2642,9 +2642,10 @@ function renderNb() {
   if (!booted) return;
   const nb = nbOf(curPage);
   $("nb").hidden = !nb;
-  if (!nb) { homeTodos(); return; }
+  if (!nb) { closeWorkAdd(); homeTodos(); return; }
   const ks = keyStateNow(), open = ks === "open";
   lastKs = ks;
+  if (!open || nb.key !== "work") closeWorkAdd();
   const tab = nbTab[nb.key], usesCls = nb.key !== "work";
   if (open && nb.key === "lesson" && docs.lessons && docs.lessons.ready) {
     if (!subjAuto) { subjAuto = true; autoPickLesson(true); }          // 처음 열 때 지금(또는 다음) 수업 과목
@@ -4054,8 +4055,10 @@ async function doSend() {
 }
 
 /* ---------- 업무 ---------- */
-function workPage() {
-  const D = docs.works, items = D.value.items;
+function closeWorkAdd() { const m = $("woModal"); if (m) m.remove(); }
+function openWorkAdd() {
+  closeWorkAdd();
+  const D = docs.works;
   const titleIn = h("input", { type: "text", id: "woTitle", maxlength: "100", autocomplete: "off" });
   const dueIn = h("input", { type: "date", id: "woDue" });
   const fromIn = h("input", { type: "text", id: "woFrom", maxlength: "60", autocomplete: "off" });
@@ -4068,7 +4071,7 @@ function workPage() {
       id: uid(), title: titleIn.value.trim().slice(0, 100), due: dueIn.value || "",
       from: fromIn.value.trim().slice(0, 60), memo: memoIn.value.trim().slice(0, 1000), done: false,
     });
-    saveEnc(D); renderBook(); toast("업무를 적었습니다");
+    saveEnc(D); closeWorkAdd(); renderBook(); toast("업무를 적었습니다");
   } },
     h("div", { class: "form-grid" },
       h("label", { class: "field wide" }, "업무", titleIn),
@@ -4076,7 +4079,20 @@ function workPage() {
       h("label", { class: "field wide" }, "메모", memoIn)),
     err,
     h("div", { class: "row" }, h("button", { class: "btn small", type: "submit", text: "추가" })));
+  const back = h("div", { class: "modal-back", id: "woModal",
+    onclick: (e) => { if (e.target === back) closeWorkAdd(); },
+    onkeydown: (e) => { if (e.key === "Escape") closeWorkAdd(); } },
+    h("section", { class: "modal-card", role: "dialog", "aria-modal": "true", "aria-labelledby": "woModalTitle" },
+      h("div", { class: "modal-head" },
+        h("h3", { id: "woModalTitle", text: "업무 추가" }),
+        h("button", { class: "set-x", type: "button", id: "woClose", "aria-label": "닫기", text: "×", onclick: closeWorkAdd })),
+      form));
+  document.body.append(back);
+  titleIn.focus();
+}
 
+function workPage() {
+  const D = docs.works, items = D.value.items;
   const sorted = items.slice().sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
     if (!a.due !== !b.due) return a.due ? -1 : 1;
@@ -4099,7 +4115,6 @@ function workPage() {
   const left = items.filter(x => !x.done).length;
   const over = items.filter(x => !x.done && x.due && dnum(x.due) < 0).length;
   return [
-    panel("새 업무", form),
     panel("업무 " + left + "건 남음" + (over ? ", 기한 지남 " + over : ""),
       lines.length ? h("ul", { class: "lines" }, ...lines) : noneLine("업무가 없습니다.")),
   ];
@@ -4202,7 +4217,7 @@ function planStatus(pre = "") {
       onclick: async () => { if (linked) planSync(); else { await gcalConnect(); planSync(); } } }) : null);
 }
 
-/* 하루 칸: 학사 일정, D-day, 구글 일정, 업무 기한(보기만)과 내 계획(적고, 체크, 지우기). 주간 칸과 월간의 고른 날이 같이 쓴다. */
+/* 하루 칸: 학사 일정, D-day, 구글 일정, 업무 기한(보기만)과 내 계획(적고, 체크, 지우기). */
 function dayPanel(d, label, opts = {}) {
   const W = docs.works, today = todayKey(), off = offName(d);
   const ev = [
@@ -4212,9 +4227,8 @@ function dayPanel(d, label, opts = {}) {
     ...W.value.items.filter(x => x.due === d).map(x => h("li", { class: "wk-ev wk-due" + (x.done ? " done" : "") }, h("span", { class: "tag", text: "기한" }), x.title)),
   ];
   const mine = livePlans(plansOf()).filter(p => p.d === d);
-  const pre = opts.pre || "";                          // 한 화면에 하루 칸이 둘(달력 옆, 주간)이라 id 가 겹친다
-  const input = h("input", { type: "text", id: pre + "plan_" + d, maxlength: "100", autocomplete: "off", "aria-label": label + " 계획" });
-  return h("section", { class: "wk-day" + (d === today ? " today" : "") + (off ? " wk-offday" : "") + (opts.cls ? " " + opts.cls : ""), "data-day": d },
+  const input = h("input", { type: "text", id: "plan_" + d, maxlength: "100", autocomplete: "off", "aria-label": label + " 계획" });
+  return h("section", { class: "wk-day" + (d === today ? " today" : "") + (off ? " wk-offday" : ""), "data-day": d },
     h("h4", { class: "wk-head" }, ...opts.head, d === today ? h("span", { class: "tag", text: "오늘" }) : null),
     ev.length ? h("ul", { class: "wk-evs" }, ...ev) : null,
     h("ul", { class: "wk-plan" }, ...mine.map(p => {
@@ -4228,7 +4242,7 @@ function dayPanel(d, label, opts = {}) {
       e.preventDefault();
       const t = input.value.trim(); if (!t) return;
       planAdd(d, t);
-      const again = $(pre + "plan_" + d); if (again) again.focus();
+      const again = $("plan_" + d); if (again) again.focus();
     } }, input));
 }
 
@@ -4243,20 +4257,22 @@ function weekView() {
         navBtn("앞 주", CHEV_L, () => { weekMon = addDaysIso(mon, -7); renderNb(); }),
         h("span", { class: "att-date wk-range", id: "wkRange", text: `${md(days[0])} ~ ${md(days[4])}` }),
         navBtn("다음 주", CHEV_R, () => { weekMon = addDaysIso(mon, 7); renderNb(); }),
-        mon === thisMon ? null : h("button", { class: "text-btn", type: "button", id: "wkThis", text: "이번 주", onclick: () => { weekMon = ""; renderNb(); } }))),
+        mon === thisMon ? null : h("button", { class: "text-btn", type: "button", id: "wkThis", text: "이번 주", onclick: () => { weekMon = ""; monthPick = ""; renderNb(); } }))),
     h("div", { class: "wk-grid", id: "wkGrid" }, ...days.map((d, i) => dayPanel(d, WD5[i] + "요일",
       { head: [h("span", { class: "wd", text: WD5[i] }), h("span", { class: "md", text: md(d) })] }))),
   ];
 }
 
-/* 업무 장 월간 계획(선생님 지시 2026-11-14). 달력 칸에는 그날 것을 짧게, 누른 날은 옆 칸에서 적고 고친다. 주간과 같은 계획이다. */
+/* 업무 장 월간 계획. 달력 칸에는 그날 것을 짧게, 누른 날이 든 주가 아래 주간 계획에 열린다. 주간과 같은 계획이다. */
 let monthYm = "", monthPick = "";
 const WD7 = ["일", "월", "화", "수", "목", "금", "토"];
+// 달력 줄(일~토)의 월요일. 일요일은 다음 날, 토요일은 닷새 전.
+const rowMonday = (d) => addDaysIso(d, 1 - parseDate(d).getDay());
 function monthView() {
   const today = todayKey(), ym = monthYm || today.slice(0, 7);
   const [y, m] = ym.split("-").map(Number);
-  const first = `${ym}-01`, last = new Date(y, m, 0).getDate();
-  const pick = monthPick && monthPick.startsWith(ym) ? monthPick : (today.startsWith(ym) ? today : first);
+  const last = new Date(y, m, 0).getDate();
+  const pick = monthPick;
   const shiftYm = (n) => { const d = new Date(y, m - 1 + n, 1); monthYm = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; renderNb(); };
   const lead = new Date(y, m - 1, 1).getDay();
   const cells = [];
@@ -4272,35 +4288,30 @@ function monthView() {
     ];
     cells.push(h("button", { class: "mo-cell" + (d === today ? " today" : "") + (d === pick ? " pick" : "") + (wd === 0 ? " sun" : wd === 6 ? " sat" : "") + (offName(d) ? " offday" : ""),
       type: "button", "data-day": d, "aria-pressed": String(d === pick), "aria-label": `${m}월 ${day}일 ${marks.length}건`,
-      onclick: () => { monthPick = d; renderNb(); } },
+      onclick: () => { monthPick = d; weekMon = rowMonday(d); renderNb(); } },
       h("span", { class: "mo-num", text: String(day) }),
       ...marks.slice(0, 3).map(x => h("span", { class: "mo-ev " + x.c, text: x.t })),
       marks.length > 3 ? h("span", { class: "mo-more", text: `외 ${marks.length - 3}` }) : null));
   }
-  const pd = new Date(pick + "T00:00:00");
-  const pLabel = `${pd.getMonth() + 1}월 ${pd.getDate()}일`;
   return [
     h("div", { class: "cls-line" },
       h("div", { class: "att-nav" },
         navBtn("앞 달", CHEV_L, () => shiftYm(-1)),
         h("span", { class: "att-date", id: "moRange", text: `${y}년 ${m}월` }),
         navBtn("다음 달", CHEV_R, () => shiftYm(1)),
-        ym === today.slice(0, 7) ? null : h("button", { class: "text-btn", type: "button", id: "moThis", text: "이번 달", onclick: () => { monthYm = ""; monthPick = ""; renderNb(); } })),
-      planStatus()),
-    h("div", { class: "mo-wrap" },
-      h("div", { class: "mo-grid", id: "moGrid" }, ...WD7.map((w, i) => h("div", { class: "mo-wd" + (i === 0 ? " sun" : i === 6 ? " sat" : ""), text: w })), ...cells),
-      dayPanel(pick, pLabel, { cls: "mo-day", pre: "mo", head: [h("span", { class: "wd", text: WD7[pd.getDay()] }), h("span", { class: "md", text: pLabel })] })),
+        ym === today.slice(0, 7) ? null : h("button", { class: "text-btn", type: "button", id: "moThis", text: "이번 달", onclick: () => { monthYm = ""; monthPick = ""; weekMon = ""; renderNb(); } })),
+      planStatus(),
+      h("button", { class: "btn small", type: "button", id: "woAdd", text: "업무 추가", onclick: openWorkAdd })),
+    h("div", { class: "mo-grid", id: "moGrid" }, ...WD7.map((w, i) => h("div", { class: "mo-wd" + (i === 0 ? " sun" : i === 6 ? " sat" : ""), text: w })), ...cells),
   ];
 }
 
-/* 업무 장 한 화면(선생님 지시 2026-11-16 "주간계획, 월간계획, 업무 추가하는 거 하나 메뉴로"):
-   맨 위 월간 달력(고른 날 칸은 옆), 그 밑에 이번 주 닷새, 그 아래 새 업무와 업무 목록. 오늘은 달력과 주간 둘 다 칠한다. */
+/* 업무 장 한 화면: 월간 달력과 주간 닷새가 스크롤 없이 한 화면(.pw-fit), 업무 목록은 그 아래. 오늘은 달력과 주간 둘 다 칠한다. */
 function planWorkView() {
   return [
-    h("h4", { class: "lt-title", text: "월간 계획" }),
-    ...monthView(),
-    h("h4", { class: "lt-title", text: "주간 계획" }),
-    ...weekView(),
+    h("div", { class: "pw-fit" },
+      h("div", { class: "pw-sec pw-month" }, h("h4", { class: "lt-title", text: "월간 계획" }), ...monthView()),
+      h("div", { class: "pw-sec pw-week" }, h("h4", { class: "lt-title", text: "주간 계획" }), ...weekView())),
     h("h4", { class: "lt-title", text: "업무" }),
     h("div", { class: "book-cols" }, ...workPage()),
   ];
