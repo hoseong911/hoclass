@@ -1333,7 +1333,7 @@ if (TW) {
   async function pin(on) {
     try {
       if (on) {
-        before = { pos: await win.outerPosition(), size: await win.outerSize(), max: await win.isMaximized() };
+        before = { pos: await win.outerPosition(), size: await win.innerSize(), max: await win.isMaximized() };   // setSize 는 안쪽 크기를 받는다
         const mon = await TW.currentMonitor();
         const area = mon && (mon.workArea || { position: mon.position, size: mon.size });
         if (before.max) await win.unmaximize();

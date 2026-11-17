@@ -42,6 +42,14 @@ pub fn run() {
           }
         })
         .build()?;
+      // 화면 배율이 큰 노트북(200% 등)에서는 기본 크기가 화면보다 커서 최대화로 연다.
+      let win = app.get_webview_window("desk").expect("창이 없습니다");
+      if let (Ok(Some(m)), Ok(s)) = (win.current_monitor(), win.outer_size()) {
+        let area = m.work_area().size;
+        if s.width > area.width || s.height > area.height {
+          let _ = win.maximize();
+        }
+      }
       Ok(())
     })
     .run(tauri::generate_context!())

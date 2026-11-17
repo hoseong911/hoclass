@@ -379,6 +379,9 @@ Calendar API 를 부른다. 열쇠는 한 시간쯤 살고 파베가 되살려 �
   `desk.js` 에서 창 기능을 새로 부르면 그 허락도 더한다(안 더하면 앱에서만 조용히 실패한다).
 - **위젯으로**(`#toWidget`, 앱에서만 보인다): 창을 테두리 없이 작업 영역 전체로 펴서 다른 창 뒤에 깐다. 다시 누르면 「창으로」 되돌린다.
 - 새 창 요청은 `keep_inside` 가 가른다: 파베 로그인 창과 github.io 만 앱 안, 나머지(바로가기 등)는 기본 브라우저.
+- **앱을 로그인 없이 시험하는 법**: Actions 의 `gyomu-note` 묶음(`gh run download <번호> -n gyomu-note`)에서 실행 파일을 받아
+  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333` 을 걸고 켠다. `http://127.0.0.1:9333/json` 의 웹소켓으로
+  `Runtime.evaluate` 를 보내면 앱 안 페이지에서 `__TAURI__` 를 부를 수 있다(2026-11-17 위젯으로 단추를 이렇게 확인했다).
 
 ### 파이어스토어에 담을 수 없는 값 (2026-11-12)
 

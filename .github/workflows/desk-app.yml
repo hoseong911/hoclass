@@ -48,6 +48,7 @@ jobs:
           releaseBody: "아래 Assets 의 setup.exe 를 받아 실행하면 설치됩니다."
           releaseDraft: false
           prerelease: false
+          assetNamePattern: "gyomu-note_[version]_[arch][setup][ext]"
 
       - name: 실행 파일도 따로 남기기(점검용)
         uses: actions/upload-artifact@v4
