@@ -206,10 +206,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .wk-ev.done { color: var(--faint); text-decoration: line-through; }
 .wk-plan .todo { padding: 5px 0; gap: 8px; font-size: 13px; }
 .wk-plan .todo:first-child { border-top: 0; }
-.wk-add { margin-top: auto; }
-/* 비어 있는 회색 덩어리처럼 보이지 않게, 적을 자리만 점선으로 */
-.wk-add input { width: 100%; font-size: 13px; padding: 6px 8px; background: transparent; border: 1px dashed var(--line); }
-.wk-add input:focus { border-style: solid; background: var(--surface); }
+/* 칸을 누르면 그 칸에 적는 줄이 열린다(늘 펼쳐 두지 않는다) */
+.wk-day { cursor: pointer; }
+.wk-add { margin: 0; flex: none; }
+.wk-add input { width: 100%; font-size: 13px; padding: 5px 8px; background: var(--surface); border: 1px solid var(--accent); }
+.mo-cell .wk-add input { font-size: 12px; padding: 2px 6px; }
 @media (max-width: 900px) { .wk-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* 수업 장 진도 표 */
@@ -1275,7 +1276,9 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .pw-fit .mo-cell { min-height: 0; overflow: hidden; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-rows: max-content; align-content: start; column-gap: 6px; padding: 5px 6px; }
   .pw-fit .mo-num { grid-row: 1 / span 4; line-height: 1.6; }
   .pw-fit .mo-ev, .pw-fit .mo-more { grid-column: 2; }
-  .pw-fit .wk-grid { min-height: 0; }
+  /* 줄 높이를 칸 높이에 묶는다. 안 묶으면 일정이 많은 날 줄이 내용만큼 늘어 아래로 넘친다 */
+  .pw-fit .wk-grid { min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  .pw-fit .mo-cell .wk-add { grid-column: 2; }
   .pw-fit .wk-day { min-height: 0; overflow-y: auto; }
 }
 

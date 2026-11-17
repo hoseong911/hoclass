@@ -914,24 +914,23 @@ function checkEntries() {
 
   /* ---------- 업무 장: 주간 계획 ---------- */
   A.tab("work");
-  await until(() => A.$("woAdd"), "업무 추가 단추");
-  assert(!A.$("woForm"), "업무 추가 칸은 화면에 늘 펼쳐 두지 않는다");
-  A.$("woAdd").click();
-  await until(() => A.$("woModal") && A.$("woForm"), "업무 추가는 창으로 뜬다");
-  A.$("woClose").click();
-  await until(() => !A.$("woModal"), "닫기 단추로 창을 닫는다");
-  A.$("woAdd").click();
-  await until(() => A.$("woForm"), "다시 연다");
+  await until(() => A.$("woAdd") && A.$("wkGrid"), "업무 추가 단추");
   const mon = (() => { const t = new Date(), w = t.getDay(); t.setDate(t.getDate() + (w === 0 ? 1 : w === 6 ? 2 : 1 - w));
     return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); })();
-  A.fill("woTitle", "생기부 점검 제출"); A.fill("woDue", mon);
-  A.submit("woForm");
-  await until(() => A.book().includes("생기부 점검 제출"), "업무 기록 추가");
-  assert(!A.$("woModal"), "넣으면 창이 닫힌다");
-  A.tab("week");
-  await until(() => A.$("wkGrid") && A.d.querySelectorAll("#wkGrid .wk-day").length === 5, "주간 계획 다섯 칸");
   const monCol = () => A.d.querySelector('#wkGrid .wk-day[data-day="' + mon + '"]');
-  assert(monCol().textContent.includes("생기부 점검 제출"), "월요일 칸에 업무 기한이 보인다");
+  /* 업무 0건 목록은 없다. 적는 줄은 늘 펼쳐 두지 않고, 칸을 누르면 그 칸에 열린다(선생님 지시 2026-11-17) */
+  assert(![...A.d.querySelectorAll("#classBody .hd-t")].some(t => t.textContent === "업무"), "업무가 없으면 업무 목록 머리줄도 없다");
+  assert(!A.d.querySelector("#classBody .wk-add"), "적는 줄은 늘 펼쳐 두지 않는다");
+  A.$("woAdd").click();
+  {
+    const w = new Date().getDay(), id = (w === 0 || w === 6 ? "moplan_" : "plan_") + TODAY;
+    await until(() => A.$(id) && A.d.activeElement === A.$(id), "+ 아이콘은 오늘 칸에 적는 줄을 연다");
+    A.$(id).dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await until(() => !A.$(id), "ESC 로 닫는다");
+  }
+  await until(() => A.$("wkGrid") && A.d.querySelectorAll("#wkGrid .wk-day").length === 5, "주간 계획 다섯 칸");
+  monCol().click();
+  await until(() => A.$("plan_" + mon) && monCol().contains(A.$("plan_" + mon)), "주간 칸을 누르면 그 칸에 적는 줄이 열린다");
   A.fill("plan_" + mon, "교과협의회 자료 준비");
   A.$("plan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
   await until(() => monCol().textContent.includes("교과협의회 자료 준비"), "월요일 칸에 계획을 적는다");
@@ -964,12 +963,12 @@ function checkEntries() {
   await until(() => A.$("moGrid"), "월간 계획 달력");
   if (mon.slice(0, 7) !== TODAY.slice(0, 7)) { A.d.querySelector('#classBody [aria-label="다음 달"]').click(); await until(() => A.$("moThis"), "다음 달로"); }
   const moCell = () => A.d.querySelector('#moGrid .mo-cell[data-day="' + mon + '"]');
-  const moDay = () => monCol();   // 달력 칸을 누르면 그날이 든 주가 주간 계획에 열린다
+  const moDay = () => monCol();   // 달력 칸을 누르면 그날이 든 주가 주간 계획에도 열린다
   assert(moCell().textContent.includes("교과협의회 자료 준비"), "주간에서 적은 계획이 월간 달력에 보인다");
   moCell().click();
-  await until(() => moDay() && A.$("plan_" + mon), "달력 칸을 누르면 그 주가 주간 계획에 열린다");
-  A.fill("plan_" + mon, "월간에서 적은 계획");
-  A.$("plan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
+  await until(() => moDay() && A.$("moplan_" + mon) && moCell().contains(A.$("moplan_" + mon)), "달력 칸을 누르면 그 칸에 바로 적는 줄이 열린다");
+  A.fill("moplan_" + mon, "월간에서 적은 계획");
+  A.$("moplan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
   await until(() => moDay().textContent.includes("월간에서 적은 계획") && moCell().textContent.includes("월간에서 적은 계획"), "적은 계획이 주간과 달력에 같이 보인다");
   A.tab("week");
   await until(() => monCol() && monCol().textContent.includes("월간에서 적은 계획"), "월간에서 적은 것이 주간에 그대로");
