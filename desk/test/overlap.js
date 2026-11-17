@@ -205,6 +205,8 @@ async function dumpWidgets() {
     await wait(30);
   }
 
+  A.$("ddayAdd").click();               // D-day 추가는 창으로 연다
+  await wait(30);
   fill("ddayName", "2학기 기말고사 — 전 학년"); fill("ddayDate", "2026-12-14");
   submit("ddayForm");
   await wait(400);

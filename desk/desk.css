@@ -84,7 +84,13 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .wg[data-w="now"] > .card, .wg[data-w="ddays"] > .card {
   text-align: center; justify-content: space-between;
 }
-.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* 위젯 머리줄도 같은 규칙: 제목 | 기능, 안내 | 맨 오른쪽 아이콘 단추 */
+.card-head { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.card-head > .icon-btn { margin-left: auto; }
+.card-head > .icon-btn + .icon-btn { margin-left: 0; }
+/* 위젯 머리줄 아이콘은 제목 글자 높이에 맞춘다(머리줄이 높아지면 작은 칸에서 내용이 잘린다) */
+.card-head > .text-btn.icon-btn { padding: 1px; }
+.card-head > .icon-btn svg { width: 14px; height: 14px; }
 .card-title { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0; }
 .card-aside { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .text-btn { border: 0; background: none; color: var(--muted); font-size: 12px; cursor: pointer; padding: 2px 4px; }
@@ -174,7 +180,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .nsub-cls { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }
 .nsub-cls .cpick { padding: 3px 9px; }
 /* 우리 반 보기: 위 한 줄 요약(왼쪽 숫자, 오른쪽 글자 단추), 가운데 학생 칸, 맨 아래 드문 단추 */
-.cls-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .att-sum { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
 .att-sum b { font-family: var(--font-num); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .att-sum .absent, .att-sum .absent b { color: var(--danger); }
@@ -225,9 +230,7 @@ table.prog { width: 100%; border-collapse: collapse; font-size: 14px; }
 
 /* 출결 한 건 고르개: 학생 칸을 누르면 열린다 */
 .att-ed { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--accent); border-radius: 12px; background: var(--surface); }
-.att-ed-head { display: flex; align-items: baseline; gap: 10px; }
-.att-ed-head b { font-size: 15px; }
-.att-ed-head .text-btn { margin-left: auto; }
+.att-ed-head .hd-t { font-size: 15px; }
 .att-ed .muted { color: var(--muted); font-size: 13px; }
 .att-ed-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .att-ed-row .lbl { flex: 0 0 64px; font-size: 13px; color: var(--muted); }
@@ -316,8 +319,6 @@ table.att-month { width: 100%; border-collapse: collapse; font-size: 12px; font-
 .dday.past .d { color: var(--faint); }
 .dday .t { font-weight: 500; overflow-wrap: anywhere; }
 .dday .dt { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
-.dday-form { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
-@media (max-width: 420px) { .dday-form { grid-template-columns: minmax(0, 1fr) auto; } .dday-form input[type="text"] { grid-column: 1 / -1; } }
 
 /* 주간 시간표 */
 .tt-scroll { overflow-x: auto; }
@@ -406,11 +407,11 @@ table.tt-edit th.ph { width: 132px; padding: 6px 4px; vertical-align: middle; }
 .book-seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; }
 .book-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; align-items: start; }
 .panel { background: var(--surface-2); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.panel > h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+.panel > .hd > h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
 .panel .empty { font-size: 13px; }
 .lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .line { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; display: grid; gap: 4px; }
-.line .top { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
+.line .top { min-height: 0; }
 .line .ttl { font-weight: 600; overflow-wrap: anywhere; }
 .line .when { font-family: var(--font-num); font-size: 12px; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .line .body { font-size: 13px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -693,13 +694,12 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .rs-plan > .set-state, .rs-plan > .set-row { padding: 10px 14px 0; }
 /* 묶음은 회색 상자 대신 위 가는 줄과 여백으로 나눈다(선생님 지적 2026-11-13: 상자가 겹겹이라 난잡하다). */
 .set-block { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
-.set-sec > h3 + .set-block { border-top: 0; padding-top: 0; }
-.set-block > .set-sub { margin: 0 0 2px; }
+.set-sec > .hd + .set-block { border-top: 0; padding-top: 0; }
 /* .set-state 는 줄(row) 안에서 늘어나라고 flex-basis 140px 이다. 세로 묶음 안에서는 그게 높이가 된다. */
 /* 고르개(.seg)는 칸 폭만큼 늘어나지 않게 */
 .set-block > .seg, .set-form > .seg, .set-val > .seg { align-self: flex-start; }
 .set-row > input[type="text"], .set-row > input[type="password"] { flex: 1 1 200px; min-width: 0; }
-.set-sec > h3 { font-size: var(--fs-strong); font-weight: 700; margin: 0; }
+.set-sec > .hd > h3 { font-size: var(--fs-strong); font-weight: 700; margin: 0; }
 .set-sub { font-size: 12px; font-weight: 600; color: var(--muted); margin: 2px 0 -4px; }
 .set-form { display: contents; }
 .set-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -810,8 +810,8 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 }
 
 .class-name, .wg-tag,
-.book-seg button, .lock-panel h3, .panel > h3, .who .nm,
-.set-title, .set-sec > h3 { font-family: var(--font-title); }
+.book-seg button, .lock-panel h3, .panel > .hd > h3, .who .nm,
+.set-title, .set-sec > .hd > h3 { font-family: var(--font-title); }
 .card-title { font-size: var(--fs-label); font-family: var(--font-head); }
 .clock { font-size: var(--fs-clock); font-weight: 600; letter-spacing: -0.03em; }
 .class-name { font-size: var(--fs-strong); }
@@ -970,7 +970,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .line .when { font-size: 11px; }
   .line .body { font-size: 12px; }
   .tag { font-size: 10.5px; }
-  .panel > h3 { font-size: 11.5px; }
+  .panel > .hd > h3 { font-size: 11.5px; }
   .count .v { font-size: 16px; }
   .count .k { font-size: 10.5px; }
   .gcal-ev { font-size: 12.5px; }
@@ -1017,7 +1017,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .line .when { font-size: 10.5px; }
   .line .body { font-size: 11.5px; }
   .tag { font-size: 10px; }
-  .panel > h3 { font-size: 11px; }
+  .panel > .hd > h3 { font-size: 11px; }
   .count .v { font-size: 14px; }
   .count .k { font-size: 10px; }
   .gcal-ev { font-size: 11.5px; }
@@ -1066,7 +1066,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .line .when { font-size: 10px; }
   .line .body { font-size: 11px; }
   .tag { font-size: 9.5px; }
-  .panel > h3 { font-size: 10.5px; }
+  .panel > .hd > h3 { font-size: 10.5px; }
   .count .v { font-size: 13px; }
   .count .k { font-size: 10px; }
   .gcal-ev { font-size: 11px; }
@@ -1218,11 +1218,17 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .del.icon-btn svg, .wg-off.icon-btn svg, .pg-del.icon-btn svg { width: 14px; height: 14px; }
 
 /* 설정 카드, 묶음 제목 끝의 단추(단추 하나만 따로 한 줄에 두지 않는다) */
-.set-hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
-.set-acts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
-.set-hd > h3 { font-family: var(--font-title); font-size: var(--fs-strong); font-weight: 700; margin: 0; }
-.set-hd > .set-sub { margin: 0; }
-.set-sec > .set-hd + .set-block { border-top: 0; padding-top: 0; }
+/* 머리줄 한 줄(화면 규칙): 제목 | 기능 단추 | 안내, 오류 | 맨 오른쪽 아이콘 동작 단추. desk.js 의 hd() 가 자리를 가른다.
+   그 아래가 내용이고 내용 아래에는 아무것도 두지 않는다. */
+.hd { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; min-height: 30px; }
+.hd > .hd-t { margin: 0; }
+.hd > h3.hd-t, .hd > h4.hd-t { font-size: var(--fs-strong); font-weight: 700; }
+.hd > .set-sub { margin: 0; }
+.hd > p, .hd > .form-err, .hd > .set-state, .hd > .tip, .hd > .hint { margin: 0; }
+.hd > .form-err:empty, .hd > .set-state:empty, .hd > .hd-note:empty, .hd > .tip:empty { display: none; }
+.hd-note { font-size: 12px; color: var(--muted); }
+.hd-acts { margin-left: auto; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.hd > input, .hd > select { width: auto; }
 
 /* 설정 학생 명단: 반 줄 아래 펼치는 편집 칸 */
 .rs-list .rs-edit { border-radius: 0; border-top: 1px solid var(--line); }
@@ -1231,7 +1237,6 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .calpaste textarea, #calText { min-height: 120px; }
 
 /* ══════════ 월간 계획 ══════════ */
-.plan-sync { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .mo-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .mo-wd { font-size: var(--fs-label); font-weight: 600; color: var(--muted); text-align: center; padding: 4px 0; }
 .mo-wd.sun, .mo-cell.sun .mo-num { color: var(--danger); }
@@ -1281,8 +1286,6 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   display: flex; flex-direction: column; gap: 12px; padding: 16px 18px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
 }
-.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.modal-head h3 { margin: 0; font-size: var(--fs-strong); }
 .modal-card .book-form { border: 0; padding: 0; }
 .modal-card .row { justify-content: flex-end; }
 
@@ -1423,7 +1426,6 @@ table.pa-table { width: auto; min-width: 100%; }
 
 /* 수업 출결: 오늘 수업 반마다 하루 표 */
 .lt-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.lt-title { margin: 6px 0 0; font-size: 14px; font-weight: 700; }
 .att-month thead .dp { display: block; font-size: 10px; color: var(--muted); font-weight: 500; }
 .att-month td[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
 .pa-table th.pa-cls, .pa-table td.pa-cell { width: 110px; min-width: 96px; }
@@ -1462,7 +1464,6 @@ table.pa-table { table-layout: fixed; width: 100%; min-width: calc(300px + var(-
 .ls-row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ls-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .ls-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.ls-acts { margin-left: auto; }
 .ls-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 .ls-ta { min-height: 360px; resize: vertical; }
 .ls-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
@@ -1482,9 +1483,6 @@ table.tt-base th.ph { width: 64px; font-size: 13px; }
 .tt-base td.on select { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 /* 진도 단추 한 줄(2026-11-15) */
-.prog-bar { display: flex; flex-direction: column; gap: 6px; }
-.prog-bar-row { flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.prog-bar-sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
 .prog-bar .text-btn { font-size: 13px; }
 /* 진도표 줄마다 바로 지우기 */
 .pc-li { display: flex; align-items: center; gap: 2px; }
@@ -1576,7 +1574,6 @@ table.att-month td.pick { background: var(--surface-2); }
 /* ── 담임 출결 한 화면(선생님 지시 2026-11-16) ──
    달 줄, 통계, 범례, 복사가 한 줄이고 표만 제 안에서 굴러간다. 아래 적는 칸은 늘 보인다. */
 .att-bar { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; flex: none; }
-.att-bar .att-right { margin-left: auto; }
 .att-one { flex: 1 1 auto; min-height: 0; }
 .att-one .att-month-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .att-one .att-below { flex: none; }

@@ -453,6 +453,13 @@ function checkEntries() {
   assert(!allStored().includes(rec.replace(/-/g, "")), "복구 키 평문 저장 금지");
   A.go("대시보드");
   await until(() => !A.$("deck").hidden && A.$("nb").hidden, "대시보드로 돌아온다");
+  /* D-day 추가는 위젯 머리줄 오른쪽 아이콘 단추로 여는 창이다(위젯 아래에 넣는 칸이 없다) */
+  assert(!A.$("ddayForm") && A.$("ddayAdd").classList.contains("icon-btn"), "D-day 위젯 아래에 넣는 칸이 없다");
+  A.$("ddayAdd").click();
+  await until(() => A.$("ddayModal") && A.$("ddayForm"), "D-day 추가 창");
+  A.fill("ddayName", "창에서 넣은 일정"); A.fill("ddayDate", "2026-12-24");
+  A.submit("ddayForm");
+  await until(() => !A.$("ddayModal") && A.$("ddayList").textContent.includes("창에서 넣은 일정"), "넣으면 창이 닫히고 목록에 보인다");
 
   /* ---------- 올해 설정: 2027, 담임 반은 호클래스에 없는 3-9 ---------- */
   A.$("toolSet").click();
@@ -833,7 +840,8 @@ function checkEntries() {
   A.d.querySelector('#attEd .att-r [data-v="인정"]').click();
   A.$("attAdd").click();
   await until(() => A.$("attEd").querySelector(".form-err").textContent.includes("몇 교시까지"), "지각은 교시를 골라야 한다");
-  assert(A.$("attAdd").closest(".att-ed-row").querySelector("#attMemo"), "「추가」는 메모 줄에 같이 있다(혼자 한 줄 금지)");
+  assert(A.$("attAdd").closest(".hd-acts") && A.$("attAdd").closest(".att-ed-head"), "「추가」는 고르개 머리줄 오른쪽 끝 아이콘이다(내용 아래에 두지 않는다)");
+  assert(A.$("attEd").lastElementChild.querySelector("#attMemo"), "고르개 맨 아래는 메모 칸이다(그 아래 아무것도 없다)");
   A.d.querySelector("#attEd .att-ed-item .del").click();
   await until(() => A.d.querySelectorAll("#attEd .att-ed-item").length === 1, "한 건만 지운다");
   A.btn("#attEd", "닫기").click();
@@ -885,7 +893,7 @@ function checkEntries() {
   /* ---------- 교무수첩 장의 기록 화면 ---------- */
   for (const p of ["student", "consult", "prog", "work"]) {
     A.tab(p); await wait(40);
-    assert(A.d.querySelectorAll("#classBody .panel").length > 0, p + " 화면이 비었다");
+    assert(A.d.querySelectorAll("#classBody .panel, #classBody .hd").length > 0, p + " 화면이 비었다");
   }
 
   /* 담임 학생도 1단 세로 표 + 3단 세부(2026-11-16, 수업 장 학생과 같은 틀) */
@@ -941,6 +949,13 @@ function checkEntries() {
   assert.deepStrictEqual([...A.d.querySelectorAll("#nbSeg button")].map(b => b.textContent), ["계획과 업무", "할 일"], "업무 탭 둘(계획과 업무를 합쳤다)");
   assert(A.$("moGrid") && A.d.querySelectorAll("#wkGrid .wk-day").length === 5 && A.$("woAdd"), "한 화면에 월간 달력, 이번 주 닷새, 업무 추가 단추");
   assert(!A.d.querySelector("#classBody .mo-day"), "달력 옆 하루 칸은 없다");
+  {
+    const head = A.$("moRange").closest(".hd");
+    assert(head && head.querySelector(".hd-t").textContent === "월간 계획" && head.contains(A.$("woAdd")) && A.$("woAdd").closest(".hd-acts"),
+      "월간 계획 제목, 달 넘김, 업무 추가 아이콘이 한 줄");
+    assert(A.$("wkRange").closest(".hd").querySelector(".hd-t").textContent === "주간 계획", "주간 계획 제목과 주 넘김이 한 줄");
+    assert(!A.d.querySelector("#classBody .lt-title, #classBody .cls-foot, #setPanel .set-foot"), "제목만 따로 한 줄을 차지하거나 내용 아래에 단추 줄을 두지 않는다");
+  }
   assert(A.d.querySelector(".pw-fit #moGrid") && A.d.querySelector(".pw-fit #wkGrid"), "월간과 주간이 한 화면 틀(.pw-fit) 안에 있다");
   assert(A.d.querySelector("#moGrid .mo-cell.today") && A.d.querySelector("#wkGrid .wk-day.today") || [0, 6].includes(new Date().getDay()),
     "오늘은 달력과 주간 둘 다 칠한다(주말엔 주간에 오늘 칸이 없다)");
@@ -1239,7 +1254,7 @@ function checkEntries() {
   A.$("undoBtn").click();
   await until(() => A.$("progAll") && n31() === n31a, "실행취소");
   const rowsBefore = paRows().length;
-  assert(A.$("genPlan").closest(".prog-bar-row") === A.$("clearEmpty").closest(".prog-bar-row"), "만들기와 지우기는 한 줄");
+  assert(A.$("genPlan").parentElement === A.$("clearEmpty").closest(".hd"), "만들기와 지우기는 머리줄 한 줄(지우기는 오른쪽 끝 아이콘)");
   A.$("clearEmpty").click();
   await until(() => A.$("progAll") && paRows().length < rowsBefore, "한 번 누르면 빈 계획을 지운다");
   assert(A.$("progAll").textContent.includes("3단원 1 조선 건국"), "단원을 적은 수업은 남는다");
