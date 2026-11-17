@@ -22,7 +22,8 @@ const CHROMES = [
   "/usr/bin/google-chrome", "/usr/bin/chromium",
 ];
 /* 작은 창도 넣는다. --k 가 0.75 에서 멈추므로 창이 작을수록 글이 상대적으로 커져 더 잘 넘친다. */
-const SCREENS = ["1024,640", "1280,800", "1366,768", "1920,1080", "2560,1440", "3840,2160"];
+// 1536x864 는 1920x1080 화면을 125% 로 키운 노트북, 2000x1150 은 선생님 화면(2026-11-17 캡처)
+const SCREENS = ["1024,640", "1280,800", "1366,768", "1440,900", "1536,864", "1600,900", "1920,1080", "2000,1150", "2560,1440", "3840,2160"];
 /* 띠(세로 한두 줄)는 바로가기만 그렇게 둔다(다른 칸은 최소 크기가 더 크다). */
 const STRIPS = [[8,1],[12,1],[16,1],[24,1],[8,2],[12,2]];
 const SIZES = [[2,2],[3,2],[2,3],[3,3],[4,3],[4,4],[5,4],[6,4],[6,6],[6,8],[8,6],[9,6],[12,8],[18,16],[24,16]];
@@ -247,6 +248,7 @@ function fitCodeFromDesk() {
   const pick = (re) => { const m = re.exec(src); if (!m) throw new Error("desk.js 에서 못 찾음: " + re); return m[0]; };
   return [
     pick(/const FIT_MIN = [^\n]+/), pick(/const FIT_MIN_LINKS = [^\n]+/), pick(/const FIT_TRIES = [^\n]+/),
+    pick(/const FIT_LINE = [^\n]+/), grab("function fitLines("),
     "const arranging = false;",          // 배치 중이 아닐 때를 잰다
     "const isStacked = () => false;",    // PC 칸 배치를 잰다
     grab("function clipOverflow("), grab("function fitCard("), grab("function trimTodos("),
@@ -422,13 +424,58 @@ function one(name, html, w, h) {
     const tag = name === "tt" ? "가로넘침 " : "가로참고 ";
     bad.push(tag + where + "  " + sel(el) + " 옆으로 " + Math.round(over) + "px 숨음");
   }
+  /* ⑥ ~ ⑧: 정해진 글(시각, 날짜, 머리줄, 요일, 교시)은 잘리거나(…) 줄이 바뀌면 안 된다(선생님 지시 2026-11-17
+     "1페이지 위젯에서 줄바꿈이 되거나 짤리는게 있지? 어느 해상도에서도 안그러게"). 시계 초가 잘리고 날짜가 "(…"로 끝나고
+     주간 시간표의 "화 (오늘)"이 두 줄이 된 것을 이 점검이 못 잡았다. 선생님이 적은 글(할 일, 일정 이름, 계획, 급식)은 길이를
+     알 수 없어 말줄임으로 두므로 CONTENT 로 뺀다. */
+  const CONTENT = ".q-tx, .mo-ev, .dday .t, .line .ttl, .meal, .memo, .wg-links";
+  // .sr 은 화면낭독기용 1x1 상자라 눈에 안 보인다
+  const isContent = (el) => !!el.closest(CONTENT) || !!el.closest(".sr");
+  /* ⑥ 옆으로 잘려 안 보이는 글자(말줄임표도 없이) */
+  for (const x of bs) {
+    if (isContent(x.el)) continue;
+    let a = null;
+    for (let y = x.el; y && y !== wg.parentElement; y = y.parentElement) {
+      const ox = getComputedStyle(y).overflowX;
+      if (ox === "auto" || ox === "scroll") { a = null; break; }
+      if (ox !== "visible") { a = y; break; }
+    }
+    if (!a) continue;
+    const p = a.getBoundingClientRect();
+    const lost = Math.max(0, p.left - x.raw.left) + Math.max(0, x.raw.right - p.right);
+    if (lost >= 2) bad.push("가로잘림 " + where + "  " + sel(x.el) + " «" + x.t + "» " + Math.round(lost) + "px 깎임");
+  }
+  /* ⑦ 말줄임표(…)로 잘린 정해진 글 */
+  for (const el of card.querySelectorAll("*")) {
+    if (isContent(el) || el.closest("[hidden]")) continue;
+    const cs = getComputedStyle(el);
+    if (cs.textOverflow !== "ellipsis" || cs.display === "none" || el.clientWidth <= 0) continue;
+    if (el.scrollWidth - el.clientWidth > 1) bad.push("말줄임  " + where + "  " + sel(el) + " «" + el.textContent.trim().slice(0, 20) + "»");
+  }
+  /* ⑧ 짧은 이름(12자까지)이 두 줄로 갈린 곳 */
+  {
+    const tw = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = tw.nextNode())) {
+      const t = n.nodeValue.replace(/\\s+/g, " ").trim();
+      const el = n.parentElement;
+      if (!t || t.length > 12 || !el || isContent(el) || el.closest("[hidden]")) continue;
+      const rg = document.createRange(); rg.selectNodeContents(n);
+      const tops = new Set([...rg.getClientRects()].filter(q => q.width > 1 && q.height > 1).map(q => Math.round(q.top)));
+      if (tops.size > 1) bad.push("줄바꿈  " + where + "  " + sel(el) + " «" + t + "» " + tops.size + "줄");
+    }
+  }
 }
 
-for (const [name, html] of Object.entries(DATA))
-  for (const [w, h] of name === "links" ? [...STRIPS, ...SIZES] : SIZES) one(name, html, w, h);
-deck.replaceChildren();
-document.getElementById("out").textContent =
-  "화면 " + innerWidth + "x" + innerHeight + "\\n" + (bad.length ? bad.join("\\n") : "모두 괜찮음");
+/* 글꼴을 다 받은 뒤에 잰다. 앞서 재면 대신 쓰는 글꼴 폭으로 맞춰 놓고 진짜 글꼴에서 몇 px 넘친다
+   (실제 앱도 글꼴을 다 받은 뒤 fitCards() 를 다시 부른다). */
+document.fonts.ready.then(() => {
+  for (const [name, html] of Object.entries(DATA))
+    for (const [w, h] of name === "links" ? [...STRIPS, ...SIZES] : SIZES) one(name, html, w, h);
+  deck.replaceChildren();
+  document.getElementById("out").textContent =
+    "화면 " + innerWidth + "x" + innerHeight + "\\n" + (bad.length ? bad.join("\\n") : "모두 괜찮음");
+});
 </script></body></html>`;
 }
 
@@ -456,11 +503,13 @@ function findChrome() {
       "--window-size=" + s, "--virtual-time-budget=8000", "--dump-dom", url],
       { encoding: "utf8", maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "ignore"] });
     const m = /<pre id="out">([\s\S]*?)<\/pre>/.exec(dom);
-    const txt = (m ? m[1] : "결과 없음")
+    // 쪽 스크립트가 멈추면 결과 칸이 비어 "괜찮음"처럼 보인다. 그것도 실패로 센다
+    if (!m || !m[1].trim()) { console.log("\n── " + s + " ──\n결과가 비었습니다(쪽 스크립트가 멈췄습니다)"); bad++; continue; }
+    const txt = m[1]
       .replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
     const lines = txt.split("\n");
     console.log("\n── " + s + " ──\n" + txt);
-    bad += lines.filter(l => /^(겹침|세로잘림|위로넘침|칸넘침|가로넘침)/.test(l)).length;
+    bad += lines.filter(l => /^(겹침|세로잘림|위로넘침|칸넘침|가로넘침|가로잘림|말줄임|줄바꿈)/.test(l)).length;
   }
   try { fs.unlinkSync(TMP); } catch (e) {}
   if (bad) { console.error("\n글자가 겹치거나 잘리는 곳 " + bad + "군데."); process.exit(1); }

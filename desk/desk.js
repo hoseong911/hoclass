@@ -1379,6 +1379,29 @@ function clipOverflow(card) {
   return worst;
 }
 
+/* 정해진 한 줄 글(시각, 날짜, 날씨, 위젯 머리줄)은 칸보다 길면 그 글만 줄여 한 줄에 다 넣는다.
+   말줄임(…)으로 자르거나 줄을 바꾸지 않는다(선생님 지시 2026-11-17 "줄바꿈이 되거나 짤리는게 어느 해상도에서도 안그러게").
+   글자 크기를 CSS(cqw, cqh)로 먼저 정하고, 그래도 넘칠 때만 여기서 px 로 덮는다. 잴 때마다 덮은 것을 걷고 다시 잰다. */
+const FIT_LINE = ".wg-clock .clock, .wg-clock .date-main, .wx-temp, .wx-cond, .wx-note, .card-head .card-title, .card-head .card-aside";
+function fitLines(card) {
+  for (const el of card.querySelectorAll(FIT_LINE)) el.style.removeProperty("font-size");
+  for (const el of card.querySelectorAll(FIT_LINE)) {
+    // 글자 크기와 폭이 꼭 비례하지는 않아서(글자 사이, 괄호) 한 번에 안 맞으면 몇 번 더 잰다
+    for (let i = 0; i < 4; i++) {
+      const cw = el.clientWidth;
+      if (!cw) break;
+      // 글자 자리(Range)로도 잰다. 가운데 맞춘 글은 넘쳐도 scrollWidth 에 다 안 잡힐 때가 있다
+      const rg = document.createRange(); rg.selectNodeContents(el);
+      const tr = rg.getBoundingClientRect(), br = el.getBoundingClientRect();
+      const over = Math.max(el.scrollWidth / cw, br.width > 0 ? tr.width / br.width : 0);
+      if (over <= 1.005) break;
+      const fs = parseFloat(getComputedStyle(el).fontSize) || 12;
+      if (fs <= 6) break;
+      el.style.fontSize = Math.max(6, Math.floor(fs / over * 0.97 * 10) / 10) + "px";
+    }
+  }
+}
+
 /* hard = true 면 1배부터 다시 잰다(칸을 옮기거나 창 크기가 바뀐 때).
    hard 가 아니면 모자랄 때만 줄이고, 자리가 생겼으면 조금씩 되돌린다(글 하나 지웠을 때). */
 function fitCard(wg, hard) {
@@ -1387,7 +1410,8 @@ function fitCard(wg, hard) {
   const todos = wg.dataset.w === "todos";
   if (todos) trimTodos(card, false);                             // 숨겼던 줄을 다 꺼내 놓고 잰다
   // 시계 칸은 글을 CSS 비례(cqw/cqh)로만 키운다. 여기서 또 줄이면(--z) 둘이 밀당해 크기가 떨린다.
-  if (wg.dataset.w === "clock") { wg.style.removeProperty("--z"); return; }
+  if (wg.dataset.w === "clock") { wg.style.removeProperty("--z"); fitLines(card); return; }
+  fitLines(card);
   if (isStacked()) { wg.style.removeProperty("--z"); return; }   // 폰, 세워 둔 태블릿은 칸이 내용만큼 늘어난다
   if (hard) wg.style.removeProperty("--z");
   const zMin = wg.dataset.w === "links" ? FIT_MIN_LINKS : FIT_MIN;
@@ -1408,6 +1432,7 @@ function fitCard(wg, hard) {
     z = back;
   }
   if (z >= 1) wg.style.removeProperty("--z");
+  fitLines(card);                                                 // 줄인 뒤에 한 번 더(줄이면 칸 폭도 같이 줄어든다)
   if (todos) trimTodos(card, true);
 }
 
@@ -1629,14 +1654,9 @@ function renderPeriods(now = new Date()) {
     items.push(h("li", { class: cls.join(" ") },
       h("span", { class: "p", text: `${i + 1}교시` }),
       h("span", { class: "tm", text: `${b.s}~${b.e}` }),
-      h("span", { class: "c", text: row[i].trim() || "공강" }),
-      two ? h("span", { class: "hc", text: String(crow[i] || "").trim() }) : null
+      h("span", { class: "c", text: actShort(row[i].trim()) || "공강" }),
+      two ? h("span", { class: "hc", text: actShort(String(crow[i] || "").trim()) }) : null
     ));
-    if (i + 1 === state.lunchAfter) {
-      const ls = toMin(b.e), le = toMin(state.bells[i + 1].s);
-      items.push(h("li", { class: "period lunch" + (ls <= m && m < le ? " current" : le <= m ? " past" : "") },
-        h("span", { class: "p", text: "" }), h("span", { class: "tm", text: `${b.e}~${state.bells[i + 1].s}` }), h("span", { class: "c", text: "점심시간" })));
-    }
   }
   list.replaceChildren(...items);
 }
@@ -1647,11 +1667,9 @@ const actShort = (v) => v.replace(/^(자율|진로|학급)\S*활동$/, "$1");
 /* 위젯은 보기만, 설정 수업 탭의 시간표는 고치기. 같은 함수가 둘 다 그린다. */
 function ttRows(edit) {
   const now = new Date(), di = dayIdx(now), m = now.getHours() * 60 + now.getMinutes();
-  /* "교시"와 "(오늘)"을 따로 감싸 둔다. 아주 좁은 칸에서는 desk.css 가 접어 "1", "목"만 남긴다. */
+  /* "교시"를 따로 감싸 둔다. 아주 좁은 칸에서는 desk.css 가 접어 "1"만 남긴다. 오늘은 색으로만 알린다. */
   const rows = [h("tr", null, h("th", { class: "ph" }, h("span", { class: "pl", text: "교시" })),
-    ...WD5.map((d, i) => !edit && i === di
-      ? h("th", { class: "today" }, d, h("span", { class: "td-lbl", text: " (오늘)" }))
-      : h("th", { text: d })))];
+    ...WD5.map((d, i) => h("th", { class: !edit && i === di ? "today" : null, text: d })))];
   for (let p = 0; p < 7; p++) {
     const b = state.bells[p];
     const ph = edit
@@ -1671,7 +1689,6 @@ function ttRows(edit) {
       return h("td", { class: cls.join(" "), text: actShort(v.trim()) });
     });
     rows.push(h("tr", null, ph, ...cells));
-    if (p + 1 === state.lunchAfter) rows.push(h("tr", { class: "lunch" }, h("td", { colspan: "6", text: "점심" })));
   }
   return rows;
 }

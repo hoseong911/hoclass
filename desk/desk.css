@@ -85,7 +85,10 @@ button, input, textarea, select { font: inherit; color: inherit; }
   text-align: center; justify-content: space-between;
 }
 /* 위젯 머리줄도 같은 규칙: 제목 | 기능, 안내 | 맨 오른쪽 아이콘 단추 */
-.card-head { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+/* 한 줄로만. 넘치면 줄을 바꾸지 않고 fitLines() 가 제목과 안내 글을 줄인다 */
+.card-head { display: flex; align-items: center; gap: 8px 10px; flex-wrap: nowrap; min-width: 0; }
+.card-head > .card-title { flex: none; max-width: 100%; white-space: nowrap; overflow: hidden; }
+.card-head > .card-aside { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; }
 .card-head > .icon-btn { margin-left: auto; }
 .card-head > .icon-btn + .icon-btn { margin-left: 0; }
 /* 위젯 머리줄 아이콘은 제목 글자 높이에 맞춘다(머리줄이 높아지면 작은 칸에서 내용이 잘린다) */
@@ -114,6 +117,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 /* 지금 수업의 큰 글씨는 여기어때 잘난체. 잘난체는 굵기가 하나뿐이라 600 을 주면 가짜 굵기가 된다. */
 .now-main { font-family: var(--font-head); font-size: clamp(26px, 3vw, 34px); font-weight: 400; line-height: 1.2; letter-spacing: -0.01em; text-wrap: balance; }
 .now-main .cls { color: var(--sky); }
+/* 지금 수업 큰 줄은 한 줄. 넘치면 fitCards() 가 칸을 통째로 줄인다 */
+.wg .now-main { white-space: nowrap; }
 .now-sub { font-size: 14px; color: #C7D1CD; font-variant-numeric: tabular-nums; }
 .now-bar { height: 6px; border-radius: 8px; background: rgba(255,255,255,.14); overflow: hidden; }
 .now-bar i { display: block; height: 100%; background: var(--ok); transition: width .5s linear; }
@@ -366,6 +371,9 @@ table.tt-edit th.ph { width: 132px; padding: 6px 4px; vertical-align: middle; }
 /* 위젯은 칸 폭에 늘 맞춘다. 옆으로 굴리지 않는다(스크롤 막대가 숨어 있어 목, 금이 없는 줄 안다). */
 .wg[data-w="tt"] table.tt { height: 100%; min-width: 0; }
 .wg[data-w="tt"] .tt td { height: auto; }
+/* 칸 글자(반, 과목, 요일)는 늘 한 줄. 줄을 바꾸거나 말줄임(…)으로 자르지 않고, 넘치면 fitCards() 가 표를 통째로 줄인다
+   (overflow: hidden 이라 clipOverflow 가 가로 넘침으로 센다. 선생님 지시 2026-11-17) */
+.wg[data-w="tt"] .tt td, .wg[data-w="tt"] .tt th { white-space: nowrap; overflow: hidden; overflow-wrap: normal; }
 /* 낮은 칸에서는 종 시간을 접고 줄을 좁힌다. */
 /* 끝까지 줄여도(FIT_MIN) 몇 px 모자란 일이 있어, 줄 높이를 글자만큼으로 붙인다. */
 @container (max-height: 320px) {
@@ -382,20 +390,19 @@ table.tt-edit th.ph { width: 132px; padding: 6px 4px; vertical-align: middle; }
 @container (max-height: 170px) {
   .wg[data-w="tt"] .card-head { display: none; }
 }
-/* 아주 좁은 칸(가로 두세 칸)에서도 다섯 요일이 다 보이게: "1교시"는 "1", "(오늘)"은 접고 칸 사이를 붙인다. */
+/* 아주 좁은 칸(가로 두세 칸)에서도 다섯 요일이 다 보이게: "1교시"는 "1" 로 접고 칸 사이를 붙인다. */
 @container (max-width: 300px) {
-  .wg[data-w="tt"] .tt .td-lbl, .wg[data-w="tt"] .tt th.ph .pl { display: none; }
+  .wg[data-w="tt"] .tt th.ph .pl { display: none; }
   .wg[data-w="tt"] .tt th.ph { width: 18px; text-align: center; }
   .wg[data-w="tt"] table.tt { border-spacing: 2px; }
   .wg[data-w="tt"] .tt th { padding: 0; }
   .wg[data-w="tt"] .tt td { padding: 0 1px; border-radius: 5px; }
 }
-/* 가로 두 칸: 과목 이름이 세 줄로 꺾여 줄이 높아지지 않게 한 줄로 두고 넘치면 말줄임표. */
+/* 가로 두 칸: 글자를 줄인다(칸 글자는 늘 한 줄, 위 규칙). */
 @container (max-width: 200px) {
   .wg[data-w="tt"] table.tt { border-spacing: 1px; }
   .wg[data-w="tt"] .tt th.ph { width: 12px; }
   .wg[data-w="tt"] .tt td, .wg[data-w="tt"] .tt th { font-size: 10px; padding: 0; line-height: 1.1; }
-  .wg[data-w="tt"] .tt td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* 메모 */
@@ -538,7 +545,7 @@ body { overflow: hidden; }
 .wg-clock { gap: 8px; text-align: center; }
 .cw-time { flex: 5; display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 0; min-height: 0; overflow: hidden; }
 .wg-clock .clock { font-size: clamp(14px, min(26cqw, 26cqh), 104px); margin: 0; line-height: .85; white-space: nowrap; max-width: 100%; }
-.wg-clock .date-main { font-size: clamp(8px, min(11cqw, 10cqh), 30px); font-weight: 600; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wg-clock .date-main { font-size: clamp(8px, min(11cqw, 10cqh), 30px); font-weight: 600; line-height: 1; white-space: nowrap; overflow: hidden; max-width: 100%; }
 .cw-wx { flex: 4; display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; min-height: 0; overflow: hidden; }
 .wx-ico { flex: none; width: min(27cqw, 31cqh, 76px); height: min(27cqw, 31cqh, 76px); color: var(--faint); }
 .wx-ico svg { width: 100%; height: 100%; display: block; }
@@ -547,15 +554,16 @@ body { overflow: hidden; }
 .wx-ico.snow { color: var(--sky); }
 .wx-txt { min-width: 0; text-align: left; }
 .wx-temp { font-family: var(--font-head); font-size: clamp(14px, min(23cqw, 27cqh), 50px); font-weight: 400; color: var(--navy); line-height: 1; font-variant-numeric: tabular-nums; }
-.wx-cond { font-size: clamp(11px, min(11cqw, 13cqh), 20px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-top: .15em; }
-.wx-note { font-size: clamp(10px, min(5cqw, 6cqh), 14px); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wx-cond { font-size: clamp(11px, min(11cqw, 13cqh), 20px); color: var(--muted); white-space: nowrap; overflow: hidden; max-width: 100%; margin-top: .15em; }
+.wx-note { font-size: clamp(10px, min(5cqw, 6cqh), 14px); color: var(--faint); white-space: nowrap; overflow: hidden; max-width: 100%; }
 /* 가로로 넉넉할 때만 좌우로. 좁은 칸에서 누이면 시각이 날씨 글 위로 올라탄다. */
 @container (min-aspect-ratio: 13/10) and (min-width: 300px) {
   .wg-clock { flex-direction: row; align-items: center; gap: 0; }
   .cw-time { flex: 1; align-items: center; justify-content: center; text-align: center; gap: clamp(6px, 3cqh, 22px); }
   .wg-clock .clock { font-size: clamp(24px, min(15cqw, 52cqh), 104px); }
   .wg-clock .date-main { font-size: clamp(11px, min(5cqw, 10cqh), 22px); color: var(--sub); }
-  .cw-wx { flex: none; min-width: 38%; height: 100%; border-top: 0; border-left: 1px solid var(--line); padding: 0 20px; }
+  /* 날씨는 40% 로 묶는다. 내용만큼 늘게 두면 시각, 날짜 자리가 좁아져 초가 잘리고 날짜가 말줄임이 됐다(2026-11-17) */
+  .cw-wx { flex: 0 0 40%; max-width: 40%; height: 100%; border-top: 0; border-left: 1px solid var(--line); padding: 0 clamp(6px, 3cqw, 20px); gap: clamp(6px, 2cqw, 14px); }
   .wx-ico { width: min(17cqw, 37cqh, 64px); height: min(17cqw, 37cqh, 64px); }
   .wx-temp { font-size: clamp(14px, min(11cqw, 28cqh), 42px); }
   .wx-cond { font-size: clamp(11px, min(6cqw, 14cqh), 20px); }
@@ -1223,6 +1231,8 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .wplan { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .wp-day.we { display: none; }
 }
+/* 더 좁으면 날짜를 접고 요일만 */
+@container (max-width: 400px) { .wp-head span { display: none; } .wplan { gap: 3px; } .wp-day { padding: 3px; } }
 
 /* ── 오늘 급식 ── */
 /* 안쪽에 또 테두리를 두지 않는다. 카드(위젯) 테두리가 곧 급식 테두리다(선생님 지시 2026-11-17) */

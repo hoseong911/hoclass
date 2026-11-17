@@ -1182,10 +1182,12 @@ function checkEntries() {
   if (new Date().getDay() >= 1 && new Date().getDay() <= 5) {
     await until(() => A.$("periods").classList.contains("two"), "담임이면 오늘 시간표가 두 단");
     const hc = [...A.$("periods").querySelectorAll(".period:not(.head) .hc")].map(x => x.textContent);
-    assert.strictEqual(hc[0], "진로활동", "우리 반 1교시: " + hc[0]);
+    assert.strictEqual(hc[0], "진로", "우리 반 1교시는 창체 두 글자(진로활동이 아니라 진로): " + hc[0]);
     assert.strictEqual(hc[1], "수학", "우리 반 2교시: " + hc[1]);
     assert.strictEqual(hc[2], "", "우리 반 3교시는 빈다");
     assert.strictEqual(A.d.querySelector("#periods .period.head .hc").textContent, "3학년 9반", "머리줄에 담임 반 이름");
+    assert(!A.d.querySelector("#periods .period.lunch"), "오늘 시간표에 점심 줄이 없다(선생님 지시 2026-11-17)");
+    assert(!A.d.querySelector("#tt tr.lunch") && !/오늘/.test(A.d.querySelector("#tt tr").textContent), "주간 시간표에 점심 줄과 (오늘) 글자가 없다");
   }
   await until(() => { const st = JSON.parse(store.get("desk_settings/general") || "{}").state;
     return st && st.neis && st.neis.school && st.neis.school.code === "7331219"; }, "학교가 저장된다");
