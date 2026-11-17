@@ -900,6 +900,7 @@ function gcalSection() {
     ]) : null]);
 }
 function renderGcal() {
+  if (booted) renderWeekPlan();
   const box = $("gcalBody");
   if (!box) return;
   const btn = $("gcalBtn");
@@ -2651,6 +2652,7 @@ function homeTodos() {
    (전에는 우리 반, 교무수첩 위젯마다 좁은 칸에 따로 떴다. 선생님 지적 2026-11-13). */
 function renderNb() {
   if (!booted) return;
+  renderWeekPlan();          // 계획이 바뀌거나 잠기고 열릴 때 대시보드 주간 계획 위젯도 같이
   const nb = nbOf(curPage);
   $("nb").hidden = !nb;
   if (!nb) { homeTodos(); return; }
@@ -4190,7 +4192,7 @@ function planStatus(pre = "") {
 
 /* 칸을 누르면 그 칸에 적는 줄이 열린다(월간 칸이면 "mo", 주간 칸이면 "wk"). 머리줄 + 아이콘도 같은 일을 한다(오늘, 고른 날). */
 let planOpen = { d: "", where: "" };
-const planInId = (d, where) => (where === "mo" ? "moplan_" : "plan_") + d;
+const planInId = (d, where) => (where === "mo" ? "moplan_" : where === "wg" ? "wgplan_" : "plan_") + d;
 function openPlanEdit(d, where) {
   planOpen = { d, where };
   if (where === "mo") { monthPick = d; weekMon = rowMonday(d); }
@@ -4308,6 +4310,32 @@ function monthView() {
       }, { id: "woAdd" })]),
     h("div", { class: "mo-grid", id: "moGrid" }, ...WD7.map((w, i) => h("div", { class: "mo-wd" + (i === 0 ? " sun" : i === 6 ? " sat" : ""), text: w })), ...cells),
   ];
+}
+
+/* 대시보드 주간 계획 위젯: 오늘이 든 주 일~토 일곱 칸(일, 토는 좁게). 학사 일정, D-day, 구글 일정은 늘 보이고
+   내 계획과 업무 기한은 교무수첩이 열려 있을 때만 보인다(계획은 암호 문서다). 열려 있으면 칸을 눌러 그 칸에 바로 적는다. */
+function renderWeekPlan() {
+  const box = $("wplan");
+  if (!box) return;
+  const today = todayKey(), sun = addDaysIso(today, -parseDate(today).getDay());
+  const days = Array.from({ length: 7 }, (_, i) => addDaysIso(sun, i));
+  const W = docs.works, open = !!(W && W.ready && keyStateNow() === "open");
+  const md = (iso) => `${+iso.slice(5, 7)}.${+iso.slice(8)}`;
+  $("wplanAside").textContent = `${md(days[0])} ~ ${md(days[6])}` + (open ? "" : ", 교무수첩을 열면 계획이 보입니다");
+  box.replaceChildren(...days.map((d, i) => {
+    const items = [
+      ...(state.cal || []).filter(x => x.d === d).map(x => ({ c: OFF_RE.test(x.name) ? "off" : "cal", t: x.name })),
+      ...state.ddays.filter(x => x.date === d).map(x => ({ c: "dday", t: x.title })),
+      ...gcalOn(d).map(x => ({ c: "gcal", t: (x.allDay ? "" : x.time + " ") + x.title })),
+      ...(open ? W.value.items.filter(x => x.due === d).map(x => ({ c: "due" + (x.done ? " done" : ""), t: x.title })) : []),
+      ...(open ? livePlans(plansOf()).filter(p => p.d === d).map(p => ({ c: "plan" + (p.done ? " done" : ""), t: (p.t ? p.t + " " : "") + p.text })) : []),
+    ];
+    return h("div", { class: "wp-day" + (i === 0 ? " we sun" : i === 6 ? " we sat" : "") + (d === today ? " today" : "") + (open ? " can" : ""),
+      "data-day": d, onclick: open ? tapOpen(d, "wg") : null },
+      h("div", { class: "wp-head" }, h("b", { text: WD7[i] }), h("span", { text: md(d) })),
+      open && isEditing(d, "wg") ? planInput(d, "wg", WD7[i] + "요일") : null,
+      h("ul", { class: "wp-list" }, ...items.map(x => h("li", { class: "mo-ev " + x.c, text: x.t, title: x.t }))));
+  }));
 }
 
 /* 업무 장 한 화면: 월간 달력과 주간 닷새가 스크롤 없이 한 화면(.pw-fit). 옛 업무가 남아 있으면 그 목록이 아래. 오늘은 달력과 주간 둘 다 칠한다. */
@@ -4441,6 +4469,7 @@ $("clearDone").addEventListener("click", () => { state.todos = state.todos.filte
 /* ---------- D-day ---------- */
 function parseDate(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
 function renderDdays() {
+  if (booted) renderWeekPlan();
   const list = $("ddayList");
   const t0 = parseDate(todayKey());
   const items = allDdays();
@@ -4493,7 +4522,7 @@ function renderAll() {
   const now = new Date();
   applyGrid();
   renderGcal();
-  renderLinks(); renderTodos(); renderDdays(); renderMemo(); renderMeal(); softClass();
+  renderLinks(); renderTodos(); renderDdays(); renderMemo(); renderMeal(); renderWeekPlan(); softClass();
   renderPeriods(now); renderTT(); renderNow(now);
   fitCards(true);
 }

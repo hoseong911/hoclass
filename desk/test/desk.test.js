@@ -973,6 +973,25 @@ function checkEntries() {
   A.tab("week");
   await until(() => monCol() && monCol().textContent.includes("월간에서 적은 계획"), "월간에서 적은 것이 주간에 그대로");
 
+  /* ---------- 대시보드 주간 계획 위젯(선생님 지시 2026-11-17): 일~토, 일과 토는 좁게, 가로로 길게 ---------- */
+  {
+    const days = [...A.d.querySelectorAll("#wplan .wp-day")];
+    assert.strictEqual(days.length, 7, "일~토 일곱 칸");
+    assert(days[0].classList.contains("sun") && days[6].classList.contains("sat") && days[0].classList.contains("we") && !days[1].classList.contains("we"), "일, 토만 좁은 칸(we)");
+    assert(days.some(d => d.dataset.day === TODAY && d.classList.contains("today")), "오늘 칸을 칠한다");
+    const monW = () => A.d.querySelector('#wplan .wp-day[data-day="' + mon + '"]');
+    if (monW()) {
+      assert(monW().textContent.includes("월간에서 적은 계획"), "교무수첩이 열려 있으면 계획이 보인다");
+      monW().click();
+      await until(() => A.$("wgplan_" + mon) && monW().contains(A.$("wgplan_" + mon)), "위젯 칸을 눌러도 그 칸에 바로 적는다");
+      A.fill("wgplan_" + mon, "위젯에서 적은 계획");
+      A.$("wgplan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
+      await until(() => monW().textContent.includes("위젯에서 적은 계획") && monCol().textContent.includes("위젯에서 적은 계획"), "위젯에서 적은 것이 주간 계획에도");
+      A.$("wgplan_" + mon).dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await until(() => !A.$("wgplan_" + mon), "ESC 로 닫는다");
+    }
+  }
+
   /* ---------- 구글 「교무수첩」 캘린더와 양쪽으로 ---------- */
   gfake.token = "시험열쇠";
   A.tab("month");

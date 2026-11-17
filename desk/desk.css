@@ -1199,6 +1199,31 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .wg[data-w="periods"] .periods.two .period .hc, .wg[data-w="periods"] .period.head { display: none; }
 }
 
+/* ── 주간 계획 위젯: 일~토 일곱 칸, 일과 토는 좁게. 가로로 긴 위젯 ── */
+.wplan {
+  flex: 1; min-height: 0; display: grid; gap: 6px;
+  grid-template-columns: minmax(0, .55fr) repeat(5, minmax(0, 1fr)) minmax(0, .55fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.wp-day { display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; padding: 6px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.wp-day.can { cursor: pointer; }
+.wp-day.we { background: var(--surface-2); }
+.wp-day.today { border-color: var(--accent); background: var(--accent-soft); }
+.wp-head { display: flex; gap: 4px; align-items: baseline; flex: none; font-size: var(--fs-label); color: var(--muted); white-space: nowrap; overflow: hidden; }
+.wp-head b { color: var(--ink); }
+.wp-day.sun .wp-head b { color: var(--danger); }
+.wp-day.sat .wp-head b { color: var(--blue); }
+.wp-day.today .wp-head b, .wp-day.today .wp-head span { color: var(--accent); font-weight: 700; }
+.wp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.wp-list::-webkit-scrollbar { width: 0; height: 0; }
+.wp-list .mo-ev { display: block; flex: none; }
+.wp-day .wk-add input { font-size: 12px; padding: 2px 6px; }
+/* 좁으면 일, 토를 접고 평일 다섯만 */
+@container (max-width: 520px) {
+  .wplan { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .wp-day.we { display: none; }
+}
+
 /* ── 오늘 급식 ── */
 /* 안쪽에 또 테두리를 두지 않는다. 카드(위젯) 테두리가 곧 급식 테두리다(선생님 지시 2026-11-17) */
 .wg[data-w="meal"] #mealBody { flex: 1; min-height: 0; overflow: auto; }

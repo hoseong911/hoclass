@@ -20,6 +20,8 @@ export const WIDGETS = [
   { id: "memo",    name: "메모",        min: MIN_SIZE },
   { id: "tt",      name: "주간 시간표", min: MIN_SIZE },
   { id: "meal",    name: "오늘 급식",   min: MIN_SIZE },
+  /* 일~토 일곱 칸이 가로로 늘어서므로 가로로 긴 위젯이다 */
+  { id: "plan",    name: "주간 계획",   min: [4, 2] },
 ];
 export const widgetDef = (id) => WIDGETS.find(w => w.id === id) || null;
 
@@ -34,6 +36,7 @@ export const DEFAULT_LAYOUT = {
   memo:    { pg: 1, x: 19, y: 9,  w: 6,  h: 8,  on: true },
   tt:      { pg: 1, x: 7,  y: 1,  w: 6,  h: 16, on: true },   // 우리 반 위젯이 교무수첩 장으로 빠진 자리
   meal:    { pg: 1, x: 19, y: 13, w: 6,  h: 4,  on: false },  // 1장이 꽉 차 있어 꺼 두고 설정 화면 탭에서 켠다
+  plan:    { pg: 1, x: 7,  y: 13, w: 18, h: 4,  on: false },  // 가로로 길게. 1장이 꽉 차 있어 꺼 두고 설정 화면 탭에서 켠다
 };
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(n) || 0)));
