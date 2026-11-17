@@ -32,6 +32,8 @@ pub fn run() {
         .title("오늘, 교무노트")
         .inner_size(1480.0, 940.0)
         .min_inner_size(900.0, 600.0)
+        // 위젯으로 깔았을 때 바탕화면이 비쳐 보이게. 보통 창에서는 CSS 가 바탕을 불투명하게 칠한다.
+        .transparent(true)
         .center()
         .on_new_window(|url, _features| {
           if keep_inside(&url) {

@@ -1621,3 +1621,15 @@ table.att-month td.pick { background: var(--surface-2); }
 .att-month th.day, .att-month tbody td { min-width: 42px; }
 .att-lg .ab { width: auto; min-width: 22px; padding: 0 7px; }
 .att-month .tot.days-k, .att-month .tot.days-tot { min-width: 62px; white-space: nowrap; }
+
+/* ── 위젯으로 깐 동안(앱판, html.wmode) ── 선생님 지시 2026-11-17
+   바탕과 위젯 카드만 반투명으로 두어 바탕화면이 비쳐 보인다. 글자와 선은 그대로 진하다.
+   비치는 정도는 --w-solid(100% 면 불투명)로, desk.js 의 「투명」 단추가 바꾼다.
+   색을 베껴 쓰지 않으려고 color-mix 로 섞는다. 앞 줄은 color-mix 를 모르는 브라우저용(그때는 불투명). */
+html.wmode { background: var(--bg); background: color-mix(in srgb, var(--bg) var(--w-solid, 100%), transparent); }
+html.wmode body { background: transparent; }   /* html 과 둘 다 칠하면 반투명이 두 겹으로 겹친다 */
+html.wmode .wg > .card:not(.now) { background: var(--card); background: color-mix(in srgb, var(--card) var(--w-solid, 100%), transparent); }
+/* 바탕화면 위젯이라 마우스를 끌어도 글자가 긁히지 않는다. 입력 칸 안에서는 전처럼 된다 */
+html.wmode { user-select: none; -webkit-user-select: none; }
+html.wmode input, html.wmode textarea, html.wmode [contenteditable] { user-select: text; -webkit-user-select: text; }
+html.wmode a, html.wmode img { -webkit-user-drag: none; }

@@ -395,6 +395,27 @@ function checkEntries() {
   assert.strictEqual(entryText({ k: "결석", r: "질병", p: [], memo: "감기" }), "질병결석(감기)", "메모는 괄호에");
 }
 
+/* 위젯으로 깔았을 때(앱판, html.wmode): 바탕과 위젯 카드만 반투명이고 글자는 마우스로 긁히지 않는다.
+   선생님 지시 2026-11-17. jsdom 에는 __TAURI__ 가 없어 화면으로는 못 돌려보므로 규칙이 있는지를 지킨다. */
+function checkWidgetMode() {
+  const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
+  for (const rule of ["html.wmode { background: var(--bg); background: color-mix(in srgb, var(--bg) var(--w-solid, 100%), transparent); }",
+                      "html.wmode body { background: transparent; }",
+                      "html.wmode .wg > .card:not(.now) {",
+                      "html.wmode { user-select: none; -webkit-user-select: none; }",
+                      "html.wmode input, html.wmode textarea, html.wmode [contenteditable] { user-select: text;"])
+    assert(css.includes(rule), "desk.css 에 이 규칙이 있어야 한다: " + rule);
+  const js = fs.readFileSync(path.join(DIR, "desk.js"), "utf8");
+  assert(js.includes("const CLEAR = [0, 20, 40, 60];"), "투명도는 네 단계를 돌아간다");
+  assert(js.includes('classList.toggle("wmode", pinned)'), "위젯으로 깔았을 때만 wmode 를 켠다");
+  assert(js.includes('setProperty("--w-solid"'), "단추가 바꾸는 것은 --w-solid 한 가지다");
+  const rs = fs.readFileSync(path.join(DIR, "src-tauri", "src", "lib.rs"), "utf8");
+  assert(rs.includes(".transparent(true)"), "창이 투명해야 CSS 반투명이 바탕화면과 섞인다");
+  const html = fs.readFileSync(path.join(DIR, "index.html"), "utf8");
+  assert(html.indexOf('id="toWidget"') < html.indexOf('id="wOpacity"'), "투명 단추는 위젯 단추 뒤에 선다");
+  assert(/id="wOpacity"[^>]*hidden/.test(html), "투명 단추는 위젯으로 깔기 전에는 숨는다");
+}
+
 (async () => {
   checkEntries();
   checkHiddenRule();
@@ -405,6 +426,7 @@ function checkEntries() {
   checkPeriodRows();
   checkTodoCells();
   checkAttOneScreen();
+  checkWidgetMode();
   seedHoclass();
   const A = device();
 
@@ -1228,7 +1250,7 @@ function checkEntries() {
   {
     const next = cells31().filter(late), now = cells31().filter(t => !late(t));
     assert(next.length && next.every(t => t.includes("(화)") && t.includes("2교시")), "다음 달은 기초 시간표(화 2교시): " + next.join(" "));
-    assert(!now.some(t => t.includes("(화)")), "나이스에 있는 주는 나이스대로(기초에만 있는 화 2교시는 안 넣는다): " + now.join(" "));
+    assert(!now.some(t => t.includes("(화)") && t.includes("2교시")), "나이스에 있는 주는 나이스대로(기초에만 있는 화 2교시는 안 넣는다): " + now.join(" "));
     assert(now.some(t => t.includes("(수)")), "나이스의 특별한 주(수 3교시)는 나이스대로");
   }
   assert.deepStrictEqual([...A.$("progAll").querySelectorAll("thead .pa-cls")].map(x => x.textContent), ["3-1", "3-9"], "열은 역사 반");

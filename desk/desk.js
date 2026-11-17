@@ -1323,11 +1323,19 @@ $("signOut").addEventListener("click", () => { signOutNow(); });
    쓰는 창 기능은 src-tauri/capabilities/default.json 에 허락해 둔 것뿐이다. 더 쓰면 거기도 더한다. */
 const TW = window.__TAURI__ && window.__TAURI__.window;
 if (TW) {
-  const win = TW.getCurrentWindow(), btn = $("toWidget");
-  let pinned = false, before = null;
+  const win = TW.getCurrentWindow(), btn = $("toWidget"), ob = $("wOpacity");
+  const CLEAR = [0, 20, 40, 60];   // 바탕화면이 비쳐 보이는 정도(%). 누를 때마다 다음으로 넘어간다
+  let pinned = false, before = null, clear = 0;
+  try { clear = CLEAR.indexOf(Number(localStorage.getItem(LS_PREFIX + "clear"))); } catch (e) {}
+  if (clear < 0) clear = 0;
   const show = () => {
     btn.lastChild.textContent = pinned ? "창으로" : "위젯으로";
     btn.title = pinned ? "보통 창으로 되돌리기" : "바탕화면 위젯으로 내리기";
+    // 반투명과 글자 긁힘 막기는 desk.css 의 html.wmode 가 한다. 깔았을 때만 켠다.
+    ob.hidden = !pinned;
+    ob.lastChild.textContent = "투명 " + CLEAR[clear] + "%";
+    document.documentElement.classList.toggle("wmode", pinned);
+    document.documentElement.style.setProperty("--w-solid", (100 - CLEAR[clear]) + "%");
   };
   const remember = (on) => { try { localStorage.setItem(LS_PREFIX + "pinned", on ? "1" : "0"); } catch (e) {} };
   async function pin(on) {
@@ -1355,6 +1363,11 @@ if (TW) {
   }
   btn.hidden = false;
   btn.addEventListener("click", () => pin(!pinned));
+  ob.addEventListener("click", () => {
+    clear = (clear + 1) % CLEAR.length;
+    try { localStorage.setItem(LS_PREFIX + "clear", String(CLEAR[clear])); } catch (e) {}
+    show();
+  });
   (async () => {
     let was = false;
     try { was = localStorage.getItem(LS_PREFIX + "pinned") === "1"; } catch (e) {}

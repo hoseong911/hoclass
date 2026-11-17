@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "오늘, 교무노트",
   "mainBinaryName": "gyomu-note",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "identifier": "com.hoseong.desk",
   "build": {
     "frontendDist": "https://hoseong911.github.io/hoclass/desk/"
