@@ -204,8 +204,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .wk-ev.wk-dday .tag { background: var(--accent-soft); color: var(--accent); }
 .wk-ev.wk-due .tag { background: var(--danger-soft); color: var(--danger); }
 .wk-ev.done { color: var(--faint); text-decoration: line-through; }
-.wk-plan .todo { padding: 5px 0; gap: 8px; font-size: 13px; }
-.wk-plan .todo:first-child { border-top: 0; }
+/* 주간 칸의 계획 사이에는 줄을 긋지 않는다(선생님 지시 2026-11-17) */
+.wk-plan .todo { padding: 3px 0; gap: 8px; font-size: 13px; border-top: 0; }
 /* 칸을 누르면 그 칸에 적는 줄이 열린다(늘 펼쳐 두지 않는다) */
 .wk-day { cursor: pointer; }
 .wk-add { margin: 0; flex: none; }
