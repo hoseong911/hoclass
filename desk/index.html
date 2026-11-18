@@ -148,6 +148,12 @@ window.__deskLog = [];
     <section class="card" aria-labelledby="wplanTitle">
       <div class="card-head">
         <h2 class="card-title" id="wplanTitle">주간 계획</h2>
+        <div class="wp-nav">
+          <button class="pg-arrow" type="button" id="wplanPrev" aria-label="앞 주"></button>
+          <span class="wp-range" id="wplanRange"></span>
+          <button class="pg-arrow" type="button" id="wplanNext" aria-label="다음 주"></button>
+        </div>
+        <button class="text-btn" type="button" id="wplanThis" hidden>이번 주</button>
         <span class="card-aside" id="wplanAside"></span>
       </div>
       <div class="wplan" id="wplan"></div>

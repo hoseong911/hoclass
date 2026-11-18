@@ -1129,6 +1129,21 @@ function checkWidgetMode() {
       wFix().dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
       await until(() => !wFix() && monW().textContent.includes("위젯에서 고친 계획") && monCol().textContent.includes("위젯에서 고친 계획"), "위젯에서 고친 것이 주간 계획에도");
     }
+    /* 주 넘기기(선생님 지시 2026-11-18): 앞 주, 다음 주, 이번 주로 돌아오기 */
+    const first = () => A.d.querySelector("#wplan .wp-day").dataset.day;
+    const sun0 = first();
+    assert(A.$("wplanThis").hidden, "이번 주에는 「이번 주」 단추가 숨는다");
+    A.$("wplanNext").click();
+    const nextSun = (() => { const t = new Date(sun0 + "T00:00:00"); t.setDate(t.getDate() + 7);
+      return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); })();
+    assert.strictEqual(first(), nextSun, "다음 주로 넘어간다");
+    assert(!A.$("wplanThis").hidden && !A.d.querySelector("#wplan .wp-day.today"), "다른 주에는 「이번 주」 단추가 보이고 오늘 칸은 없다");
+    A.$("wplanPrev").click(); A.$("wplanPrev").click();
+    assert.notStrictEqual(first(), sun0, "앞 주로 넘어간다");
+    A.$("wplanThis").click();
+    assert(first() === sun0 && A.$("wplanThis").hidden, "「이번 주」로 돌아온다");
+    A.$("wplanPrev").click(); A.$("wplanNext").click();
+    assert(first() === sun0 && A.$("wplanThis").hidden, "넘겼다 돌아와도 이번 주");
   }
 
   /* ---------- 구글 「교무수첩」 캘린더와 양쪽으로 ---------- */

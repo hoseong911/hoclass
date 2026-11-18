@@ -1188,6 +1188,11 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 }
 
 /* ── 주간 계획 위젯: 일~토 일곱 칸, 일과 토는 좁게. 가로로 긴 위젯 ── */
+.wp-nav { display: flex; align-items: center; gap: 2px; flex: none; }
+.wp-nav .pg-arrow { width: 22px; height: 22px; }
+.wp-nav .pg-arrow svg { width: 14px; height: 14px; }
+.wp-range { font-size: var(--fs-label); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.card-head > #wplanThis { flex: none; white-space: nowrap; }
 .wplan {
   flex: 1; min-height: 0; display: grid; gap: 6px;
   grid-template-columns: minmax(0, .55fr) repeat(5, minmax(0, 1fr)) minmax(0, .55fr);

@@ -4437,14 +4437,18 @@ function monthView() {
 
 /* 대시보드 주간 계획 위젯: 오늘이 든 주 일~토 일곱 칸(일, 토는 좁게). 학사 일정, D-day, 구글 일정은 늘 보이고
    내 계획과 업무 기한은 교무수첩이 열려 있을 때만 보인다(계획은 암호 문서다). 열려 있으면 칸을 눌러 그 칸에 바로 적는다. */
+let wpSun = "";                // 주간 계획 위젯이 보는 주의 일요일. 비면 이번 주
+const thisSunday = () => { const t = todayKey(); return addDaysIso(t, -parseDate(t).getDay()); };
 function renderWeekPlan() {
   const box = $("wplan");
   if (!box) return;
-  const today = todayKey(), sun = addDaysIso(today, -parseDate(today).getDay());
+  const today = todayKey(), thisSun = thisSunday(), sun = wpSun || thisSun;
   const days = Array.from({ length: 7 }, (_, i) => addDaysIso(sun, i));
   const W = docs.works, open = !!(W && W.ready && keyStateNow() === "open");
   const md = (iso) => `${+iso.slice(5, 7)}.${+iso.slice(8)}`;
-  $("wplanAside").textContent = `${md(days[0])} ~ ${md(days[6])}` + (open ? "" : ", 교무수첩을 열면 계획이 보입니다");
+  $("wplanRange").textContent = `${md(days[0])} ~ ${md(days[6])}`;
+  $("wplanThis").hidden = sun === thisSun;
+  $("wplanAside").textContent = open ? "" : "교무수첩을 열면 계획이 보입니다";
   box.replaceChildren(...days.map((d, i) => {
     const items = [
       ...(state.cal || []).filter(x => x.d === d).map(x => ({ c: OFF_RE.test(x.name) ? "off" : "cal", t: x.name })),
@@ -4598,6 +4602,11 @@ document.addEventListener("pointerup", (e) => {
 document.addEventListener("pointercancel", () => todoEnd());
 // 집은 뒤에는 손가락을 움직여도 화면이 스크롤되지 않게 한다.
 document.addEventListener("touchmove", (e) => { if (todoDrag && todoDrag.live) e.preventDefault(); }, { passive: false });
+$("wplanPrev").innerHTML = CHEV_L; $("wplanNext").innerHTML = CHEV_R;
+const wpGo = (n) => { const s = n ? addDaysIso(wpSun || thisSunday(), n * 7) : ""; wpSun = s === thisSunday() ? "" : s; renderWeekPlan(); };
+$("wplanPrev").addEventListener("click", () => wpGo(-1));
+$("wplanNext").addEventListener("click", () => wpGo(1));
+$("wplanThis").addEventListener("click", () => wpGo(0));
 $("clearDone").addEventListener("click", () => { state.todos = state.todos.filter(t => !t.done); save(); renderTodos(); });
 
 /* ---------- D-day ---------- */
