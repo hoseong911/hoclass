@@ -63,6 +63,36 @@ function iconBtn(label, ic, onclick, props = {}) {
   b.innerHTML = svgIc(ic, 16);
   return b;
 }
+/* 적어 둔 글을 그 자리에서 고친다(할 일, 계획, 옛 업무). 글을 누르면 칸이 되고 Enter 나 다른 데를 누르면 저장, ESC 는 그대로.
+   고치는 중인 것은 fix 하나에 둔다. 다른 기기 변경으로 다시 그려도 적던 글과 커서를 잃지 않게 하려는 것이다. */
+let fix = null;                                       // { key, v }
+const fixing = (key) => !!fix && fix.key === key;
+function startFix(key, text, redraw) { fix = { key, v: text }; redraw(); }
+function fixInput(key, orig, max, label, onSave, redraw) {
+  const inp = h("input", { type: "text", class: "fix-in", "data-fix": key, maxlength: String(max), autocomplete: "off", value: fix.v, "aria-label": label + " 고치기",
+    oninput: (e) => { if (fixing(key)) fix.v = e.target.value; } });
+  const end = (ok) => {
+    if (!fixing(key)) return;
+    const v = inp.value.trim();
+    fix = null;
+    if (ok && v && v !== orig) onSave(v.slice(0, max)); else redraw();
+  };
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); end(true); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); end(false); }
+  });
+  // 다시 그려 칸이 바뀐 것은 떠난 것이 아니다(옛 칸은 문서에서 빠져 있다)
+  inp.addEventListener("blur", () => setTimeout(() => { if (inp.isConnected) end(true); }, 0));
+  for (const ev of ["pointerdown", "click"]) inp.addEventListener(ev, (e) => e.stopPropagation());
+  setTimeout(() => { if (inp.isConnected && document.activeElement !== inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } }, 0);
+  return inp;
+}
+/* 누르면 고치는 글. 끌기(할 일)와 칸 누르기(계획 칸)로 번지지 않게 여기서 멈춘다. */
+function fixText(cls, text, title, key, orig, redraw, extra = {}) {
+  const go = (e) => { e.stopPropagation(); startFix(key, orig, redraw); };
+  return h("span", { class: cls + " fixable", text, title, role: "button", tabindex: "0", onclick: go,
+    onkeydown: (e) => { if (e.key === "Enter") go(e); }, ...extra });
+}
 function iconize(el, label) {
   if (!el.getAttribute("aria-label")) el.setAttribute("aria-label", label);
   if (!el.title) el.title = el.getAttribute("aria-label");
@@ -1302,12 +1332,17 @@ async function signOutNow() {
   try { await FB.signOut(FB.auth); } catch (e) {}
   showGate();
 }
+/* 자동 로그인: 켜면 로그인을 이 기기에 남겨 다음에 켤 때 바로 들어온다. 끄면 창(탭)을 닫을 때 로그인이 풀린다. */
+const autoOn = () => lsGet("autoLogin") !== false;
+$("gateAuto").checked = autoOn();
 $("gateForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const btn = $("gateBtn");
+  const btn = $("gateBtn"), auto = $("gateAuto").checked;
   btn.disabled = true; $("gateErr").textContent = "";
+  lsSet("autoLogin", auto);
   step("로그인 보냄");
   try {
+    if (FB.setPersistence) await FB.setPersistence(FB.auth, auto ? FB.browserLocalPersistence : FB.browserSessionPersistence);
     await FB.signInWithEmailAndPassword(FB.auth, $("gateEmail").value.trim(), $("gatePass").value);
     step("로그인 받아들여짐");
   } catch (err) {
@@ -1534,7 +1569,11 @@ if (typeof MutationObserver === "function") {
 
 function connect() {
   step("로그인 상태 확인 시작");
+  // 자동 로그인이면 남은 로그인을 찾는 동안 로그인 창을 띄우지 않는다. 늦어지면 그때 띄운다.
+  let answered = false;
+  if (autoOn()) { $("gate").hidden = true; setTimeout(() => { if (!answered && !signedIn) showGate(); }, 4000); }
   FB.onAuthStateChanged(FB.auth, (user) => {
+    answered = true;
     step(user ? "로그인되어 있음" : "로그인 안 되어 있음");
     if (user) openApp(user);
     else if (signedIn) { signedIn = null; showGate("로그인이 풀렸습니다. 다시 들어와 주세요."); }
@@ -2831,15 +2870,20 @@ const navBtn = (label, svg, fn, off) => h("button", { class: "pg-arrow", type: "
    학생 칸을 누르면 그 학생의 고르개가 열린다. 한 학생이 하루에 여러 건을 가질 수 있다. */
 let attEdit = "", attDraft = null;          // 고르개를 연 학생("날짜|반|학생"), 고르는 중인 한 건
 const attEditKey = (sid, day = attDate(), cls = picked()) => day + "|" + cls + "|" + sid;
-function openAttEdit(sid, day = attDate(), cls = picked()) {
-  attEdit = attEdit === attEditKey(sid, day, cls) ? "" : attEditKey(sid, day, cls);
-  attDraft = { k: "결석", r: "", p: [], memo: "" };
+const blankDraft = () => ({ k: "결석", r: "", p: [], memo: "", i: -1 });
+// 이미 적은 한 건(i 번째)을 고르개에 올린다. 「저장」을 누르면 새 건을 더하지 않고 그 건을 바꾼다.
+const draftOf = (e, i) => ({ k: e.k, r: e.r, p: e.p.slice(), memo: e.memo || "", i });
+function openAttEdit(sid, day = attDate(), cls = picked(), entry = null, i = -1) {
+  attEdit = attEdit === attEditKey(sid, day, cls) && !entry ? "" : attEditKey(sid, day, cls);
+  attDraft = entry ? draftOf(entry, i) : blankDraft();
   renderNb();
 }
 function attEditor(st, A, day = attDate(), cls = picked()) {
-  if (!attDraft) attDraft = { k: "결석", r: "", p: [], memo: "" };
+  if (!attDraft) attDraft = blankDraft();
   const d = attDraft, marks = marksOf(A);
   const list = entriesOf(A.value, st.id);
+  if (d.i >= list.length) d.i = -1;                  // 다른 기기에서 그 건이 지워졌다
+  const fixingOne = d.i >= 0;
   const multi = d.k === "결과", noP = d.k === "결석";
   const pick = (cls, items, cur, on) => h("div", { class: "seg att-pick " + cls }, ...items.map(([v, t]) => h("button", {
     type: "button", "data-v": String(v), "aria-pressed": String(cur(v)), text: t, onclick: () => { on(v); renderNb(); } })));
@@ -2850,23 +2894,28 @@ function attEditor(st, A, day = attDate(), cls = picked()) {
     if (!d.r) { err.textContent = "사유를 골라 주세요."; return; }
     if (!noP && !d.p.length) { err.textContent = d.k === "지각" ? "몇 교시까지 지각인지 골라 주세요." : d.k === "조퇴" ? "몇 교시부터 조퇴인지 골라 주세요." : "결과 교시를 골라 주세요."; return; }
     const cur = entriesOf(A.value, st.id);
-    marks[st.id] = [...cur, { k: d.k, r: d.r, p: noP ? [] : d.p.slice().sort((a, b) => a - b), memo: d.memo.trim().slice(0, 60) }];
+    const one = { k: d.k, r: d.r, p: noP ? [] : d.p.slice().sort((a, b) => a - b), memo: d.memo.trim().slice(0, 60) };
+    if (d.i >= 0 && d.i < cur.length) cur[d.i] = one; else cur.push(one);
+    marks[st.id] = cur;
     attEdit = ""; attDraft = null;
     saveEnc(A); renderNb();
   };
   const remove = (i) => {
     const cur = entriesOf(A.value, st.id).filter((_, j) => j !== i);
     if (cur.length) marks[st.id] = cur; else delete marks[st.id];
+    if (d.i === i) attDraft = blankDraft(); else if (d.i > i) d.i -= 1;
     saveEnc(A); renderNb();
   };
+  const pickOne = (e, i) => { attDraft = d.i === i ? blankDraft() : draftOf(e, i); renderNb(); };
   return h("section", { class: "att-ed", id: "attEd" },
     hd("h4", (nbKey() === "lesson" ? cls + " " : "") + who(st), [
       h("span", { class: "hd-note", text: mdw(day) }), err,
-      h("button", { class: "btn small", type: "button", id: "attAdd", text: "추가", "aria-label": "출결 추가", onclick: save }),
-      h("button", { class: "text-btn", type: "button", text: "닫기", onclick: () => { attEdit = ""; renderNb(); } })], "", "att-ed-head"),
-    list.length ? h("ul", { class: "att-ed-list" }, ...list.map((e, i) => h("li", { class: "att-ed-item " + e.k },
+      h("button", { class: "btn small", type: "button", id: "attAdd", text: fixingOne ? "저장" : "추가", "aria-label": fixingOne ? "출결 고치기" : "출결 추가", onclick: save }),
+      h("button", { class: "text-btn", type: "button", text: "닫기", onclick: () => { attEdit = ""; attDraft = null; renderNb(); } })], "", "att-ed-head"),
+    list.length ? h("ul", { class: "att-ed-list" }, ...list.map((e, i) => h("li", { class: "att-ed-item click " + e.k + (d.i === i ? " fixing" : ""),
+      "aria-pressed": String(d.i === i), onclick: () => pickOne(e, i) },
       h("span", { text: entryText(e) }),
-      h("button", { class: "del", type: "button", "aria-label": "이 기록 지우기", text: "×", onclick: () => remove(i) })))) : null,
+      h("button", { class: "del", type: "button", "aria-label": "이 기록 지우기", text: "×", onclick: (ev) => { ev.stopPropagation(); remove(i); } })))) : null,
     h("div", { class: "att-ed-row" }, h("span", { class: "lbl", text: "종류" }),
       pick("att-k", ATT_KINDS.map(k => [k, k]), v => d.k === v, v => { d.k = v; d.p = []; })),
     h("div", { class: "att-ed-row" }, h("span", { class: "lbl", text: "사유" }),
@@ -2912,10 +2961,10 @@ function attBottom() {
 }
 /* 아래 칸(아무도 안 골랐을 때): 그날 기록 목록. 줄을 누르면 그 학생 고르개 */
 function attDayList(list, A) {
-  const rows = list.flatMap(st => entriesOf(A.value, st.id).map(e => ({ st, e })));
+  const rows = list.flatMap(st => entriesOf(A.value, st.id).map((e, i) => ({ st, e, i })));
   return h("div", { class: "att-day-list" },
     h("h4", { class: "att-side-hd", text: rows.length ? `기록 ${rows.length}건` : "전원 출석" }),
-    rows.length ? h("ul", { class: "att-ed-list" }, ...rows.map(({ st, e }) => h("li", { class: "att-ed-item click " + e.k, onclick: () => openAttEdit(st.id) },
+    rows.length ? h("ul", { class: "att-ed-list" }, ...rows.map(({ st, e, i }) => h("li", { class: "att-ed-item click " + e.k, onclick: () => openAttEdit(st.id, attDate(), picked(), e, i) },
       h("b", { class: "who", text: who(st) }), h("span", { text: entryText(e) })))) : null);
 }
 const monday = (iso) => parseDate(iso).getDay() === 1;
@@ -4144,9 +4193,12 @@ function workPage() {
     return (a.due || "").localeCompare(b.due || "");
   });
   const lines = sorted.map(x => {
-    const n = x.due ? dnum(x.due) : null;
+    const n = x.due ? dnum(x.due) : null, key = "work:" + x.id;
+    const title = fixing(key)
+      ? fixInput(key, x.title, 100, "업무", (v) => { const y = D.value.items.find(z => z.id === x.id); if (y) y.title = v; saveEnc(D); renderBook(); }, renderBook)
+      : fixText("hd-t ttl", x.title, null, key, x.title, renderBook);
     return h("li", { class: "line" + (x.done ? " done" : "") },
-      hd("span", x.title, [
+      hd("span", title, [
         h("button", { class: "text-btn", type: "button", text: x.done ? "다시 하기" : "다 했습니다", onclick: () => { x.done = !x.done; saveEnc(D); renderBook(); } }),
         x.due ? h("span", { class: "hd-note due " + (x.done ? "far" : dueCls(n)), text: dLabel(n) }) : h("span", { class: "hd-note when", text: "기한 없음" }),
         delBtn("삭제", docBack(D), () => { D.value.items = D.value.items.filter(y => y.id !== x.id); saveEnc(D); renderBook(); })], "ttl", "top"),
@@ -4178,6 +4230,10 @@ const plansOf = () => { const W = docs.works; if (!Array.isArray(W.value.plan)) 
 function planEdit(fn) { fn(); saveEnc(docs.works); renderNb(); planSyncSoon(); }
 const planAdd = (d, text) => planEdit(() => plansOf().push({ id: uid(), d, text: text.slice(0, 100), done: false, at: Date.now() }));
 const planToggle = (p) => planEdit(() => { p.done = !p.done; p.at = Date.now(); });
+// 고치기를 열면 열려 있던 적는 줄은 닫는다(칸 둘이 한꺼번에 뜨지 않게)
+const planFixOpen = () => { planOpen = { d: "", where: "" }; renderNb(); };
+const planFixInput = (p, key, label) => fixInput(key, p.text, 100, label + " 계획",
+  (v) => planEdit(() => { const x = plansOf().find(y => y.id === p.id); if (x) { x.text = v; x.at = Date.now(); } }), renderNb);
 const planDel = (p) => planEdit(() => {
   const W = docs.works;
   if (p.gid) { p.del = true; p.at = Date.now(); }             // 구글에서도 지운 뒤 걷는다
@@ -4308,8 +4364,10 @@ function dayPanel(d, label, opts = {}) {
     h("ul", { class: "wk-plan" }, ...mine.map(p => {
       const chk = h("button", { class: "check", type: "button", "aria-pressed": String(!!p.done), "aria-label": p.done ? "다시 하기" : "다 했음", onclick: () => planToggle(p) });
       chk.innerHTML = CHECK;
-      return h("li", { class: "todo" + (p.done ? " done" : "") }, chk,
-        h("span", { class: "todo-text", text: (p.t ? p.t + " " : "") + p.text }),
+      const key = "plan:" + p.id + ":wk";
+      return h("li", { class: "todo" + (p.done ? " done" : "") + (fixing(key) ? " fixing" : "") }, chk,
+        fixing(key) ? h("form", { class: "wk-add", onsubmit: (e) => e.preventDefault() }, planFixInput(p, key, label))
+          : fixText("todo-text", (p.t ? p.t + " " : "") + p.text, null, key, p.text, planFixOpen),
         h("button", { class: "del", type: "button", "aria-label": "삭제", text: "×", onclick: () => planDel(p) }));
     })));
 }
@@ -4398,13 +4456,19 @@ function renderWeekPlan() {
       ...state.ddays.filter(x => x.date === d).map(x => ({ c: "dday", t: x.title })),
       ...gcalOn(d).map(x => ({ c: "gcal", t: (x.allDay ? "" : x.time + " ") + x.title })),
       ...(open ? W.value.items.filter(x => x.due === d).map(x => ({ c: "due" + (x.done ? " done" : ""), t: x.title })) : []),
-      ...(open ? livePlans(plansOf()).filter(p => p.d === d).map(p => ({ c: "plan" + (p.done ? " done" : ""), t: (p.t ? p.t + " " : "") + p.text })) : []),
+      ...(open ? livePlans(plansOf()).filter(p => p.d === d).map(p => ({ c: "plan" + (p.done ? " done" : ""), t: (p.t ? p.t + " " : "") + p.text, p })) : []),
     ];
+    const li = (x) => {
+      if (!x.p) return h("li", { class: "mo-ev " + x.c, text: x.t, title: x.t });
+      const key = "plan:" + x.p.id + ":wg";
+      if (fixing(key)) return h("li", { class: "wp-fix" }, h("form", { class: "wk-add", onsubmit: (e) => e.preventDefault() }, planFixInput(x.p, key, WD7[i] + "요일")));
+      return h("li", { class: "mo-ev " + x.c }, fixText("wp-tx", x.t, x.t, key, x.p.text, planFixOpen));
+    };
     return h("div", { class: "wp-day" + (i === 0 ? " we sun" : i === 6 ? " we sat" : "") + (d === today ? " today" : "") + (open ? " can" : ""),
       "data-day": d, onclick: open ? tapOpen(d, "wg") : null },
       h("div", { class: "wp-head" }, h("b", { text: WD7[i] }), h("span", { text: md(d) })),
       open && isEditing(d, "wg") ? planInput(d, "wg", WD7[i] + "요일") : null,
-      h("ul", { class: "wp-list" }, ...items.map(x => h("li", { class: "mo-ev " + x.c, text: x.t, title: x.t }))));
+      h("ul", { class: "wp-list" }, ...items.map(li)));
   }));
 }
 
@@ -4440,11 +4504,15 @@ function renderTodos() {
     const list = h("ul", { class: "q-list" }, ...ordered.map((t) => {
       const chk = h("button", { class: "check", type: "button", "aria-label": t.done ? "완료 취소" : "완료로 표시", "aria-pressed": String(!!t.done), onclick: () => { t.done = !t.done; save(); renderTodos(); } });
       chk.innerHTML = CHECK;
+      const key = "todo:" + t.id;
+      const tx = fixing(key)
+        ? fixInput(key, t.text, 200, "할 일", (v) => { const x = state.todos.find(y => y.id === t.id); if (x) x.text = v; save(); renderTodos(); }, renderTodos)
+        : fixText("q-tx", t.text, t.text, key, t.text, renderTodos, { onclick: (e) => { if (Date.now() - todoDropAt < 400) return; e.stopPropagation(); startFix(key, t.text, renderTodos); } });
       const li = h("li", {
-        class: "q-todo" + (t.done ? " done" : ""), "data-id": t.id,
+        class: "q-todo" + (t.done ? " done" : "") + (fixing(key) ? " fixing" : ""), "data-id": t.id,
         onpointerdown: (e) => todoDown(e, t.id, li),
         oncontextmenu: (e) => { if (todoDrag) e.preventDefault(); },
-      }, chk, h("span", { class: "q-tx", text: t.text, title: t.text }),
+      }, chk, tx,
         h("button", { class: "del", type: "button", "aria-label": `${t.text} 삭제`, text: "×", onclick: () => { state.todos = state.todos.filter(x => x.id !== t.id); save(); renderTodos(); } }));
       return li;
     }), h("li", { class: "q-more", "aria-hidden": "true" }));   // "외 N개". trimTodos() 가 켠다
@@ -4468,9 +4536,9 @@ function renderTodos() {
 
 // 마우스는 조금 움직이면 집고, 손가락은 꾹 눌러야 집는다(먼저 움직이면 스크롤).
 const HOLD_MS = 280, MOVE_PX = 6;
-let todoDrag = null;
+let todoDrag = null, todoDropAt = 0;               // 끌어 놓은 때. 놓으면서 글을 눌러도 고치기로 열지 않는다
 function todoDown(e, id, li) {
-  if (e.button > 0 || e.target.closest("button")) return;
+  if (e.button > 0 || e.target.closest("button, input")) return;
   todoEnd();
   const r = li.getBoundingClientRect();
   todoDrag = { id, li, pid: e.pointerId, mouse: e.pointerType === "mouse", x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, live: false, ghost: null, over: null, timer: null };
@@ -4528,6 +4596,7 @@ document.addEventListener("pointerup", (e) => {
   if (!d || e.pointerId !== d.pid) return;
   const q = d.live && d.over ? Number(d.over.dataset.q) : null;
   const t = state.todos.find(x => x.id === d.id);
+  if (d.live) todoDropAt = Date.now();
   todoEnd();
   if (t && q != null && todoQ(t) !== q) { t.q = q; save(); renderTodos(); }
 });

@@ -57,7 +57,7 @@ function renameHoclassStudent(room, idx, newName) {
   b.name = newName; put(p, b);
 }
 
-const writes = [], hcWrites = [];
+const writes = [], hcWrites = [], persistSet = [];   // persistSet: 로그인을 어디에 남기라 했는지(자동 로그인)
 /* 가짜 구글 캘린더: 「교무수첩」 캘린더 하나와 그 일정들(plansync.js 의 fromEvent 모양) */
 const gfake = { token: null, cal: "", events: new Map(), seq: 0, ensures: 0, other: {} };
 const gtime = () => Date.now() + (++gfake.seq);
@@ -96,6 +96,8 @@ function makeFB() {
       current = user; authCbs.forEach(cb => cb(current));
       return { user: current };
     },
+    setPersistence: async (_a, how) => { persistSet.push(how); },
+    browserLocalPersistence: "local", browserSessionPersistence: "session",
     signOut: async () => { current = null; authCbs.forEach(cb => cb(null)); },
     onAuthStateChanged: (_a, cb) => { authCbs.push(cb); setTimeout(() => cb(current), 0); return () => {}; },
     query: (c) => c, where: () => ({}), orderBy: () => ({}), limit: () => ({}),
@@ -447,9 +449,11 @@ function checkWidgetMode() {
     memo: { pg: 1, x: 19, y: 9, w: 6, h: 8, on: true }, book: { pg: 2, x: 1, y: 1, w: 18, h: 16, on: true },
     tt: { pg: 2, x: 19, y: 1, w: 6, h: 16, on: true } } } });
 
+  assert(A.$("gateAuto").checked, "자동 로그인은 처음부터 켜져 있다");
   A.fill("gateEmail", "ho0911seong@gmail.com"); A.fill("gatePass", "계정비밀번호");
   A.submit("gateForm");
   await until(() => A.$("gate").hidden && !A.$("app").hidden, "로그인하면 수첩이 열린다");
+  assert.strictEqual(persistSet[persistSet.length - 1], "local", "자동 로그인을 켜고 들어오면 로그인을 이 기기에 남긴다");
 
   /* ---------- 수첩 비밀번호 ---------- */
   assert(!A.$("setupForm"), "대시보드는 잠금 없이 보인다");
@@ -547,8 +551,16 @@ function checkWidgetMode() {
     const B = device({ "my-desk-v3:keepKey": JSON.stringify(kept()) });
     await until(() => !B.$("gate").hidden, "다시 연 수첩의 로그인 문");
     B.fill("gateEmail", "ho0911seong@gmail.com"); B.fill("gatePass", "계정비밀번호");
+    B.$("gateAuto").checked = false;
     B.submit("gateForm");
     await until(() => B.$("gate").hidden && !B.$("app").hidden, "다시 연 수첩 로그인");
+    assert.strictEqual(persistSet[persistSet.length - 1], "session", "자동 로그인을 끄면 창을 닫을 때 로그인이 풀린다");
+    assert.strictEqual(B.w.localStorage.getItem("my-desk-v3:autoLogin"), "false", "고른 것을 기억한다");
+    {
+      const C2 = device({ "my-desk-v3:autoLogin": "false" });
+      await until(() => !C2.$("gate").hidden, "자동 로그인을 끈 기기는 로그인 문");
+      assert(!C2.$("gateAuto").checked, "끈 것이 그대로 보인다");
+    }
     B.go("담임");
     await until(() => B.$("nbSeg") && !B.$("nbSeg").hidden, "비밀번호 없이 교무수첩이 열린다");
     assert(!B.$("unlockForm"), "잠금 칸이 뜨지 않는다");
@@ -598,6 +610,23 @@ function checkWidgetMode() {
   ptr("pointerup", A.d, "touch", 50, 80);
   await until(() => qCells()[3].textContent.includes("급한 공문 회신"), "손가락으로 끌면 칸이 바뀐다");
   assert(!A.d.querySelector(".q-ghost"), "놓으면 집어 든 그림이 사라진다");
+  /* 할 일 고치기: 글을 누르면 그 자리가 칸이 된다. Enter 로 저장, ESC 는 그대로 */
+  await wait(450);
+  {
+    const fixIn = () => A.d.querySelector("#todoQuad .fix-in");
+    itemIn(qCells()[3], "급한 공문 회신").querySelector(".q-tx").click();
+    await until(() => fixIn() && fixIn().value === "급한 공문 회신", "할 일 글을 누르면 고치는 칸");
+    fixIn().value = "바꾼 글"; fixIn().dispatchEvent(new A.w.Event("input", { bubbles: true }));
+    fixIn().dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await until(() => !fixIn() && qCells()[3].textContent.includes("급한 공문 회신"), "ESC 면 고치지 않는다");
+    itemIn(qCells()[3], "급한 공문 회신").querySelector(".q-tx").click();
+    await until(() => fixIn(), "다시 연다");
+    fixIn().value = "급한 공문 회신 교육청"; fixIn().dispatchEvent(new A.w.Event("input", { bubbles: true }));
+    fixIn().dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await until(() => !fixIn() && qCells()[3].textContent.includes("급한 공문 회신 교육청"), "Enter 로 고친다");
+    await until(() => (JSON.parse(store.get("desk_todos/all") || "{}").state || { items: [] }).items
+      .some(t => t.text === "급한 공문 회신 교육청" && t.q === 3), "고친 글이 저장된다(칸은 그대로)");
+  }
 
   /* ---------- 구글 캘린더 위젯 ---------- */
   await until(() => A.$("gcalBody").textContent.includes("이어 붙이면"), "연결 전에는 안내가 보인다");
@@ -864,6 +893,23 @@ function checkWidgetMode() {
   await until(() => A.d.querySelectorAll("#attEd .att-ed-item").length === 1, "한 건만 지운다");
   A.btn("#attEd", "닫기").click();
   await until(() => !A.$("attEd") && A.attCell(0).textContent === "조퇴", "남은 조퇴 한 건");
+  /* 적은 한 건 고치기: 아래 목록의 줄을 누르면 그 건이 고르개에 올라오고 「저장」은 그 건을 바꾼다 */
+  A.d.querySelector("#attBelow .att-day-list .att-ed-item").click();
+  await until(() => A.$("attEd") && A.$("attEd").querySelector(".att-ed-item.fixing"), "줄을 누르면 그 건을 고친다");
+  assert.strictEqual(A.$("attAdd").getAttribute("aria-label"), "출결 고치기", "단추가 고치기가 된다");
+  assert.strictEqual(A.d.querySelector('#attEd .att-k [data-v="조퇴"]').getAttribute("aria-pressed"), "true", "적은 종류가 골라져 있다");
+  A.$("attMemo").value = "병원 진료"; A.$("attMemo").dispatchEvent(new A.w.Event("input", { bubbles: true }));
+  A.$("attAdd").click();
+  await until(() => !A.$("attEd") && A.attCell(0).textContent === "조퇴", "고쳐도 한 건 그대로(더하지 않는다)");
+  A.attCell(0).click();
+  await until(() => A.$("attEd"), "고르개 다시");
+  assert(A.$("attEd").textContent.includes("질병조퇴(6교시부터, 병원 진료)"), "메모가 바뀌었다: " + A.$("attEd").textContent);
+  A.d.querySelector("#attEd .att-ed-item").click();
+  await until(() => A.$("attEd").querySelector(".att-ed-item.fixing"), "고르개 안의 줄을 눌러도 고친다");
+  A.d.querySelector("#attEd .att-ed-item").click();
+  await until(() => !A.$("attEd").querySelector(".att-ed-item.fixing") && A.$("attAdd").getAttribute("aria-label") === "출결 추가", "같은 줄을 다시 누르면 새로 적기로 돌아간다");
+  A.btn("#attEd", "닫기").click();
+  await until(() => !A.$("attEd"), "닫는다");
   await wait(900);
   assert(!allStored().includes("보건실"), "출결 메모 평문 금지");
 
@@ -952,6 +998,20 @@ function checkWidgetMode() {
   A.fill("plan_" + mon, "교과협의회 자료 준비");
   A.$("plan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
   await until(() => monCol().textContent.includes("교과협의회 자료 준비"), "월요일 칸에 계획을 적는다");
+  {
+    const fixIn = () => monCol().querySelector(".wk-plan .fix-in");
+    [...monCol().querySelectorAll(".wk-plan .todo-text")].find(x => x.textContent.includes("교과협의회")).click();
+    await until(() => fixIn() && fixIn().value === "교과협의회 자료 준비", "계획 글을 누르면 그 자리에서 고친다");
+    assert(!A.$("plan_" + mon), "고치려고 누른 것은 적는 줄을 열지 않는다");
+    fixIn().value = "교과협의회 자료 준비 2부"; fixIn().dispatchEvent(new A.w.Event("input", { bubbles: true }));
+    fixIn().dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await until(() => !fixIn() && monCol().textContent.includes("교과협의회 자료 준비 2부"), "계획을 고친다");
+    [...monCol().querySelectorAll(".wk-plan .todo-text")].find(x => x.textContent.includes("2부")).click();
+    await until(() => fixIn(), "다시 연다");
+    fixIn().value = "교과협의회 자료 준비"; fixIn().dispatchEvent(new A.w.Event("input", { bubbles: true }));
+    fixIn().dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await until(() => !fixIn() && !monCol().textContent.includes("2부"), "되돌려 고친다");
+  }
   monCol().querySelector(".wk-plan .check").click();
   await until(() => monCol().querySelector(".wk-plan .todo.done"), "계획을 다 했음으로");
   A.d.querySelector('#classBody [aria-label="다음 주"]').click();
@@ -1007,6 +1067,12 @@ function checkWidgetMode() {
       await until(() => monW().textContent.includes("위젯에서 적은 계획") && monCol().textContent.includes("위젯에서 적은 계획"), "위젯에서 적은 것이 주간 계획에도");
       A.$("wgplan_" + mon).dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
       await until(() => !A.$("wgplan_" + mon), "ESC 로 닫는다");
+      const wFix = () => monW().querySelector(".fix-in");
+      [...monW().querySelectorAll(".wp-tx")].find(x => x.textContent === "위젯에서 적은 계획").click();
+      await until(() => wFix() && !A.$("wgplan_" + mon), "위젯의 내 계획도 눌러서 고친다(적는 줄은 열지 않는다)");
+      wFix().value = "위젯에서 고친 계획"; wFix().dispatchEvent(new A.w.Event("input", { bubbles: true }));
+      wFix().dispatchEvent(new A.w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      await until(() => !wFix() && monW().textContent.includes("위젯에서 고친 계획") && monCol().textContent.includes("위젯에서 고친 계획"), "위젯에서 고친 것이 주간 계획에도");
     }
   }
 
