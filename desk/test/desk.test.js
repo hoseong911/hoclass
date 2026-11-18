@@ -561,6 +561,8 @@ function checkWidgetMode() {
       await until(() => !C2.$("gate").hidden, "자동 로그인을 끈 기기는 로그인 문");
       assert(!C2.$("gateAuto").checked, "끈 것이 그대로 보인다");
     }
+    /* 대시보드에 머물러도 저절로 열려 주간 계획 위젯에 내 계획이 보인다(교무수첩 장에 들어가야만 열리던 것, 2026-11-18) */
+    await until(() => B.d.querySelector("#wplan .wp-day.can"), "대시보드에서도 교무수첩이 저절로 열린다");
     B.go("담임");
     await until(() => B.$("nbSeg") && !B.$("nbSeg").hidden, "비밀번호 없이 교무수첩이 열린다");
     assert(!B.$("unlockForm"), "잠금 칸이 뜨지 않는다");
@@ -995,6 +997,16 @@ function checkWidgetMode() {
     await until(() => sec().querySelector(".col-stu.got"), "누르면 제출");
     assert.strictEqual(sec().querySelector(".col-stu.got .st").textContent, "제출");
     assert(/미제출 1명/.test(sec().querySelector(".hd").textContent), "섹션 머리줄에 미제출 수");
+    /* 전체 제출: 한 번 누르면 전원 제출, 다시 누르면 전원 미제출(선생님 지시 2026-11-18) */
+    const all = () => sec().querySelector(".col-all");
+    assert.strictEqual(all().getAttribute("aria-pressed"), "false");
+    all().click();
+    await until(() => sec().querySelectorAll(".col-stu.got").length === 2, "전체 제출");
+    assert.strictEqual(all().getAttribute("aria-pressed"), "true", "전원 제출이면 단추가 눌린 모양");
+    assert(/전원 제출/.test(sec().querySelector(".hd").textContent));
+    all().click();
+    await until(() => !sec().querySelector(".col-stu.got"), "다시 누르면 전체 해제");
+    assert(/미제출 2명/.test(sec().querySelector(".hd").textContent));
     const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
     assert(css.includes(".col-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));"), "수합 섹션은 2단");
     assert(css.includes(".col-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));"), "섹션 안 학생은 4열");

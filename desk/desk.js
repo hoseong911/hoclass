@@ -2763,7 +2763,8 @@ function renderNb() {
   renderWeekPlan();          // 계획이 바뀌거나 잠기고 열릴 때 대시보드 주간 계획 위젯도 같이
   const nb = nbOf(curPage);
   $("nb").hidden = !nb;
-  if (!nb) { homeTodos(); return; }
+  // 「잠그지 않기」 기기는 대시보드에서도 저절로 연다. 교무수첩 장에 들어가야만 열면 주간 계획 위젯에 내 계획이 안 보인다
+  if (!nb) { if (keyStateNow() === "locked") tryKeep(); homeTodos(); return; }
   const ks = keyStateNow(), open = ks === "open";
   lastKs = ks;
   const tab = nbTab[nb.key], usesCls = nb.key !== "work";
@@ -3082,6 +3083,9 @@ function collectView() {
     return h("section", { class: "panel col-sec", "data-col": c.id },
       hd("h3", c.title, [
         linked ? h("span", { class: "tag cls", text: "호클래스" }) : null,
+        // 한 번 누르면 전원 제출, 전원 제출일 때 다시 누르면 전원 미제출
+        linked || !list.length ? null : h("button", { class: "text-btn col-all", type: "button", text: "전체 제출", "aria-pressed": String(!missing.length),
+          onclick: () => { c.got = missing.length ? list.map(st => st.id) : []; saveEnc(D); renderClass(); } }),
         missing.length ? h("button", { class: "text-btn", type: "button", text: "미제출 명단 복사", onclick: () => copyText(missText) }) : null,
         h("div", { class: "att-sum" }, missing.length
           ? h("span", { class: "k absent" }, "미제출 ", h("b", { text: missing.length + "명" }))

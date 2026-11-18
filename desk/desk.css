@@ -294,6 +294,7 @@ table.att-month { width: 100%; border-collapse: collapse; font-size: 12px; font-
 .col-stu .nm { overflow: hidden; text-overflow: ellipsis; }
 .col-stu .st { font-size: var(--t3); font-weight: 600; color: var(--danger); }
 .col-stu.got .st { color: var(--pass); }
+.col-all[aria-pressed="true"] { color: var(--pass); font-weight: 700; }
 @media (max-width: 900px) { .col-grid { grid-template-columns: minmax(0, 1fr); } }
 /* 한 섹션 안의 둘째 묶음 머리줄(담임 학생의 출결 아래 수합 미제출) */
 .panel > .hd.sub-hd { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
