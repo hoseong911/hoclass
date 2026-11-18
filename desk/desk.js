@@ -709,7 +709,7 @@ function openYearDocs() {
   const y = state.year.current;
   if (yearOpen === y) return;
   for (const d of encDocs()) closeDoc(d);
-  yearOpen = y; attDay = ""; attCls = ""; docs.att = null; activeCollect = null; pickedCls = "";
+  yearOpen = y; attDay = ""; attCls = ""; docs.att = null; pickedCls = "";
   attCache.clear(); attLoaded = "";
   docs.roster = makeDoc(`y${y}_roster`, { enc: true, makeDefault: () => ({ classes: {} }) });
   docs.collects = makeDoc(`y${y}_collects`, { enc: true, makeDefault: () => ({ items: [] }) });
@@ -804,7 +804,6 @@ async function lockNow() {
   await Promise.all(sending);
   dataKey = null; recoveryToShow = null;
   for (const d of encDocs()) { d.value = null; d.ready = false; }
-  activeCollect = null;
   renderClass();
   if (setOpen) renderSet();
 }
@@ -1746,7 +1745,7 @@ function renderPeriods(now = new Date()) {
     items.push(h("li", { class: cls.join(" ") },
       h("span", { class: "p", text: `${i + 1}교시` }),
       h("span", { class: "tm", text: `${b.s}~${b.e}` }),
-      h("span", { class: "c", text: actShort(row[i].trim()) || "공강" }),
+      h("span", { class: "c", text: actShort(row[i].trim()) }),
       two ? h("span", { class: "hc", text: actShort(String(crow[i] || "").trim()) }) : null
     ));
   }
@@ -2370,7 +2369,7 @@ function passSection() {
 }
 
 /* ---------- 우리 반 ---------- */
-let activeCollect = null, recoverMode = false;
+let recoverMode = false;
 let hideNames = false;
 try { hideNames = localStorage.getItem(LS_PREFIX + "hideNames") === "1"; } catch (e) {}
 function studentsAll() {
@@ -2847,12 +2846,6 @@ function renderNb() {
 function renderClass() { renderNb(); }
 function renderBook() { renderNb(); }
 
-function stuTile(st, cls, label, statusText, onclick, pressed) {
-  const nm = shownName(st);
-  return h("button", { class: "stu " + cls, type: "button", "aria-pressed": pressed, "aria-label": label, onclick },
-    h("span", { class: "n", text: String(st.n) }), nm ? h("span", { class: "nm", text: nm }) : null, h("span", { class: "st", text: statusText }));
-}
-
 /* 출결은 날짜를 골라 지난날도 고친다. 한 달 보기는 학생 줄, 날짜 칸으로 쌓아 본다(선생님 지적 2026-11-13:
    "결석은 매일 기록하는 거 아니면 의미 없다"). 기본은 전원 출석이고 결석, 지각, 조퇴만 누른다. */
 let attPick = "", attYm = "";      // attYm 이 비면 한 달 표는 위에서 고른 날의 달
@@ -3040,12 +3033,12 @@ function attMonthView() {
   ];
 }
 
-let colAdding = false;         // 수합 탭에서 「+ 새 수합」을 눌러 이름 칸을 연 때
+let colAdding = false;         // 수합 탭에서 새 수합 이름 칸을 연 때
+/* 수합은 하나마다 섹션 하나, 섹션은 2단으로 늘어선다. 섹션 안 학생은 4열이고 칸마다 두 줄(번호와 이름, 제출 여부)이다. */
 function collectView() {
   const D = docs.collects;
   stampCls(D);
   const list = roster(), items = D.value.items, ours = mine(items);
-  if (!ours.find(c => c.id === activeCollect)) activeCollect = ours[0] ? ours[0].id : null;
   const myLessons = lessonsOf(picked());
   const colCl = h("select", { id: "colCl", "aria-label": "호클래스 차시" }, h("option", { value: "", text: "손으로 걷기" }),
     ...myLessons.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || ""}`.trim() })));
@@ -3053,53 +3046,52 @@ function collectView() {
     h("option", { value: "mission", text: "미션 활동" }),
     h("option", { value: "question", text: "오늘의 질문" }),
     h("option", { value: "formative", text: "형성평가" }));
-  // 새 수합을 넣는 동안은 머리줄이 「새 수합」 + 추가, 취소 아이콘이고 그 아래가 넣는 칸이다
-  if (colAdding || !ours.length) return [
-    hd("h4", "새 수합", [
+  const adding = colAdding || !ours.length;
+  const addSec = adding ? h("section", { class: "panel col-sec" },
+    hd("h3", "새 수합", [
       h("button", { class: "btn small", type: "submit", form: "colForm", text: "추가", "aria-label": "수합 추가" }),
       ours.length ? h("button", { class: "text-btn", type: "button", text: "취소", onclick: () => { colAdding = false; renderClass(); } }) : null]),
     h("form", { class: "col-add", id: "colForm", onsubmit: (e) => {
       e.preventDefault();
       const t = $("colName").value.trim(); if (!t) return;
-      const c = { id: uid(), title: t.slice(0, 40), got: [], cls: picked(), clId: colCl.value || "", part: colPart.value || "" };
-      items.unshift(c); activeCollect = c.id; colAdding = false; saveEnc(D); renderClass();
+      items.unshift({ id: uid(), title: t.slice(0, 40), got: [], cls: picked(), clId: colCl.value || "", part: colPart.value || "" });
+      colAdding = false; saveEnc(D); renderClass();
     } },
       h("label", { class: "field grow" }, "새 수합 이름", h("input", { type: "text", id: "colName", maxlength: "40", autocomplete: "off" })),
-      myLessons.length ? colCl : null, myLessons.length ? colPart : null),
-  ];
-  const c = ours.find(x => x.id === activeCollect);
-  const ids = new Set(list.map(st => st.id));
-  const cntOf = (x) => {
-    if (!x.clId) return x.got.filter(id => ids.has(id)).length;
-    const m = subCache.get(x.clId) || {};
-    return list.filter(st => m[st.id] && m[st.id][x.part || "mission"]).length;
+      myLessons.length ? colCl : null, myLessons.length ? colPart : null)) : null;
+  const section = (c) => {
+    const linked = !!c.clId;
+    if (linked) wantSubs(c.clId);
+    const subs = linked ? (subCache.get(c.clId) || {}) : null;
+    const gotSet = linked
+      ? new Set(list.filter(st => subs[st.id] && subs[st.id][c.part || "mission"]).map(st => st.id))
+      : new Set(c.got);
+    const missing = list.filter(st => !gotSet.has(st.id));
+    const missText = missing.length ? `${c.title} 미제출 ${missing.length}명: ${missing.map(who).join(", ")}` : `${c.title} 전원 제출`;
+    const cells = list.map(st => {
+      const got = gotSet.has(st.id), nm = shownName(st);
+      return h("button", { class: "col-stu" + (got ? " got" : ""), type: "button", "aria-pressed": String(got), "aria-label": `${who(st)} ${got ? "제출함" : "미제출"}`,
+        onclick: () => {
+          if (linked) { toast("이 항목은 호클래스 제출을 그대로 보여 줍니다"); return; }
+          c.got = got ? c.got.filter(id => id !== st.id) : [...c.got, st.id];
+          saveEnc(D); renderClass();
+        } },
+        h("span", { class: "ln" }, h("span", { class: "n", text: String(st.n) }), nm ? h("span", { class: "nm", text: nm }) : null),
+        h("span", { class: "st", text: got ? "제출" : "미제출" }));
+    });
+    return h("section", { class: "panel col-sec", "data-col": c.id },
+      hd("h3", c.title, [
+        linked ? h("span", { class: "tag cls", text: "호클래스" }) : null,
+        missing.length ? h("button", { class: "text-btn", type: "button", text: "미제출 명단 복사", onclick: () => copyText(missText) }) : null,
+        h("div", { class: "att-sum" }, missing.length
+          ? h("span", { class: "k absent" }, "미제출 ", h("b", { text: missing.length + "명" }))
+          : h("span", { class: "k done" }, h("b", { text: "전원 제출" }))),
+        delBtn("이 수합 삭제", docBack(D), () => { D.value.items = items.filter(x => x.id !== c.id); saveEnc(D); renderClass(); })]),
+      h("div", { class: "col-list" }, ...cells));
   };
-  const tabs = h("div", { class: "collect-tabs" }, ...ours.map(x => h("button", { class: "ctab", type: "button", "aria-pressed": String(x.id === activeCollect), onclick: () => { activeCollect = x.id; renderClass(); } },
-    x.title, x.clId ? h("span", { class: "tag cls", text: "호클래스" }) : null, h("span", { class: "cnt", text: `${cntOf(x)}/${list.length}` }))));
-  const linked = !!c.clId;
-  if (linked) wantSubs(c.clId);
-  const subs = linked ? (subCache.get(c.clId) || {}) : null;
-  const gotSet = linked
-    ? new Set(list.filter(st => subs[st.id] && subs[st.id][c.part || "mission"]).map(st => st.id))
-    : new Set(c.got);
-  const missing = list.filter(st => !gotSet.has(st.id));
-  const tiles = list.map(st => stuTile(st, gotSet.has(st.id) ? "got" : "", `${who(st)} ${gotSet.has(st.id) ? "제출함" : "미제출"}`, gotSet.has(st.id) ? "제출" : "", () => {
-    if (linked) { toast("이 항목은 호클래스 제출을 그대로 보여 줍니다"); return; }
-    c.got = gotSet.has(st.id) ? c.got.filter(id => id !== st.id) : [...c.got, st.id];
-    saveEnc(D); renderClass();
-  }, String(gotSet.has(st.id))));
-  const missText = missing.length ? `${c.title} 미제출 ${missing.length}명: ${missing.map(who).join(", ")}` : `${c.title} 전원 제출`;
-  // 누가 안 냈는지는 학생 칸 색으로 보인다. 번호를 또 늘어놓지 않는다.
-  // 머리줄: 수합 고르기(제목 자리) | 복사 | 미제출 수 | 새 수합, 삭제 아이콘
   return [
-    hd("h4", tabs, [
-      missing.length ? h("button", { class: "text-btn", type: "button", id: "colCopy", text: "미제출 명단 복사", onclick: () => copyText(missText) }) : null,
-      h("div", { class: "att-sum" }, missing.length
-        ? h("span", { class: "k absent" }, "미제출 ", h("b", { text: missing.length + "명" }))
-        : h("span", { class: "k done" }, h("b", { text: "전원 제출" }))),
-      iconBtn("새 수합", "plus", () => { colAdding = true; renderClass(); }, { id: "colNew" }),
-      delBtn("이 수합 삭제", docBack(D), () => { D.value.items = items.filter(x => x.id !== c.id); activeCollect = null; saveEnc(D); renderClass(); })]),
-    h("div", { class: "students" }, ...tiles),
+    hd("h4", "수합", [adding ? null : iconBtn("새 수합", "plus", () => { colAdding = true; renderClass(); }, { id: "colNew" })]),
+    h("div", { class: "col-grid" }, addSec, ...ours.map(section)),
   ];
 }
 
@@ -3110,7 +3102,7 @@ function noticeView() {
     e.preventDefault();
     const t = $("noticeIn").value.trim(); if (!t) return;
     items.push({ id: uid(), text: t.slice(0, 200), done: false, cls: picked() }); saveEnc(D); renderClass(); $("noticeIn") && $("noticeIn").focus();
-  } }, h("input", { type: "text", id: "noticeIn", maxlength: "200", autocomplete: "off", "aria-label": "새 전달사항" }));
+  } }, h("input", { class: "grow", type: "text", id: "noticeIn", maxlength: "200", autocomplete: "off", "aria-label": "새 전달사항" }));
   const ours = mine(items);
   const list = ours.length ? ours.map(n => {
     const chk = h("button", { class: "check", type: "button", "aria-label": n.done ? "전달 취소" : "전달함으로 표시", "aria-pressed": String(!!n.done), onclick: () => { n.done = !n.done; saveEnc(D); renderClass(); } });
@@ -3384,7 +3376,7 @@ const WHOS = ["학생", "학부모", "교직원", "기타"];
 const bCls = () => picked();
 function goClass(c) {
   if (pickedCls === c) return;
-  pickedCls = c; bookSid = ""; activeCollect = null; sendPlan = null;
+  pickedCls = c; bookSid = ""; sendPlan = null;
   renderClass(); renderBook();
 }
 function rosterOf(cls) {
@@ -3556,7 +3548,7 @@ async function loadMeal() {
 
 /* ---------- 학생 ---------- */
 /* 담임 학생(선생님 지시 2026-11-16 "카드가 아니라 세로로 긴 표, 1단만 쓰고 3단에 그 학생 세부"):
-   수업 장 학생과 같은 틀(.ls-split) — 1단은 학생 표, 3단은 출결, 수합과 상담, 메모. */
+   수업 장 학생과 같은 틀(.ls-split). 1단은 학생 표, 오른쪽은 출결과 수합 미제출 | 상담 민원 | 메모 세 섹션. */
 function studentPage() {
   const cls = bCls(), list = rosterOf(cls), ym = ymOf(todayKey());
   if (!list.length) return panel("학생", noneLine("이 반은 명단이 비어 있습니다. 설정의 학생 명단에서 넣어 주세요."));
@@ -3583,12 +3575,11 @@ function studentPage() {
       h("div", { class: "count early" }, h("div", { class: "k", text: "조퇴" }), h("div", { class: "v", text: String(cnt.조퇴) })),
       h("div", { class: "count" }, h("div", { class: "k", text: "본 날짜" }), h("div", { class: "v", text: String(cnt.days) }))));
 
-  const miss = panel("수합 미제출", (() => {
-    const items = docs.collects.value.items.filter(c => itemCls(c) === cls && !(c.got || []).includes(bookSid));
-    return items.length ? h("ul", { class: "lines" }, ...items.map(c => h("li", { class: "line" },
+  const missItems = docs.collects.value.items.filter(c => itemCls(c) === cls && !(c.got || []).includes(bookSid));
+  att.append(hd("h3", "수합 미제출", [], "", "sub-hd"),
+    missItems.length ? h("ul", { class: "lines" }, ...missItems.map(c => h("li", { class: "line" },
       h("div", { class: "top" }, h("span", { class: "ttl", text: c.title }), h("span", { class: "tag open", text: "미제출" })))))
-      : noneLine("미제출이 없습니다.");
-  })());
+      : noneLine("미제출이 없습니다."));
 
   const mine = docs.consults.value.items.filter(x => x.sid === bookSid);
   const cons = panel(["이 학생 상담 민원", h("button", { class: "text-btn", type: "button", text: "이 학생 상담 적기", onclick: () => { nbTab.home = "consult"; renderNb(); } })],
@@ -3608,7 +3599,7 @@ function studentPage() {
     } })], "", "ls-head");
   return h("div", { class: "ls-split" }, left,
     h("div", { class: "ls-main" }, head,
-      h("div", { class: "ls-cols" }, att, h("div", { class: "ls-stack" }, miss, cons), note)));
+      h("div", { class: "ls-cols" }, att, cons, note)));
 }
 
 /* ---------- 수업 장 학생(선생님 지시 2026-11-15): 4단. 1단은 학생 목록(세로로 길게), 2~4단은 성적, 세부 특기사항, 메모.

@@ -966,6 +966,49 @@ function checkWidgetMode() {
   assert(A.d.querySelectorAll("#stuList .ls-row").length === 2 && !A.d.querySelector("#classBody .stu-pick"),
     "담임 학생: 카드 격자 대신 세로 표");
   assert(A.d.querySelector(".ls-split > .ls-main > .ls-cols"), "오른쪽 3단에 세부 내용");
+  /* 오른쪽 세 섹션은 출결과 수합 미제출, 상담 민원, 메모 차례(선생님 지시 2026-11-18) */
+  {
+    const secs = [...A.d.querySelectorAll(".ls-cols > .panel")];
+    assert.strictEqual(secs.length, 3, "담임 학생 오른쪽 섹션은 셋");
+    assert(/출결/.test(secs[0].textContent) && /수합 미제출/.test(secs[0].textContent), "첫 섹션에 출결과 수합 미제출");
+    assert(/상담/.test(secs[1].textContent) && !/수합/.test(secs[1].textContent), "둘째 섹션은 상담 민원");
+    assert(secs[2].querySelector("#stuNote"), "셋째 섹션은 메모");
+  }
+
+  /* 수합: 수합 하나가 섹션 하나이고 섹션은 2단, 섹션 안 학생은 4열, 칸은 두 줄(선생님 지시 2026-11-18) */
+  A.sub("col");
+  await until(() => A.$("colName"), "새 수합 이름 칸");
+  A.fill("colName", "가정통신문 회신"); A.submit("colForm");
+  await until(() => A.$("colNew"), "수합 하나");
+  A.$("colNew").click();
+  await until(() => A.$("colName"), "새 수합 이름 칸 다시");
+  A.fill("colName", "수련회 동의서"); A.submit("colForm");
+  await until(() => A.d.querySelectorAll("#classBody .col-grid > .col-sec[data-col]").length === 2, "수합 둘이 섹션 둘");
+  assert(!A.d.querySelector("#classBody .ctab"), "수합을 고르는 탭은 없다(섹션이 다 보인다)");
+  {
+    const sec = () => A.d.querySelector("#classBody .col-sec[data-col]");
+    const cells = [...sec().querySelectorAll(".col-list > .col-stu")];
+    assert.strictEqual(cells.length, 2, "섹션마다 명단 전부");
+    assert.strictEqual(cells[0].children.length, 2, "학생 칸은 두 줄(번호와 이름, 제출 여부)");
+    assert.strictEqual(cells[0].querySelector(".st").textContent, "미제출");
+    cells[0].click();
+    await until(() => sec().querySelector(".col-stu.got"), "누르면 제출");
+    assert.strictEqual(sec().querySelector(".col-stu.got .st").textContent, "제출");
+    assert(/미제출 1명/.test(sec().querySelector(".hd").textContent), "섹션 머리줄에 미제출 수");
+    const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
+    assert(css.includes(".col-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));"), "수합 섹션은 2단");
+    assert(css.includes(".col-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));"), "섹션 안 학생은 4열");
+  }
+
+  /* 전달사항 넣는 칸은 줄 전체 폭 */
+  A.sub("ann");
+  await until(() => A.$("noticeIn"), "전달사항 칸");
+  assert(A.$("noticeIn").classList.contains("grow"), "전달사항 칸이 줄 폭만큼 늘어난다");
+
+  /* 맞춤법 빨간 밑줄을 끈다, 오늘 시간표의 빈 교시는 「공강」 없이 빈칸(선생님 지시 2026-11-18) */
+  assert.strictEqual(A.d.documentElement.getAttribute("spellcheck"), "false", "맞춤법 검사 끔");
+  assert([...A.d.querySelectorAll("#periods .period.free .c")].every(c => c.textContent === ""), "빈 교시는 빈칸");
+  assert(!A.d.getElementById("periods").textContent.includes("공강"), "오늘 시간표에 공강 글자 없음");
 
   A.tab("consult");
   await wait(40);

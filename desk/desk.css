@@ -250,8 +250,6 @@ table.prog { width: 100%; border-collapse: collapse; font-size: 14px; }
 .att-ed-item .del { margin-left: auto; opacity: 1; }
 .att-ed-item.결석 { background: var(--danger-soft); } .att-ed-item.지각 { background: var(--warn-soft); }
 .att-ed-item.조퇴 { background: var(--blue-soft); } .att-ed-item.결과 { background: #EFEAF8; }
-.stu.결과 { background: #EFEAF8; border-color: #CFC2EA; } .stu.결과 .st { color: #6B4FA8; }
-.stu[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
 .att-sum .outk, .att-sum .outk b { color: #6B4FA8; }
 .att-month td.m.결과 { background: #EFEAF8; color: #6B4FA8; }
 .att-month td.tot.결과 { color: #6B4FA8; font-weight: 700; }
@@ -286,32 +284,29 @@ table.att-month { width: 100%; border-collapse: collapse; font-size: 12px; font-
 .col-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
 .col-add .grow { flex: 1 1 160px; min-width: 0; }
 .col-add > .btn { padding-block: 10px; }   /* 이름 칸 높이에 맞춘다 */
-/* 우리 반 몸통은 남는 높이를 채운다: 학생 칸 줄이 나눠 늘어나고, 모자라면 굴러간다 */
+/* 수합: 수합 하나가 섹션 하나, 섹션은 2단. 학생은 4열이고 칸마다 두 줄(번호와 이름, 제출 여부). 칸은 상자 없이 아래 선만 */
+.col-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.col-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 14px; }
+.col-stu { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding: 7px 6px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; color: var(--ink); text-align: left; cursor: pointer; }
+.col-stu:hover { background: var(--surface); }
+.col-stu .ln { display: flex; gap: 6px; max-width: 100%; font-size: var(--t2); white-space: nowrap; overflow: hidden; }
+.col-stu .n { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 600; }
+.col-stu .nm { overflow: hidden; text-overflow: ellipsis; }
+.col-stu .st { font-size: var(--t3); font-weight: 600; color: var(--danger); }
+.col-stu.got .st { color: var(--pass); }
+@media (max-width: 900px) { .col-grid { grid-template-columns: minmax(0, 1fr); } }
+/* 한 섹션 안의 둘째 묶음 머리줄(담임 학생의 출결 아래 수합 미제출) */
+.panel > .hd.sub-hd { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
+/* 교무수첩 장 몸통은 남는 높이를 채우고, 모자라면 굴러간다 */
 #classBody { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
-#classBody > .students { flex: 1 0 auto; grid-auto-rows: minmax(52px, 1fr); }
-#classBody > .students .stu { justify-content: center; }
 /* 고른 반은 옅게 칠한다. 꽉 찬 빨강이 위젯에 서너 개씩 겹쳐 시끄러웠다 */
 .class-pick .cpick[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
 /* 보기 토글: 누른 뒤 남는 초점 테두리를 안쪽 가는 줄로(빨간 고리가 남아 보였다) */
 .seg button:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
-.students { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; }
-.stu { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 4px 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; position: relative; }
-.stu:hover { border-color: var(--faint); }
-.stu .n { font-family: var(--font-num); font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.stu .nm { font-size: 11px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stu .st { font-size: 10px; font-weight: 600; min-height: 14px; }
-.stu.결석 { background: var(--danger-soft); border-color: #E7B6AF; } .stu.결석 .st { color: var(--danger); }
-.stu.지각 { background: var(--warn-soft); border-color: #EBCF9C; } .stu.지각 .st { color: var(--warn); }
-.stu.조퇴 { background: var(--blue-soft); border-color: #B7CBEA; } .stu.조퇴 .st { color: var(--blue); }
-.stu.got { background: var(--pass-soft); border-color: #BFE0CC; } .stu.got .st { color: var(--pass); }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .row .grow { flex: 1 1 160px; min-width: 0; }
 .missing { font-size: 13px; color: var(--muted); background: var(--surface-2); border-radius: 10px; padding: 8px 10px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .missing b { color: var(--danger); }
-.collect-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-.ctab { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 4px 10px 4px 12px; font-size: 13px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
-.ctab[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.ctab .cnt { font-family: var(--font-num); font-size: 11px; color: var(--muted); }
 .roster-editor { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: var(--surface-2); }
 .roster-editor textarea { min-height: 160px; background: var(--surface); }
 .roster-editor label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
@@ -899,8 +894,6 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .nb-head .class-name:empty { display: none; }
 .nb-tools { gap: 4px; margin-left: auto; }
 .nb #classBody { flex: 1 1 auto; min-height: 0; overflow: auto; }
-/* 장은 넓어서 학생 칸을 늘이면 기둥처럼 길쭉해진다. 칸 크기를 정해 두고 줄을 채운다 */
-.nb #classBody > .students { flex: none; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); grid-auto-rows: 68px; }
 /* 할 일 위젯 카드를 옮겨 왔을 때: 위젯 테두리 없이 장 높이를 채운다 */
 .nb #classBody > .wg-todo { flex: 1 1 auto; min-height: 420px; border: 0; padding: 0; }
 /* 잠금: 장 가운데 카드 하나 */
@@ -963,11 +956,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .class-name { font-size: 17px; }
   .seg button { font-size: 12px; }
   .cpick { font-size: 12px; }
-  .stu .n { font-size: 13px; }
-  .stu .nm { font-size: 10.5px; }
-  .stu .st { font-size: 10px; }
   .missing { font-size: 12px; }
-  .ctab { font-size: 12px; }
   .todo { font-size: 13px; }
   .dday .d { font-size: 15px; }
   .dday .t { font-size: 13.5px; }
@@ -1010,11 +999,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .class-name { font-size: 15px; }
   .seg button { font-size: 11.5px; }
   .cpick { font-size: 11.5px; }
-  .stu .n { font-size: 12px; }
-  .stu .nm { font-size: 10px; }
-  .stu .st { font-size: 9.5px; }
   .missing { font-size: 11.5px; }
-  .ctab { font-size: 11.5px; }
   .todo { font-size: 12px; }
   .dday .d { font-size: 13.5px; }
   .dday .t { font-size: 12.5px; }
@@ -1059,11 +1044,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .class-name { font-size: 14px; }
   .seg button { font-size: 11px; }
   .cpick { font-size: 11px; }
-  .stu .n { font-size: 11.5px; }
-  .stu .nm { font-size: 9.5px; }
-  .stu .st { font-size: 9px; }
   .missing { font-size: 11px; }
-  .ctab { font-size: 11px; }
   .todo { font-size: 11.5px; }
   .dday .d { font-size: 13px; }
   .dday .t { font-size: 12px; }
@@ -1095,7 +1076,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 }
 
 .wg > .card, #classBody, #bookBody, .todo-list, .dday-list,
-.periods, .lines, .tt-scroll, .memo, .students, .stu-pick, #gcalBody, #mealBody, .wk-day {
+.periods, .lines, .tt-scroll, .memo, .stu-pick, #gcalBody, #mealBody, .wk-day {
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .wg > .card::-webkit-scrollbar,
@@ -1103,7 +1084,7 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .todo-list::-webkit-scrollbar, .dday-list::-webkit-scrollbar,
 .periods::-webkit-scrollbar, .lines::-webkit-scrollbar,
 .tt-scroll::-webkit-scrollbar, .memo::-webkit-scrollbar,
-.students::-webkit-scrollbar, .stu-pick::-webkit-scrollbar, .wk-day::-webkit-scrollbar,
+.stu-pick::-webkit-scrollbar, .wk-day::-webkit-scrollbar,
 #gcalBody::-webkit-scrollbar, #mealBody::-webkit-scrollbar { width: 0; height: 0; }
 
 .deck.arranging .wg > .card { overflow: hidden; }
@@ -1115,7 +1096,6 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   table.tt { min-width: 0; border-spacing: 3px; }   /* table.tt 로 써야 위의 560px 를 이긴다 */
   .tt th.ph { width: 78px; }
   .tt td { height: 34px; padding: 5px 3px; }
-  .students { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); }
   .stu-pick { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
   .form-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
   .counts { grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); }
@@ -1126,9 +1106,8 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
   .tt th.ph { width: 58px; }
   .tt th.ph .tm { display: none; }
   .tt td { height: 28px; }
-  .students { grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 4px; }
   .stu-pick { grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 3px; }
-  .stu .nm, .stu-pick button .nm { display: none; }
+  .stu-pick button .nm { display: none; }
   .form-grid, .book-cols { grid-template-columns: minmax(0, 1fr); }
   .counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wg-list { grid-template-columns: minmax(0, 1fr); }
@@ -1358,11 +1337,6 @@ textarea:focus { outline: none; border-color: var(--accent) !important; box-shad
 /* 표 아래 칸(2026-11-16 하루 보기와 한 달 표를 합쳤다). 학생 칸 모양은 수업 출결, 수합이 쓴다 */
 .att-below { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .att-below .att-ed { padding: 0; border: 0; }
-.nb #classBody .students .stu { justify-content: center; gap: 3px; border-radius: 12px; }
-.nb #classBody .students .stu .n { font-size: 20px; font-weight: 700; }
-.nb #classBody .students .stu .nm { font-size: 13px; color: var(--ink); }
-.nb #classBody .students .stu .st { font-size: 12px; }
-.nb #classBody .students .stu:not(.결석):not(.지각):not(.조퇴):not(.결과):not(.got) .st:empty { display: none; }
 .att-side-hd { margin: 0; font-size: 14px; font-weight: 700; }
 .att-day-list { display: flex; flex-direction: column; gap: 10px; }
 .att-ed-item.click { cursor: pointer; flex-wrap: wrap; gap: 4px 10px; }
@@ -1504,7 +1478,6 @@ table.pa-table { table-layout: fixed; width: 100%; min-width: calc(300px + var(-
 .ls-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .ls-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 .ls-ta { min-height: 360px; resize: vertical; }
-.ls-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .ls-grade { display: flex; flex-direction: column; gap: 6px; }
 .ls-g { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; gap: 8px; align-items: baseline; font-size: 14px; }
 .ls-g b { text-align: right; font-variant-numeric: tabular-nums; }
@@ -1598,7 +1571,7 @@ table.pa-table td.pa-cell + td.pa-cell, table.pa-table th.pa-cls + th.pa-cls { b
 #nb:not(.locked) *, #setPanel * { font-size: inherit !important; }
 :is(#nb:not(.locked), #setPanel) :is(h1, h2, h3, h4, .nb-title, .set-page, .set-title, .count .v, .att-date, .who > .nm) { font-size: var(--t1) !important; }
 :is(#nb:not(.locked), #setPanel) :is(.tip, .hint, .muted, .meta, .empty, .set-state, .set-lead p, .text-btn, .tag, thead th, .pa-legend, .att-legend,
-  .pc-p, .pc-month, .stu .nm, .stu .st, .stu-pick .nm, .when, .count .k, .field, .set-field, .att-sum, .ls-g .muted, .ls-rows .muted, .dp,
+  .pc-p, .pc-month, .col-stu .nm, .col-stu .st, .stu-pick .nm, .when, .count .k, .field, .set-field, .att-sum, .ls-g .muted, .ls-rows .muted, .dp,
   .bell, .undo-btn, td.m, .tot, small, .missing) { font-size: var(--t3) !important; }
 :is(#nb:not(.locked), #setPanel) :is(.field, .set-field) :is(input, select, textarea) { font-size: var(--t2) !important; }
 /* 진도표 줄의 x 도 마우스를 올릴 때만(전체 표 칸과 같게) */
