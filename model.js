@@ -699,7 +699,7 @@ export function dueToOpen(year, subject){
     && (dateStatus(cl.date) === 'today' || dateStatus(cl.date) === 'past'));
 }
 /* 대시보드 한 과목치. 강의실마다 가장 최근 강의(수업일자가 오늘이거나 지난 것 중 마지막)의 칸 셋 제출, 채점, 미채점,
-   반마다 열공 마일리지(누적)와 가장 최근 형성평가 참여, 공지 최신 5개.
+   과목 전체 열공 마일리지(누적)와 형성평가 강의별 참여, 공지 최신 5개.
    채점의 뜻: 오늘의 질문은 AI 채점이나 선생님 판정이 된 답변, 미션 활동은 성적에 들어간 제출,
    개념 노트(LMS 밖 활동지)는 성적 입력에서 선생님이 매긴 학생. 개념 노트의 제출은 달성으로 매긴 학생이다. */
 const DAY_MS = 24*60*60*1000;
@@ -726,22 +726,32 @@ export function dashboardData(year, subject, now = new Date()){
   const certs = DEMO.mileageCerts.filter(c => c.subject === subject && (!c.year || +c.year === +year));
   const cards = rooms.map(room => {
     const studentNos = getStudentsByCourse(room.id).map(s => String(s.studentNo));
-    const stuSet = new Set(studentNos);
     const done = getCourseLessons(room.id).filter(cl => cl.lesson)
       .map(cl => ({ ...cl, st:dateStatus(cl.date, now), day:resolveMmdd(cl.date, now) }))
       .filter(cl => cl.st === 'today' || cl.st === 'past')
       .sort((a, b) => b.day - a.day || b.order - a.order);
     const last = done[0] || null;
     const parts = last ? Object.fromEntries(GRADE_AREAS.map(a => [a.key, partCounts(last, a.key, studentNos)])) : null;
-    const mine = certs.filter(c => stuSet.has(String(c.studentNo))).map(c => effectiveResult(c));
-    const mileage = { submitted:mine.length, pass:mine.filter(r => r === 'pass' || r === 'ambiguous').length,
-      pending:mine.filter(r => r === 'pending').length, rejected:mine.filter(r => r === 'rejected').length };
-    const fm = done.find(cl => cl.lesson.parts?.formative) || null;
-    const formative = fm ? { cl:fm, joined:new Set(DEMO.submissions.filter(s => s.clId === fm.id && s.part === 'formative')
-      .map(s => String(s.studentNo))).size, total:studentNos.length } : null;
-    return { room, students:studentNos.length, last, parts, mileage, formative };
+    return { room, students:studentNos.length, last, parts };
   });
-  return { cards, due: dueToOpen(year, subject).length,
+  const res = certs.map(c => effectiveResult(c));
+  const mileage = { submitted:res.length, pass:res.filter(r => r === 'pass' || r === 'ambiguous').length,
+    pending:res.filter(r => r === 'pending').length, rejected:res.filter(r => r === 'rejected').length };
+  // 형성평가: 과목 안에서 수업일자가 된 형성평가 강의마다 참여 학생 / 그 강의를 연결한 반 학생, 최신 수업일자 순 5개
+  const fmBy = new Map();
+  rooms.forEach(room => {
+    const stu = getStudentsByCourse(room.id).map(s => String(s.studentNo));
+    getCourseLessons(room.id).filter(cl => cl.lesson?.parts?.formative).forEach(cl => {
+      const st = dateStatus(cl.date, now); if (st !== 'today' && st !== 'past') return;
+      const f = fmBy.get(cl.lessonId) || { lesson:cl.lesson, lessonId:cl.lessonId, joined:0, total:0, last:0 };
+      const joined = new Set(DEMO.submissions.filter(s => s.clId === cl.id && s.part === 'formative').map(s => String(s.studentNo)));
+      f.joined += stu.filter(no => joined.has(no)).length; f.total += stu.length;
+      f.last = Math.max(f.last, resolveMmdd(cl.date, now).getTime());
+      fmBy.set(cl.lessonId, f);
+    });
+  });
+  const formative = [...fmBy.values()].sort((a, b) => b.last - a.last).slice(0, 5);
+  return { cards, mileage, formative, due: dueToOpen(year, subject).length,
     notices: getNotices(year, subject).slice(0, 5).map(n => ({ ...n, stats:noticeStats(n.id) })) };
 }/* 대시보드 학생 조회: 그 과목 강의실에 든 학생 가운데 학번이나 이름에 q 가 든 사람. */
 export function dashboardStudents(year, subject, q){

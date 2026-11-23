@@ -566,7 +566,7 @@ input[type=number]{-moz-appearance:textfield}
 .dtable.wide{border-bottom:1px solid var(--line)}
 .dtable.wide thead th{border-bottom:1px solid var(--line)}
 .dtable.wide tbody tr:first-child > *{border-top:0}
-.dtable.wide th:first-child{padding-left:13px;width:64px;text-align:left}
+.dtable.wide th.lt,.dtable.wide td.lt{padding-left:13px}
 .dash-bottom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px;margin-top:12px}
 .dash-col{min-width:0}
 .dash-search{display:flex;margin-bottom:8px}

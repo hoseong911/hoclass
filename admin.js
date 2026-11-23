@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261123c';
+import * as M from './model.js?v=20261123d';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -230,7 +230,7 @@ function subjectSel(){ const subs = subjectsOfYear(); if (!subs.length) return '
   return `<select class="sel" data-act="subject-pick" aria-label="과목">${
     subs.map(s => `<option value="${esc(s)}" ${s === state.subject ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`; }
 
-// ── 대시보드 ── 고른 과목의 강의실마다 카드(가장 최근 강의의 칸 셋), 그 아래 열공 마일리지와 형성평가, 학생 조회와 공지사항.
+// ── 대시보드 ── 과목별로 본다. 강의실마다 카드(가장 최근 강의의 칸 셋), 그 아래 과목 전체 열공 마일리지와 형성평가, 학생 조회와 공지사항.
 const DASH_PARTS = ['concept', 'mission', 'question'];
 const dnum = (v, warn) => `<td class="mono ${v ? (warn ? 'warn' : '') : 'zero'}">${v}</td>`;
 
@@ -280,20 +280,17 @@ function pageDashboard(){
 
   const cards = `<div class="dcards">${d.cards.map(dashCard).join('')}</div>`;
 
+  const m = d.mileage;
   const mileage = `<div class="sectionlabel between">열공 마일리지<button class="btn-chip" data-act="dash-ml">인증 검토</button></div>
-    <table class="dtable wide"><thead><tr><th>반</th><th>제출</th><th>통과</th><th>보류</th><th>미흡</th></tr></thead><tbody>${
-    d.cards.map(c => `<tr><th class="mono">${esc(M.roomNo(c.room))}</th>${dnum(c.mileage.submitted)}${dnum(c.mileage.pass)}${dnum(c.mileage.pending, true)}${dnum(c.mileage.rejected)}</tr>`).join('')
-    }</tbody></table>`;
+    <table class="dtable wide"><thead><tr><th>제출</th><th>통과</th><th>보류</th><th>미흡</th></tr></thead><tbody>
+    <tr>${dnum(m.submitted)}${dnum(m.pass)}${dnum(m.pending, true)}${dnum(m.rejected)}</tr></tbody></table>`;
 
-  const formative = `<div class="sectionlabel">형성평가</div>
-    <table class="dtable wide"><thead><tr><th>반</th><th class="lt">강의</th><th>참여</th></tr></thead><tbody>${
-    d.cards.map(c => { const f = c.formative;
-      if (!f) return `<tr class="off"><th class="mono">${esc(M.roomNo(c.room))}</th><td class="lt">없음</td><td></td></tr>`;
-      return `<tr class="rowlink" data-act="dash-fm" data-id="${c.room.id}" data-lid="${f.cl.lessonId}"><th class="mono">${esc(M.roomNo(c.room))}</th>
-        <td class="lt" title="${esc(f.cl.lesson.title)}">${esc(lnumPlain(f.cl.lesson))} ${esc(f.cl.lesson.title)}</td>
-        <td class="mono">${f.joined} / ${f.total}</td></tr>`; }).join('')
-    }</tbody></table>`;
-
+  const formative = `<div class="sectionlabel">형성평가</div>` + (d.formative.length
+    ? `<table class="dtable wide"><thead><tr><th class="lt">강의</th><th>참여</th></tr></thead><tbody>${
+      d.formative.map(f => `<tr class="rowlink" data-act="dash-fm" data-id="all" data-lid="${f.lessonId}">
+        <td class="lt" title="${esc(f.lesson.title)}">${esc(lnumPlain(f.lesson))} ${esc(f.lesson.title)}</td>
+        <td class="mono">${f.joined} / ${f.total}</td></tr>`).join('')}</tbody></table>`
+    : `<div class="empty">형성평가가 없습니다.</div>`);
   const search = `<div class="sectionlabel">학생 조회</div>
     <label class="searchbox dash-search">${icon('search',15)}
       <input class="f" id="dash-search" data-act="dash-search" autocomplete="off" value="${esc(state.dashQuery)}" aria-label="학번 또는 이름 검색"></label>
