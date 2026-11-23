@@ -411,6 +411,10 @@ function checkWidgetMode() {
   assert(js.includes("const CLEAR = [0, 20, 40, 60];"), "투명도는 네 단계를 돌아간다");
   assert(js.includes('classList.toggle("wmode", pinned)'), "위젯으로 깔았을 때만 wmode 를 켠다");
   assert(js.includes('setProperty("--w-solid"'), "단추가 바꾸는 것은 --w-solid 한 가지다");
+  // 모니터 둘: 주 모니터 작업 영역에만, 바깥 테두리만큼 빼서(선생님 지적 2026-11-24 "2모니터로 조금 삐져 나온다")
+  assert(js.includes("await TW.primaryMonitor()"), "위젯은 주 모니터에 깐다");
+  assert(js.includes("await win.setSize(area.size); await fitIn(area);"), "깐 뒤 넘친 만큼 줄인다");
+  assert(js.includes("outer.width - inner.width"), "바깥과 안쪽 크기 차이를 빼야 옆 모니터로 넘지 않는다");
   const rs = fs.readFileSync(path.join(DIR, "src-tauri", "src", "lib.rs"), "utf8");
   assert(rs.includes(".transparent(true)"), "창이 투명해야 CSS 반투명이 바탕화면과 섞인다");
   const html = fs.readFileSync(path.join(DIR, "index.html"), "utf8");

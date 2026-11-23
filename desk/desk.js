@@ -1372,15 +1372,28 @@ if (TW) {
     document.documentElement.style.setProperty("--w-solid", (100 - CLEAR[clear]) + "%");
   };
   const remember = (on) => { try { localStorage.setItem(LS_PREFIX + "pinned", on ? "1" : "0"); } catch (e) {} };
+  /* 테두리를 뗀 창도 윈도는 크기 조절용 테두리를 몇 px 더 잡는다(바깥이 안쪽보다 크다). setSize 는 안쪽 크기를
+     받으므로 작업 영역 크기를 그대로 주면 그만큼 옆 모니터로 삐져 나온다(선생님 지적 2026-11-24). 넘친 만큼 뺀다.
+     바깥과 안쪽이 같은 환경에서는 아무것도 바뀌지 않는다. */
+  async function fitIn(area) {
+    try {
+      const inner = await win.innerSize(), outer = await win.outerSize();
+      const padW = Math.max(0, outer.width - inner.width), padH = Math.max(0, outer.height - inner.height);
+      if (padW || padH) await win.setSize({ width: area.size.width - padW, height: area.size.height - padH });
+    } catch (e) { console.warn("위젯 크기 맞추기 실패", e); }
+  }
   async function pin(on) {
     try {
       if (on) {
         before = { pos: await win.outerPosition(), size: await win.innerSize(), max: await win.isMaximized() };   // setSize 는 안쪽 크기를 받는다
-        const mon = await TW.currentMonitor();
+        // 모니터가 둘일 때 주 모니터에만 깐다(선생님 지시 2026-11-24). currentMonitor() 는 창이 걸쳐 있던 쪽을 집어 줄 수 있다.
+        let mon = null;
+        try { mon = await TW.primaryMonitor(); } catch (e) {}
+        if (!mon) mon = await TW.currentMonitor();
         const area = mon && (mon.workArea || { position: mon.position, size: mon.size });
         if (before.max) await win.unmaximize();
         await win.setDecorations(false);
-        if (area) { await win.setPosition(area.position); await win.setSize(area.size); }
+        if (area) { await win.setPosition(area.position); await win.setSize(area.size); await fitIn(area); }
         await win.setAlwaysOnBottom(true);
         gotoPage(1);
       } else {
