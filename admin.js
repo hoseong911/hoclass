@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261123a';
+import * as M from './model.js?v=20261123b';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -17,6 +17,7 @@ const $main = document.getElementById('main');
 
 const state = {
   page: 'dashboard',
+  dashQuery: '',                   // 대시보드 학생 조회 검색어(학번 또는 이름)
   year: YEAR,
   roomGroup: 'subject',            // 강의실 묶음 축: 'subject'(과목별) | 'class'(반별)
   fSubject: null, fClass: null,    // 강의실 관리 필터(과목 / 반)
@@ -229,54 +230,80 @@ function subjectSel(){ const subs = subjectsOfYear(); if (!subs.length) return '
   return `<select class="sel" data-act="subject-pick" aria-label="과목">${
     subs.map(s => `<option value="${esc(s)}" ${s === state.subject ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`; }
 
-// ── 대시보드 ── 머리줄에서 고른 학년도와 과목 하나치를 네 묶음으로 본다.
-const WEEKDAY = ['일','월','화','수','목','금','토'];
-const mdHm = ms => { const d = new Date(ms);
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+// ── 대시보드 ── 고른 과목의 강의실마다 카드 한 장, 그 아래 학생 조회와 공지사항.
+const mdOf = ms => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
+const clLine = cl => cl ? `${esc(cl.date)} ${esc(lnumPlain(cl.lesson))} ${esc(cl.lesson.title)}` : '';
 
-function pageDashboard(){
-  const head = `<div class="pagehead"><h2>${esc(M.menuName('dashboard'))}</h2>${yearSelHtml()}${subjectSel()}</div>`;
-  if (!M.getYears().length) return head + `<div class="empty">학년도가 없습니다.</div>`;
-  const subject = curSubject();
-  if (!subject) return head + `<div class="empty">과목이 없습니다.</div>`;
-  const d = M.dashboardData(state.year, subject);
-
-  const today = d.today.length ? d.today.map(cl => `<div class="row compact">
-      <span class="dash-room mono">${esc(M.roomNo(cl.room))}</span>
-      <div class="grow"><div class="t" title="${esc(cl.lesson.title)}">${esc(lnumPlain(cl.lesson))} ${esc(cl.lesson.title)}</div></div>
-      <button class="ib ib-sm ${cl.isOpen?'ib-primary':''}" data-act="cl-open" data-id="${cl.id}" title="${cl.isOpen?'공개 중 (누르면 숨김)':'숨김 (누르면 공개)'}" aria-label="공개 전환">${icon('eye',14)}</button>
-    </div>`).join('') : `<div class="empty">오늘 수업이 없습니다.</div>`;
-
-  const todo = [
-    d.due && `<div class="row compact"><div class="grow"><div class="t">수업일자가 됐는데 공개하지 않은 강의</div></div>
-      <span class="dash-n mono">${d.due}</span>
-      <button class="btn-chip on" data-act="prog-open-due">${icon('eye',13)}공개</button></div>`,
-    d.ungraded && `<div class="row compact rowlink" data-act="dash-go" data-k="question">
-      <div class="grow"><div class="t">오늘의 질문 미채점 답변</div></div><span class="dash-n mono">${d.ungraded}</span>${icon('chevron-right',16)}</div>`,
-    d.mileage && `<div class="row compact rowlink" data-act="dash-go" data-k="mileage">
-      <div class="grow"><div class="t">열공 마일리지 검토 대기</div></div><span class="dash-n mono">${d.mileage}</span>${icon('chevron-right',16)}</div>`,
-    d.comments && `<div class="row compact rowlink" data-act="dash-go" data-k="notice">
-      <div class="grow"><div class="t">최근 7일 공지 댓글</div></div><span class="dash-n mono">${d.comments}</span>${icon('chevron-right',16)}</div>`,
-  ].filter(Boolean).join('') || `<div class="empty">확인할 것이 없습니다.</div>`;
-
-  const upcoming = d.upcoming.length ? d.upcoming.map(cl => `<div class="row compact">
-      <span class="dash-day mono">${cl.day.getMonth() + 1}/${cl.day.getDate()} (${WEEKDAY[cl.day.getDay()]})</span>
-      <span class="dash-room mono">${esc(M.roomNo(cl.room))}</span>
-      <div class="grow"><div class="t" title="${esc(cl.lesson.title)}">${esc(lnumPlain(cl.lesson))} ${esc(cl.lesson.title)}</div></div>
-    </div>`).join('') : `<div class="empty">7일 안에 잡힌 수업이 없습니다.</div>`;
-
-  const recent = d.recent.length ? d.recent.map(s => `<div class="row compact">
-      <span class="dash-day mono">${mdHm(s.at)}</span>
-      <div class="grow"><div class="t"><span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name || '')}</div></div>
-      <span class="unit">${esc(lnumPlain(s.lesson))} ${esc(M.partDef(s.part)?.name || '')}</span>
-    </div>`).join('') : `<div class="empty">제출이 없습니다.</div>`;
-
-  const col = (title, body) => `<div class="dash-col"><div class="sectionlabel">${title}</div>${body}</div>`;
-  return head + `<div class="dash">
-    ${col('오늘 수업', today)}${col('확인할 것', todo)}
-    ${col('다가오는 수업', upcoming)}${col('최근 제출', recent)}</div>`;
+function dashCard(c){
+  const line = (k, v, cls = '', act = '') =>
+    `<div class="dline ${cls}" ${act}><span class="dk">${k}</span><span class="dv">${v}</span></div>`;
+  const n = (v, act) => v
+    ? `<span class="dash-n mono">${v}</span>${act ? icon('chevron-right',14) : ''}`
+    : `<span class="dash-n zero mono">0</span>`;
+  const today = c.last?.st === 'today';
+  return `<div class="dcard">
+    <div class="dcard-head rowlink" data-act="dash-room" data-id="${c.room.id}">
+      <h3 class="mono">${esc(M.roomNo(c.room))}</h3><span class="unit">학생 ${c.students}명</span>${icon('chevron-right',16)}</div>
+    ${line(today ? '오늘 수업' : '지난 수업', c.last ? clLine(c.last) : '<span class="muted">없음</span>', today ? 'today' : '')}
+    ${line('다음 수업', c.next ? clLine(c.next) : '<span class="muted">없음</span>')}
+    ${line('공개 강의', `<span class="mono">${c.open} / ${c.linked}</span>`)}
+    ${line('공개할 강의', n(c.due), c.due ? 'warn' : '')}
+    ${line('미채점 답변', n(c.ungraded, true), c.ungraded ? 'link' : '',
+      c.ungraded ? `data-act="dash-q" data-id="${c.room.id}" data-lid="${c.ungradedLessonId}"` : '')}
+    ${line('마일리지 검토', n(c.mileage, true), c.mileage ? 'link' : '', c.mileage ? 'data-act="dash-ml"' : '')}
+    ${line('최근 7일 제출', n(c.recent))}
+  </div>`;
 }
 
+function dashStudentRows(){
+  const list = M.dashboardStudents(state.year, curSubject(), state.dashQuery);
+  if (!state.dashQuery.trim()) return '';
+  if (!list.length) return `<div class="empty">학생이 없습니다.</div>`;
+  return list.slice(0, 12).map(s => {
+    const room = s.rooms[0];
+    const g = M.studentGrade(room.id, s.studentNo);
+    const ml = M.mileageStats(curSubject(), s.studentNo);
+    return `<div class="row compact rowlink" data-act="dash-stu" data-no="${esc(s.studentNo)}">
+      <div class="grow"><div class="t"><span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name || '')}</div></div>
+      <span class="unit mono">${s.rooms.map(r => esc(M.roomNo(r))).join(', ')}</span>
+      <span class="unit">성적 <span class="mono">${g.has ? `${g.total}/${g.maxScore}` : '-'}</span></span>
+      <span class="unit">마일리지 <span class="mono">${ml.days}</span>일</span>${icon('chevron-right',14)}</div>`;
+  }).join('');
+}
+
+function pageDashboard(){
+  const years = M.getYears();
+  const subject = years.length ? curSubject() : null;
+  const d = subject ? M.dashboardData(state.year, subject) : null;
+  const openBtn = d?.due ? `<button class="btn-chip on" data-act="prog-open-due">${icon('eye',13)}수업일자가 된 강의 공개 (${d.due})</button>` : '';
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('dashboard'))}</h2>${openBtn}${years.length ? yearSelHtml() + subjectSel() : ''}</div>`;
+  if (!years.length) return head + `<div class="empty">학년도가 없습니다.</div>`;
+  if (!subject) return head + `<div class="empty">과목이 없습니다.</div>`;
+
+  const cards = d.cards.length ? `<div class="dcards">${d.cards.map(dashCard).join('')}</div>`
+    : `<div class="empty">개설된 강의실이 없습니다.</div>`;
+
+  const search = `<div class="sectionlabel">학생 조회</div>
+    <label class="searchbox dash-search">${icon('search',15)}
+      <input class="f" id="dash-search" data-act="dash-search" autocomplete="off" value="${esc(state.dashQuery)}" aria-label="학번 또는 이름 검색"></label>
+    <div id="dash-stu-list">${dashStudentRows()}</div>`;
+
+  const nrows = d.notices.length ? `<div class="nlhead"><span class="grow">제목</span>
+      <span class="nlc">조회</span><span class="nlc">좋아요</span><span class="nlc">댓글</span></div>`
+    + d.notices.map(x => `<div class="row nlrow">
+      <div class="grow rowlink" data-act="dash-notice" data-v="${esc(x.id)}"><div class="t">${x.pinned ? `<span class="npin">${icon('pin',13)}</span>` : ''}${esc(x.title)}</div></div>
+      <span class="nlc mono">${x.stats.reads}</span><span class="nlc mono">${x.stats.likes}</span><span class="nlc mono">${x.stats.comments}</span></div>`).join('')
+    : `<div class="empty">공지가 없습니다.</div>`;
+  const crows = d.comments.length ? d.comments.map(c => `<div class="row compact rowlink" data-act="dash-notice" data-v="${esc(c.noticeId)}">
+      <span class="dash-day mono">${mdOf(c.createdAt || 0)}</span>
+      <div class="grow"><div class="t">${esc(c.name || c.studentNo)}&nbsp;<span class="dash-ctext">${esc(c.text)}</span></div></div>
+      <span class="unit dash-ctitle">${esc(c.title)}</span></div>`).join('')
+    : `<div class="empty">댓글이 없습니다.</div>`;
+  const notice = `<div class="sectionlabel between">공지사항<button class="btn-chip" data-act="dash-go" data-k="notice">모두 보기</button></div>
+    ${nrows}<div class="sectionlabel dash-sub">최근 댓글</div>${crows}`;
+
+  return head + cards + `<div class="dash-bottom"><div class="dash-col">${search}</div><div class="dash-col">${notice}</div></div>`;
+}
 // ── 강의실 관리 ──
 // 머리줄: 제목 + 학년도 고르개(드롭다운) + 추가 버튼(팝업). 창 넓이는 admin.css에서.
 // 생성(학년도, 강의실)은 전부 추가 버튼의 팝업에 모았다(요구사항 5). 필터는 과목 한 줄만
@@ -3203,14 +3230,16 @@ document.getElementById('shell').addEventListener('click', e => {
       state.fmEditIdx = null; state.fmNewType = null;
       state.progMemoId = null; state.genDraft = null; state.menuDraft = null;
       state.mileageNoteDraft = null; render(); break;
-    case 'dash-go': {
-      const d = M.dashboardData(state.year, curSubject());
-      if (k === 'question') Object.assign(state, { page:'question', questionTab:'answers', questionGradeTab:'grade',
-        questionLessonId:d.ungradedLessonId, questionRoom:'all' });
-      else if (k === 'mileage') Object.assign(state, { page:'mileage', mileageTab:'review' });
-      else if (k === 'notice') Object.assign(state, { page:'notice' });
-      render(); break;
-    }
+    // 대시보드에서 다른 메뉴로 건너가기
+    case 'dash-room': Object.assign(state, { page:'rooms', roomDetailId:id, openScore:null, editRoomId:null,
+      roomLessonsMore:false, roomStudentEdit:false }); render(); break;
+    case 'dash-q': Object.assign(state, { page:'question', questionTab:'answers', questionGradeTab:'grade',
+      questionLessonId:el.dataset.lid, questionRoom:id }); render(); break;
+    case 'dash-ml': Object.assign(state, { page:'mileage', mileageTab:'review' }); render(); break;
+    case 'dash-stu': Object.assign(state, { page:'students', studentClass:String(no).slice(0,3),
+      studentDetailNo:no, studentQuery:'' }); render(); break;
+    case 'dash-notice': Object.assign(state, { page:'notice', noticeSel:v }); render(); break;
+    case 'dash-go': if (k === 'notice') Object.assign(state, { page:'notice', noticeSel:null }); render(); break;
     case 'set-year': state.year = +v; state.editRoomId = null; render(); break;
     case 'set-subject': state.fSubject = v; render(); break;
     case 'set-class': state.fClass = v === 'all' ? null : v; render(); break;
@@ -4037,6 +4066,13 @@ document.getElementById('shell').addEventListener('input', e => {
   if (e.target.id === 'q-ed-guide'){
     const n = document.getElementById('q-ed-guide-n');
     if (n) n.textContent = `${e.target.value.length}자`;
+    return;
+  }
+  // 대시보드 학생 조회: 결과 칸만 고쳐 쓴다(이름을 한글로 치는 중에 칸을 새로 그리면 글자 조합이 끊긴다)
+  if (e.target.dataset.act === 'dash-search'){
+    state.dashQuery = e.target.value;
+    const box = document.getElementById('dash-stu-list');
+    if (box) box.innerHTML = dashStudentRows();
     return;
   }
   /* 학번 검색: 치는 대로 목록을 다시 그린다. 다시 그리면 칸이 새로 생기므로 커서를 되살린다. */

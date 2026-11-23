@@ -698,43 +698,55 @@ export function dueToOpen(year, subject){
   return DEMO.courseLessons.filter(cl => ids.has(cl.courseId) && !cl.isOpen
     && (dateStatus(cl.date) === 'today' || dateStatus(cl.date) === 'past'));
 }
-/* 대시보드 한 과목치. 오늘 수업, 7일 안 다가오는 수업, 미채점 답변, 마일리지 검토, 7일 안 공지 댓글, 최근 제출. */
+/* 대시보드 한 과목치. 강의실마다 한 장(rooms), 그 아래 공지 최신 5개와 최근 댓글 5개.
+   미채점은 questionVerdict 가 「미채점」이라 하는 것, 공개할 강의는 dueToOpen 과 같은 기준이다. */
 const DAY_MS = 24*60*60*1000;
 export function dashboardData(year, subject, now = new Date()){
-  const rooms = getCourses(year).filter(c => c.subject === subject);
-  const roomOf = new Map(rooms.map(c => [c.id, c]));
-  const cls = DEMO.courseLessons.filter(cl => roomOf.has(cl.courseId))
-    .map(cl => ({ ...cl, lesson:getLesson(cl.lessonId), room:roomOf.get(cl.courseId) }))
-    .filter(cl => cl.lesson);
-  const byRoom = (a, b) => a.room.grade - b.room.grade || a.room.classNo - b.room.classNo;
-  const today = cls.filter(cl => dateStatus(cl.date, now) === 'today').sort(byRoom);
-  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const upcoming = cls.filter(cl => dateStatus(cl.date, now) === 'future')
-    .map(cl => ({ ...cl, day:resolveMmdd(cl.date, now) }))
-    .filter(cl => cl.day.getTime() - base <= 7 * DAY_MS)
-    .sort((a, b) => a.day - b.day || byRoom(a, b));
-
-  const subs = DEMO.submissions.filter(s => roomOf.has(s.courseId));
-  const ungradedBy = new Map();
-  subs.filter(s => s.part === 'question' && questionVerdict(s).verdict === '미채점').forEach(s => {
-    const lid = DEMO.courseLessons.find(x => x.id === s.clId)?.lessonId;
-    if (lid) ungradedBy.set(lid, (ungradedBy.get(lid) || 0) + 1);
-  });
-  const ungraded = [...ungradedBy.values()].reduce((a, b) => a + b, 0);
-  const ungradedLessonId = [...ungradedBy].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-
+  const rooms = getCourses(year).filter(c => c.subject === subject)
+    .sort((a, b) => a.grade - b.grade || a.classNo - b.classNo);
   const since = now.getTime() - 7 * DAY_MS;
-  const noticeIds = new Set(getNotices(year, subject).map(n => n.id));
-  const comments = DEMO.noticeComments.filter(c => noticeIds.has(c.noticeId) && (c.createdAt || 0) >= since).length;
-
-  const clOf = new Map(DEMO.courseLessons.map(cl => [cl.id, cl]));
-  const recent = subs.filter(s => s.at).sort((a, b) => b.at - a.at).slice(0, 8)
-    .map(s => ({ ...s, room:roomOf.get(s.courseId), lesson:getLesson(clOf.get(s.clId)?.lessonId) }));
-
-  return { today, upcoming, ungraded, ungradedLessonId, comments, recent,
-    due: dueToOpen(year, subject).length, mileage: getMileageReview(subject).length };
+  const review = getMileageReview(subject);
+  const cards = rooms.map(room => {
+    const cls = getCourseLessons(room.id).filter(cl => cl.lesson)
+      .map(cl => ({ ...cl, st:dateStatus(cl.date, now), day:resolveMmdd(cl.date, now) }));
+    const done = cls.filter(cl => cl.st === 'today' || cl.st === 'past').sort((a, b) => b.day - a.day);
+    const next = cls.filter(cl => cl.st === 'future').sort((a, b) => a.day - b.day)[0] || null;
+    const studentNos = new Set(getStudentsByCourse(room.id).map(s => String(s.studentNo)));
+    const subs = DEMO.submissions.filter(s => s.courseId === room.id);
+    const ungradedBy = new Map();
+    subs.filter(s => s.part === 'question' && questionVerdict(s).verdict === '미채점').forEach(s => {
+      const lid = cls.find(x => x.id === s.clId)?.lessonId;
+      if (lid) ungradedBy.set(lid, (ungradedBy.get(lid) || 0) + 1);
+    });
+    return { room, students: studentNos.size, linked: cls.length, open: cls.filter(cl => cl.isOpen).length,
+      last: done[0] || null, next,
+      due: done.filter(cl => !cl.isOpen).length,
+      ungraded: [...ungradedBy.values()].reduce((a, b) => a + b, 0),
+      ungradedLessonId: [...ungradedBy].sort((a, b) => b[1] - a[1])[0]?.[0] || null,
+      mileage: review.filter(c => studentNos.has(String(c.studentNo))).length,
+      recent: subs.filter(s => (s.at || 0) >= since).length };
+  });
+  const notices = getNotices(year, subject);
+  const titleOf = new Map(notices.map(n => [n.id, n.title]));
+  const comments = DEMO.noticeComments.filter(c => titleOf.has(c.noticeId))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5)
+    .map(c => ({ ...c, title:titleOf.get(c.noticeId) }));
+  return { cards, due: dueToOpen(year, subject).length,
+    notices: notices.slice(0, 5).map(n => ({ ...n, stats:noticeStats(n.id) })), comments };
 }
-export function openDueLessons(year, subject){
+/* 대시보드 학생 조회: 그 과목 강의실에 든 학생 가운데 학번이나 이름에 q 가 든 사람. */
+export function dashboardStudents(year, subject, q){
+  const s = String(q ?? '').trim(); if (!s) return [];
+  const rooms = new Map(getCourses(year).filter(c => c.subject === subject).map(c => [c.id, c]));
+  const out = new Map();
+  DEMO.students.filter(x => rooms.has(x.courseId)).forEach(x => {
+    if (!String(x.studentNo).includes(s) && !String(x.name || '').includes(s)) return;
+    const cur = out.get(x.studentNo) || { studentNo:x.studentNo, name:x.name, rooms:[] };
+    cur.rooms.push(rooms.get(x.courseId));
+    out.set(x.studentNo, cur);
+  });
+  return [...out.values()].sort((a, b) => String(a.studentNo).localeCompare(String(b.studentNo)));
+}export function openDueLessons(year, subject){
   const list = dueToOpen(year, subject);
   list.forEach(cl => { cl.isOpen = true; put(COLLECTIONS.courseLessons, cl); });
   return list.length;

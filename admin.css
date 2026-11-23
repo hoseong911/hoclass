@@ -539,20 +539,38 @@ input[type=number]{-moz-appearance:textfield}
 .pane .dcol > .sectionlabel{flex:0 0 auto}   /* 칸 이름은 줄어들지 않고 제자리에 */
 .empty{color:var(--sub);font-size:var(--fs-body);padding:16px 2px}
 
-/* 대시보드: 넓으면 두 단 두 줄, 좁으면 한 단 */
-.dash{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px}
-.dash-col{min-width:0}
-.dash-col .sectionlabel{margin-top:8px}
-.dash-col:nth-child(n+3) .sectionlabel{margin-top:28px}
-.dash-col .row .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dash-room{flex:0 0 auto;font-weight:600;color:var(--ink)}
+/* 대시보드: 위에 강의실 카드 격자, 아래 학생 조회와 공지사항 두 단(좁으면 한 단).
+   카드는 격자로 늘어나므로 네 변 테두리를 둔다(화면 규칙). 바탕은 깔지 않는다 */
+.dcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.dcard{border:1px solid var(--line);border-radius:var(--r-btn);padding:4px 14px 10px;min-width:0}
+.dcard-head{display:flex;align-items:center;gap:10px;min-height:var(--h-row);border-bottom:1px solid var(--line);margin-bottom:4px;cursor:pointer}
+.dcard-head h3{flex:1 1 auto}
+.dcard-head > svg{flex:0 0 auto;color:var(--sub)}
+.dcard-head:hover h3{color:var(--accent)}
+.dline{display:flex;align-items:center;gap:10px;min-height:32px;font-size:var(--fs-body)}
+.dline .dk{flex:0 0 auto;color:var(--sub)}
+.dline .dv{flex:1 1 auto;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dline .dv > svg{vertical-align:middle;color:var(--sub)}
+.dline.today .dk{color:var(--accent);font-weight:600}
+.dline.warn .dk{color:var(--accent)}
+.dline.link{cursor:pointer}
+.dline.link:hover .dk{color:var(--ink)}
+.dline .muted{color:var(--sub)}
+.dash-n{font-weight:700;color:var(--accent)}
+.dash-n.zero{font-weight:500;color:var(--sub)}
 .dash-day{flex:0 0 auto;color:var(--sub);font-size:var(--fs-meta)}
-.dash-n{flex:0 0 auto;font-size:var(--fs-head);font-weight:700;color:var(--accent)}
-.dash .rowlink{cursor:pointer}
-.dash .rowlink > svg{flex:0 0 auto;color:var(--sub)}
+.dash-bottom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px;margin-top:12px}
+.dash-col{min-width:0}
+.dash-search{display:flex;margin-bottom:8px}
+.dash-search .f{flex:1 1 auto}
+.dash-col .row .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-col .rowlink{cursor:pointer}
+.dash-col .row > svg{flex:0 0 auto;color:var(--sub)}
+.dash-ctext{font-weight:400}
+.dash-ctitle{flex:0 1 40%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+.sectionlabel.dash-sub{margin-top:20px}
 @media (max-width:900px){
-  .dash{grid-template-columns:minmax(0,1fr)}
-  .dash-col:nth-child(n+2) .sectionlabel{margin-top:28px}
+  .dash-bottom{grid-template-columns:minmax(0,1fr)}
 }
 .hi-ic{vertical-align:middle}
 
