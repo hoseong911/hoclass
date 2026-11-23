@@ -538,6 +538,22 @@ input[type=number]{-moz-appearance:textfield}
 .sectionlabel{font-size:var(--fs-head);color:var(--ink);font-weight:600;margin:24px 2px 8px;letter-spacing:-.2px}
 .pane .dcol > .sectionlabel{flex:0 0 auto}   /* 칸 이름은 줄어들지 않고 제자리에 */
 .empty{color:var(--sub);font-size:var(--fs-body);padding:16px 2px}
+
+/* 대시보드: 넓으면 두 단 두 줄, 좁으면 한 단 */
+.dash{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px}
+.dash-col{min-width:0}
+.dash-col .sectionlabel{margin-top:8px}
+.dash-col:nth-child(n+3) .sectionlabel{margin-top:28px}
+.dash-col .row .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-room{flex:0 0 auto;font-weight:600;color:var(--ink)}
+.dash-day{flex:0 0 auto;color:var(--sub);font-size:var(--fs-meta)}
+.dash-n{flex:0 0 auto;font-size:var(--fs-head);font-weight:700;color:var(--accent)}
+.dash .rowlink{cursor:pointer}
+.dash .rowlink > svg{flex:0 0 auto;color:var(--sub)}
+@media (max-width:900px){
+  .dash{grid-template-columns:minmax(0,1fr)}
+  .dash-col:nth-child(n+2) .sectionlabel{margin-top:28px}
+}
 .hi-ic{vertical-align:middle}
 
 /* 강의 편집 = 관제탑 (선생님 결정 2026-11-02, 길 A)

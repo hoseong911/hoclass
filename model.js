@@ -114,7 +114,8 @@ export const STUDENT_MENUS = [
 // 가운데 넷(개념 노트, 미션 활동, 오늘의 질문, 형성평가)은 강의 안 네 칸을 각각 관리하는 자리다.
 // 칸 이름(PART_TYPES)과 메뉴 이름은 같다: 선생님이 부르는 이름 하나로 통일했다(2026-10-28).
 export const ADMIN_MENUS = [
-  { key:'rooms',     name:'강의실 관리',     icon:'graduation-cap' },
+  { key:'dashboard', name:'대시보드',        icon:'layout-grid' },
+  { key:'rooms',    name:'강의실 관리',     icon:'graduation-cap' },
   { key:'students',  name:'학생 관리',       icon:'users' },
   { key:'progress',  name:'진도 관리',       icon:'clipboard-list' },
   { key:'notice',    name:'공지사항',        icon:'megaphone' },
@@ -132,7 +133,7 @@ export const ADMIN_MENUS = [
    texts 맵에 `menu_키`로, 순서는 menuOrder 배열로 들어간다.
    순서 안의 MENU_SEP는 구분선이다. 메뉴처럼 위아래로 옮길 수 있다. */
 export const MENU_SEP = '|';
-export const DEFAULT_MENU_ORDER = ['rooms','students','progress','notice', MENU_SEP,
+export const DEFAULT_MENU_ORDER = ['dashboard', MENU_SEP, 'rooms','students','progress','notice', MENU_SEP,
   'concept','mission','question','formative','scores','mileage', MENU_SEP, 'general'];
 let menuOrder = null;   // 관리자가 정한 순서. loadCore가 settings/general에서 채운다.
 export function menuName(key){
@@ -696,6 +697,42 @@ export function dueToOpen(year, subject){
   const ids = new Set(getCourses(year).filter(c => c.subject === subject).map(c => c.id));
   return DEMO.courseLessons.filter(cl => ids.has(cl.courseId) && !cl.isOpen
     && (dateStatus(cl.date) === 'today' || dateStatus(cl.date) === 'past'));
+}
+/* 대시보드 한 과목치. 오늘 수업, 7일 안 다가오는 수업, 미채점 답변, 마일리지 검토, 7일 안 공지 댓글, 최근 제출. */
+const DAY_MS = 24*60*60*1000;
+export function dashboardData(year, subject, now = new Date()){
+  const rooms = getCourses(year).filter(c => c.subject === subject);
+  const roomOf = new Map(rooms.map(c => [c.id, c]));
+  const cls = DEMO.courseLessons.filter(cl => roomOf.has(cl.courseId))
+    .map(cl => ({ ...cl, lesson:getLesson(cl.lessonId), room:roomOf.get(cl.courseId) }))
+    .filter(cl => cl.lesson);
+  const byRoom = (a, b) => a.room.grade - b.room.grade || a.room.classNo - b.room.classNo;
+  const today = cls.filter(cl => dateStatus(cl.date, now) === 'today').sort(byRoom);
+  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const upcoming = cls.filter(cl => dateStatus(cl.date, now) === 'future')
+    .map(cl => ({ ...cl, day:resolveMmdd(cl.date, now) }))
+    .filter(cl => cl.day.getTime() - base <= 7 * DAY_MS)
+    .sort((a, b) => a.day - b.day || byRoom(a, b));
+
+  const subs = DEMO.submissions.filter(s => roomOf.has(s.courseId));
+  const ungradedBy = new Map();
+  subs.filter(s => s.part === 'question' && questionVerdict(s).verdict === '미채점').forEach(s => {
+    const lid = DEMO.courseLessons.find(x => x.id === s.clId)?.lessonId;
+    if (lid) ungradedBy.set(lid, (ungradedBy.get(lid) || 0) + 1);
+  });
+  const ungraded = [...ungradedBy.values()].reduce((a, b) => a + b, 0);
+  const ungradedLessonId = [...ungradedBy].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  const since = now.getTime() - 7 * DAY_MS;
+  const noticeIds = new Set(getNotices(year, subject).map(n => n.id));
+  const comments = DEMO.noticeComments.filter(c => noticeIds.has(c.noticeId) && (c.createdAt || 0) >= since).length;
+
+  const clOf = new Map(DEMO.courseLessons.map(cl => [cl.id, cl]));
+  const recent = subs.filter(s => s.at).sort((a, b) => b.at - a.at).slice(0, 8)
+    .map(s => ({ ...s, room:roomOf.get(s.courseId), lesson:getLesson(clOf.get(s.clId)?.lessonId) }));
+
+  return { today, upcoming, ungraded, ungradedLessonId, comments, recent,
+    due: dueToOpen(year, subject).length, mileage: getMileageReview(subject).length };
 }
 export function openDueLessons(year, subject){
   const list = dueToOpen(year, subject);

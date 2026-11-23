@@ -6,7 +6,7 @@
 // 지금은 데모 데이터(model.js)로 돈다. 규칙: data-act + 위임, 상태는 state 하나,
 // 알약 금지, 태그/카테고리는 구분선, 액션은 아이콘 버튼, 숫자 칸은 text+inputmode.
 
-import * as M from './model.js?v=20261115a';
+import * as M from './model.js?v=20261123a';
 import { icon } from './shared/icons.js?v=20261102a';
 import { buildSlides, renderSlide } from './slide-deck.js?v=20261101l';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './shared/fb.js?v=20261028a';
@@ -16,7 +16,7 @@ const $side = document.getElementById('side');
 const $main = document.getElementById('main');
 
 const state = {
-  page: 'rooms',
+  page: 'dashboard',
   year: YEAR,
   roomGroup: 'subject',            // 강의실 묶음 축: 'subject'(과목별) | 'class'(반별)
   fSubject: null, fClass: null,    // 강의실 관리 필터(과목 / 반)
@@ -228,6 +228,54 @@ function yearSelHtml(){ const years = M.getYears();
 function subjectSel(){ const subs = subjectsOfYear(); if (!subs.length) return ''; curSubject();
   return `<select class="sel" data-act="subject-pick" aria-label="과목">${
     subs.map(s => `<option value="${esc(s)}" ${s === state.subject ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`; }
+
+// ── 대시보드 ── 머리줄에서 고른 학년도와 과목 하나치를 네 묶음으로 본다.
+const WEEKDAY = ['일','월','화','수','목','금','토'];
+const mdHm = ms => { const d = new Date(ms);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+
+function pageDashboard(){
+  const head = `<div class="pagehead"><h2>${esc(M.menuName('dashboard'))}</h2>${yearSelHtml()}${subjectSel()}</div>`;
+  if (!M.getYears().length) return head + `<div class="empty">학년도가 없습니다.</div>`;
+  const subject = curSubject();
+  if (!subject) return head + `<div class="empty">과목이 없습니다.</div>`;
+  const d = M.dashboardData(state.year, subject);
+
+  const today = d.today.length ? d.today.map(cl => `<div class="row compact">
+      <span class="dash-room mono">${esc(M.roomNo(cl.room))}</span>
+      <div class="grow"><div class="t" title="${esc(cl.lesson.title)}">${esc(lnumPlain(cl.lesson))} ${esc(cl.lesson.title)}</div></div>
+      <button class="ib ib-sm ${cl.isOpen?'ib-primary':''}" data-act="cl-open" data-id="${cl.id}" title="${cl.isOpen?'공개 중 (누르면 숨김)':'숨김 (누르면 공개)'}" aria-label="공개 전환">${icon('eye',14)}</button>
+    </div>`).join('') : `<div class="empty">오늘 수업이 없습니다.</div>`;
+
+  const todo = [
+    d.due && `<div class="row compact"><div class="grow"><div class="t">수업일자가 됐는데 공개하지 않은 강의</div></div>
+      <span class="dash-n mono">${d.due}</span>
+      <button class="btn-chip on" data-act="prog-open-due">${icon('eye',13)}공개</button></div>`,
+    d.ungraded && `<div class="row compact rowlink" data-act="dash-go" data-k="question">
+      <div class="grow"><div class="t">오늘의 질문 미채점 답변</div></div><span class="dash-n mono">${d.ungraded}</span>${icon('chevron-right',16)}</div>`,
+    d.mileage && `<div class="row compact rowlink" data-act="dash-go" data-k="mileage">
+      <div class="grow"><div class="t">열공 마일리지 검토 대기</div></div><span class="dash-n mono">${d.mileage}</span>${icon('chevron-right',16)}</div>`,
+    d.comments && `<div class="row compact rowlink" data-act="dash-go" data-k="notice">
+      <div class="grow"><div class="t">최근 7일 공지 댓글</div></div><span class="dash-n mono">${d.comments}</span>${icon('chevron-right',16)}</div>`,
+  ].filter(Boolean).join('') || `<div class="empty">확인할 것이 없습니다.</div>`;
+
+  const upcoming = d.upcoming.length ? d.upcoming.map(cl => `<div class="row compact">
+      <span class="dash-day mono">${cl.day.getMonth() + 1}/${cl.day.getDate()} (${WEEKDAY[cl.day.getDay()]})</span>
+      <span class="dash-room mono">${esc(M.roomNo(cl.room))}</span>
+      <div class="grow"><div class="t" title="${esc(cl.lesson.title)}">${esc(lnumPlain(cl.lesson))} ${esc(cl.lesson.title)}</div></div>
+    </div>`).join('') : `<div class="empty">7일 안에 잡힌 수업이 없습니다.</div>`;
+
+  const recent = d.recent.length ? d.recent.map(s => `<div class="row compact">
+      <span class="dash-day mono">${mdHm(s.at)}</span>
+      <div class="grow"><div class="t"><span class="mono">${esc(s.studentNo)}</span>&nbsp;${esc(s.name || '')}</div></div>
+      <span class="unit">${esc(lnumPlain(s.lesson))} ${esc(M.partDef(s.part)?.name || '')}</span>
+    </div>`).join('') : `<div class="empty">제출이 없습니다.</div>`;
+
+  const col = (title, body) => `<div class="dash-col"><div class="sectionlabel">${title}</div>${body}</div>`;
+  return head + `<div class="dash">
+    ${col('오늘 수업', today)}${col('확인할 것', todo)}
+    ${col('다가오는 수업', upcoming)}${col('최근 제출', recent)}</div>`;
+}
 
 // ── 강의실 관리 ──
 // 머리줄: 제목 + 학년도 고르개(드롭다운) + 추가 버튼(팝업). 창 넓이는 admin.css에서.
@@ -3128,7 +3176,7 @@ addEventListener('resize', wireDesignStage, { passive:true });
 // ── 렌더 ──
 function render(){
   renderSide();
-  const p = { rooms:pageRooms, students:pageStudents, progress:pageProgress, notice:pageNotice,
+  const p = { dashboard:pageDashboard, rooms:pageRooms, students:pageStudents, progress:pageProgress, notice:pageNotice,
               concept:pageConcept, mission:pageMission, question:pageQuestion, formative:pageFormative,
               scores:pageScores, mileage:pageMileage, general:pageGeneral }[state.page];
   $main.innerHTML = p ? p() : '';
@@ -3155,6 +3203,14 @@ document.getElementById('shell').addEventListener('click', e => {
       state.fmEditIdx = null; state.fmNewType = null;
       state.progMemoId = null; state.genDraft = null; state.menuDraft = null;
       state.mileageNoteDraft = null; render(); break;
+    case 'dash-go': {
+      const d = M.dashboardData(state.year, curSubject());
+      if (k === 'question') Object.assign(state, { page:'question', questionTab:'answers', questionGradeTab:'grade',
+        questionLessonId:d.ungradedLessonId, questionRoom:'all' });
+      else if (k === 'mileage') Object.assign(state, { page:'mileage', mileageTab:'review' });
+      else if (k === 'notice') Object.assign(state, { page:'notice' });
+      render(); break;
+    }
     case 'set-year': state.year = +v; state.editRoomId = null; render(); break;
     case 'set-subject': state.fSubject = v; render(); break;
     case 'set-class': state.fClass = v === 'all' ? null : v; render(); break;
