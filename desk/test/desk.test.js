@@ -630,6 +630,25 @@ function checkWidgetMode() {
       .some(t => t.text === "급한 공문 회신 교육청" && t.q === 3), "고친 글이 저장된다(칸은 그대로)");
   }
 
+  /* 체크 한 번이면 가로 줄, 한 번 더 누르면 지운다. 실행취소로 되돌린다(선생님 지시 2026-11-24) */
+  {
+    const row = () => itemIn(qCells()[3], "급한 공문 회신 교육청");
+    assert(!row().querySelector(".del"), "× 단추는 없앴다");
+    row().querySelector(".check").click();
+    await until(() => row() && row().classList.contains("done"), "한 번 누르면 다 했음(가로 줄)");
+    row().querySelector(".check").click();
+    await until(() => !row(), "한 번 더 누르면 지워진다");
+    A.$("undoBtn").click();
+    await until(() => row(), "실행취소로 되돌아온다");
+    // 날짜를 넣은 할 일은 주간 계획 칸에도 같이 보인다(할 일은 암호 문서가 아니라 잠금과 상관없다)
+    const wpToday = () => A.d.querySelector("#wplan .wp-day.today");
+    const dayIn = row().querySelector(".q-date");
+    dayIn.value = wpToday().dataset.day;
+    dayIn.dispatchEvent(new A.w.Event("change", { bubbles: true }));
+    await until(() => wpToday().textContent.includes("급한 공문 회신 교육청"), "날짜를 넣으면 주간 계획 칸에 같이 보인다");
+    assert(row().querySelector(".q-day").textContent.includes("."), "할 일 줄에 날짜가 적힌다");
+  }
+
   /* ---------- 구글 캘린더 위젯 ---------- */
   await until(() => A.$("gcalBody").textContent.includes("이어 붙이면"), "연결 전에는 안내가 보인다");
   assert(!A.$("gcalBtn").hidden, "연결 단추가 보인다");
@@ -1105,6 +1124,16 @@ function checkWidgetMode() {
   await until(() => moDay().textContent.includes("월간에서 적은 계획") && moCell().textContent.includes("월간에서 적은 계획"), "적은 계획이 주간과 달력에 같이 보인다");
   A.tab("week");
   await until(() => monCol() && monCol().textContent.includes("월간에서 적은 계획"), "월간에서 적은 것이 주간에 그대로");
+  // 「할 일」을 켜고 적으면 업무 할 일 네 칸(중요 긴급)에도 같이 보인다(선생님 지시 2026-11-24)
+  monCol().click();
+  await until(() => A.$("plan_" + mon), "주간 칸에 적는 줄");
+  const asTodo = () => A.$("plan_" + mon).closest("form").querySelector(".wk-astodo");
+  asTodo().click();
+  A.fill("plan_" + mon, "할 일로도 넣은 계획");
+  A.$("plan_" + mon).closest("form").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
+  await until(() => monCol().textContent.includes("할 일로도 넣은 계획"), "계획 칸에 들어간다");
+  await until(() => [...A.d.querySelectorAll("#todoQuad .q-cell")][0].textContent.includes("할 일로도 넣은 계획"), "「할 일」로 적은 계획은 중요 긴급 칸에도 보인다");
+  asTodo().click();   // 다음에 적는 계획에 딸려 가지 않게 끈다
 
   /* ---------- 대시보드 주간 계획 위젯(선생님 지시 2026-11-17): 일~토, 일과 토는 좁게, 가로로 길게 ---------- */
   {
@@ -1166,7 +1195,8 @@ function checkWidgetMode() {
   A.$("planSyncBtn").click();
   await until(() => !moDay().textContent.includes("교과협의회 자료 준비"), "구글에서 지운 것은 여기서도 지운다");
   const rowOf = (t) => [...moDay().querySelectorAll(".wk-plan .todo")].find(li => li.textContent.includes(t));
-  rowOf("구글에서 넣은 일정").querySelector(".del").click();
+  rowOf("구글에서 넣은 일정").querySelector(".check").click();
+  rowOf("구글에서 넣은 일정").querySelector(".check").click();   // 두 번째가 지우기
   rowOf("구글에서 고친 계획").querySelector(".check").click();
   await until(() => !gfake.events.has("gnew") && gOf("구글에서 고친 계획").done, "여기서 지우고 체크한 것이 구글로 간다", 8000);
   await wait(900);

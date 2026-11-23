@@ -213,8 +213,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); backgro
 .wk-plan .todo { padding: 3px 0; gap: 8px; font-size: 13px; border-top: 0; }
 /* 칸을 누르면 그 칸에 적는 줄이 열린다(늘 펼쳐 두지 않는다) */
 .wk-day { cursor: pointer; }
-.wk-add { margin: 0; flex: none; }
-.wk-add input { width: 100%; font-size: 13px; padding: 5px 8px; background: var(--surface); border: 1px solid var(--accent); }
+.wk-add { margin: 0; flex: none; display: flex; gap: 4px; align-items: center; }
+.wk-add input { width: 100%; min-width: 0; flex: 1; font-size: 13px; padding: 5px 8px; background: var(--surface); border: 1px solid var(--accent); }
+/* 켜고 적으면 업무 할 일 네 칸에도 같이 들어간다 */
+.wk-astodo { flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--faint); border-radius: 8px; font-size: 12px; line-height: 1.4; padding: 3px 7px; cursor: pointer; }
+.wk-astodo[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .mo-cell .wk-add input { font-size: 12px; padding: 2px 6px; }
 @media (max-width: 900px) { .wk-grid { grid-template-columns: minmax(0, 1fr); } }
 
@@ -479,6 +482,9 @@ table.tt-edit th.ph { width: 132px; padding: 6px 4px; vertical-align: middle; }
 .form-err { color: var(--danger) !important; min-height: 0; }
 .form-err:empty { display: none; }
 .recovery-code { font-family: var(--font-num); font-size: 16px; letter-spacing: .04em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; overflow-wrap: anywhere; user-select: all; }
+.undo-bar { display: flex; gap: 10px; align-items: center; }
+.undo-btn { border: 1px solid rgba(255, 255, 255, .5); background: none; color: #fff; border-radius: 6px; font-size: 13px; line-height: 1.4; padding: 2px 8px; cursor: pointer; }
+.undo-btn:hover { background: rgba(255, 255, 255, .15); }
 .check-row { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .btn:disabled { opacity: .5; cursor: default; filter: none; }
 
@@ -613,8 +619,16 @@ body { overflow: hidden; }
 .q-todo.done .check svg { opacity: 1; }
 .q-tx { font-size: var(--fs-body); min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .q-todo.done .q-tx { color: var(--faint); text-decoration: line-through; }
-.q-todo .del { font-size: 15px; padding: 0 4px; flex: none; }
-.q-todo:hover .del { opacity: 1; }
+/* 줄 오른쪽 날짜 단추(× 대신). 날짜를 넣으면 주간, 월간 계획 칸에도 같이 보인다.
+   달력을 띄우는 날짜 칸은 안 보이게 깔아 둔다(display:none 이면 달력이 안 열린다). */
+.q-daywrap { position: relative; flex: none; display: flex; }
+.q-date { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+.q-day { opacity: 0; border: 0; background: none; color: var(--faint); cursor: pointer; font-size: var(--fs-sm); line-height: 1.2; padding: 0 4px; border-radius: 8px; }
+.q-day.on, .q-todo:hover .q-day, .q-day:focus-visible { opacity: 1; }
+.q-day.on { color: var(--sub); }
+.q-day:hover { background: var(--surface); color: var(--ink); }
+.q-day svg { width: 13px; height: 13px; display: block; }
+@media (hover: none) { .q-day { opacity: 1; } }
 .q-add { display: flex; gap: 4px; flex: none; }
 .q-add input { flex: 1; min-width: 0; padding: 4px 8px; font-size: var(--fs-sm); background: var(--surface); border-radius: 8px; }
 .q-plus {
@@ -631,7 +645,7 @@ body { overflow: hidden; }
   .wg-todo .q-list:has(.q-todo) { min-height: 18px; }   /* "외 N개" 한 줄 높이 */
   /* 줄이 납작하게 눌리면 넘친 줄을 못 알아채고 × 단추가 깎인다. 줄 높이는 그대로 두고 넘치게 한다. */
   .wg-todo .q-todo { flex: none; }
-  .wg-todo .q-todo .del { line-height: 1.2; }   /* 줄 높이가 글자보다 낮으면 × 아래가 3px 삐져나왔다 */
+  .wg-todo .q-day { line-height: 1.2; }
 }
 .q-todo.cut { display: none; }
 .q-more { display: none; flex: none; font-size: var(--fs-sm); color: var(--muted); }
