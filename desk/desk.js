@@ -4523,6 +4523,32 @@ const QUADS = [
   { q: 3, name: "일반 여유", c: "q3" },
 ];
 const todoQ = (t) => [0, 1, 2, 3].includes(t.q) ? t.q : 0;
+/* 적을 때 글 앞이나 뒤에 날짜를 같이 쓰면 날짜 단추를 누르지 않아도 그날로 간다(선생님 지시 2026-11-24).
+   받는 모양: 11/27, 11.27, 11월 27일, 27일, 오늘, 내일, 모레. 날짜로 읽은 토막은 할 일 글에서 뺀다.
+   빼기(-)는 안 받는다: 「3-6 수행평가」 같은 반 이름이 3월 6일이 되면 안 된다. */
+const DATE_IN = /^(?:(\d{1,2})[./월](\d{1,2})일?\.?|(\d{1,2})일|(오늘|내일|모레))$/;
+const DATE_WORD = { "오늘": 0, "내일": 1, "모레": 2 };
+function readDate(word, now = new Date()) {
+  const m = DATE_IN.exec(word);
+  if (!m) return "";
+  if (m[4]) { const x = new Date(now); x.setDate(x.getDate() + DATE_WORD[m[4]]); return todayKey(x); }
+  const day = +(m[2] || m[3]), mon = m[1] ? +m[1] : now.getMonth() + 1;
+  if (!day || day > 31 || !mon || mon > 12) return "";
+  const x = new Date(now.getFullYear(), mon - 1, day);
+  if (x.getDate() !== day) return "";                                  // 2월 30일 같은 날
+  // 지난 날을 할 일로 적는 일은 거의 없다. 이미 지났으면 달(일만 적었을 때)이나 해를 하나 넘긴다.
+  if (todayKey(x) < todayKey(now)) { if (m[1]) x.setFullYear(x.getFullYear() + 1); else x.setMonth(x.getMonth() + 1); }
+  return todayKey(x);
+}
+/* 앞이나 뒤 한 토막이 날짜면 떼어 낸다. 글이 날짜뿐이면 그대로 둔다(떼면 남는 글이 없다). */
+function splitDate(raw) {
+  const w = String(raw).trim().replace(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/, "$1월$2일").split(/\s+/);
+  if (w.length > 1) for (const i of [0, w.length - 1]) {
+    const d = readDate(w[i]);
+    if (d) return { text: w.filter((_, j) => j !== i).join(" "), d };
+  }
+  return { text: w.join(" "), d: "" };
+}
 // 할 일을 고치면 네 칸과 계획 칸(주간, 월간, 대시보드 위젯)을 같이 다시 그린다.
 const todoSave = () => { save(); renderTodos(); renderNb(); };
 const todoToggle = (t) => { t.done = !t.done; todoSave(); };
@@ -4582,8 +4608,10 @@ function renderTodos() {
     const inp = h("input", { type: "text", class: "q-in", "data-q": String(Q.q), maxlength: "200", autocomplete: "off", "aria-label": `${Q.name}에 할 일 더하기` });
     const form = h("form", { class: "q-add", onsubmit: (e) => {
       e.preventDefault();
-      const v = inp.value.trim(); if (!v) return;
-      state.todos.push({ id: uid(), text: v.slice(0, 200), done: false, q: Q.q });
+      const { text, d } = splitDate(inp.value); if (!text) return;
+      const t = { id: uid(), text: text.slice(0, 200), done: false, q: Q.q };
+      if (d) t.d = d;
+      state.todos.push(t);
       inp.value = ""; save(); renderTodos();
       const again = document.querySelector(`#todoQuad .q-in[data-q="${Q.q}"]`); if (again) again.focus();
     } }, inp, h("button", { class: "q-plus", type: "submit", "aria-label": `${Q.name}에 더하기`, text: "+" }));

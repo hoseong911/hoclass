@@ -590,6 +590,23 @@ function checkWidgetMode() {
   await until(() => qCells()[2].textContent.includes("급한 공문 회신"), "일반 긴급 칸에 들어간다");
   await until(() => (JSON.parse(store.get("desk_todos/all") || "{}").state || { items: [] }).items
     .some(t => t.text === "급한 공문 회신" && t.q === 2), "칸 번호(q)와 함께 저장");
+  /* 적을 때 날짜를 같이 쓰면 날짜 단추를 누르지 않아도 그날로 간다(선생님 지시 2026-11-24) */
+  {
+    const todos = () => (JSON.parse(store.get("desk_todos/all") || "{}").state || { items: [] }).items;
+    const put = (v) => {
+      qCells()[1].querySelector(".q-in").value = v;
+      qCells()[1].querySelector(".q-add").dispatchEvent(new A.w.Event("submit", { bubbles: true, cancelable: true }));
+    };
+    const tm = new Date(); tm.setDate(tm.getDate() + 1);
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const tmKey = `${tm.getFullYear()}-${pad2(tm.getMonth() + 1)}-${pad2(tm.getDate())}`;
+    put("내일 생기부 마감");
+    await until(() => todos().some(t => t.text === "생기부 마감" && t.d === tmKey), "날짜 글은 떼어 내고 그날로 단다");
+    put("3-6 수행평가 채점");   // 반 이름은 날짜가 아니다(3월 6일이 되면 안 된다)
+    await until(() => todos().some(t => t.text === "3-6 수행평가 채점" && !t.d), "빼기(-)가 든 반 이름은 그대로 둔다");
+    put("27일까지 제출");       // 토막에 글이 붙어 있으면 건드리지 않는다
+    await until(() => todos().some(t => t.text === "27일까지 제출" && !t.d), "날짜 토막에 글이 붙으면 그대로 둔다");
+  }
   // jsdom 은 위치를 재지 못해 손끝 아래 칸을 정해 준다.
   const ptr = (type, target, kind, x, y) => {
     const ev = new A.w.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
