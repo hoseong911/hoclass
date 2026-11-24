@@ -497,8 +497,7 @@ table.tt-edit th.ph { width: 132px; padding: 6px 4px; vertical-align: middle; }
   border-radius: var(--r); padding: 28px 26px; display: flex; flex-direction: column; gap: 12px;
 }
 .gate-card h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; font-family: var(--font-head); text-align: center; color: var(--navy); }
-.gate-card .field { gap: 5px; }
-.gate-card .field input { font-size: 16px; }
+.gate-card input:not([type="checkbox"]) { font-size: 16px; width: 100%; }
 .gate-card .btn { margin-top: 4px; }
 .gate-card .tip { margin-top: 2px; }
 

@@ -34,8 +34,8 @@ window.__deskLog = [];
 <div class="gate" id="gate">
   <form class="gate-card" id="gateForm" onsubmit="return false">
     <h1>오늘, 교무노트</h1>
-    <label class="field">메일<input type="email" id="gateEmail" autocomplete="username" required></label>
-    <label class="field">비밀번호<input type="password" id="gatePass" autocomplete="current-password" required></label>
+    <input type="email" id="gateEmail" autocomplete="username" placeholder="메일" aria-label="메일" required>
+    <input type="password" id="gatePass" autocomplete="current-password" placeholder="비밀번호" aria-label="비밀번호" required>
     <label class="check-row gate-auto"><input type="checkbox" id="gateAuto" checked>자동 로그인</label>
     <p class="form-err" id="gateErr" role="alert"></p>
     <button class="btn" type="submit" id="gateBtn">들어가기</button>
