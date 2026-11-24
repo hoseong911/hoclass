@@ -1434,6 +1434,9 @@ function checkWidgetMode() {
     return st && st.neis && st.neis.school && st.neis.school.code === "7331219"; }, "학교가 저장된다");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
+  // 첫 번은 실패했다. 다시 받는 것은 1분마다(tick)라 시험은 인터넷이 돌아온 신호로 당긴다
+  await until(() => A.w.__mealN >= 1, "급식을 받으러 갔다");
+  A.w.dispatchEvent(new A.w.Event("online"));
   await until(() => A.$("mealBody").textContent.includes("흑미밥"), "첫 번 실패한 급식을 다시 받아 위젯에 보인다");
   assert(A.w.__mealN >= 2, "급식을 다시 받으러 갔다");
   assert(!A.$("mealBody").textContent.includes("중식"), "급식이 중식 하나뿐이면 종류 글자를 적지 않는다(선생님 지시 2026-11-17)");

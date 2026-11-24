@@ -3004,9 +3004,9 @@ function attMonthView() {
       for (const e of es) cnt[e.k].push({ d, e });
       const off = attOff(d), named = offName(d);
       // 이름 있는 쉬는 날(재량휴업, 공휴일, 방학)은 학생 줄 전체를 한 칸으로 합쳐 이름을 세로로 쓴다
-      if (named) return row ? null : h("td", { "data-d": d, class: ["off", "offv", monday(d) ? "wk" : ""].filter(Boolean).join(" "),
+      if (named) return row ? null : h("td", { "data-d": d, class: ["off", "offv", "hol", monday(d) ? "wk" : ""].filter(Boolean).join(" "),
         rowspan: String(list.length), title: `${mdw(d)} ${named}`, text: named });
-      if (/요일$/.test(off)) return h("td", { "data-d": d, class: ["off", d === today ? "today" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "), title: `${mdw(d)} ${off}` });
+      if (/요일$/.test(off)) return h("td", { "data-d": d, class: ["off", dayTone(d), d === today ? "today" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "), title: `${mdw(d)} ${off}` });
       const k = es.length ? es[0].k : "";
       // 사유는 칸 모양으로: 미인정 진하게 채움, 질병 옅게 채움, 인정 테두리만(범례는 표 위)
       return h("td", { "data-d": d, class: [k ? "m " + k : "", k && es[0].r ? "r-" + es[0].r : "", es.some(e => !e.r) ? "undecided" : "", off ? "off" : "", d === today ? "today" : "", d === pickD && d !== today ? "pick" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "),
@@ -3047,7 +3047,7 @@ function attMonthView() {
     h("div", { class: "att-month-scroll" }, h("table", { class: "att-month", id: "attMonth" },
       h("thead", null, h("tr", null, h("th", { class: "who-n", text: "번호" }), h("th", { class: "who-nm", text: "이름" }),
         ...days.map(d => { const off = attOff(d), wd = parseDate(d).getDay();
-          return h("th", { class: ["day", off ? "off" : "", d === today ? "today" : "", d === pickD && d !== today ? "pick" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "), title: off || mdw(d) },
+          return h("th", { class: ["day", off ? "off" : "", dayTone(d), d === today ? "today" : "", d === pickD && d !== today ? "pick" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "), title: off || mdw(d) },
             h("span", { class: "dn", text: String(+d.slice(8)) }), h("span", { class: "dw", text: "(" + WD[wd] + ")" })); }),
         h("th", { class: "fill" }), h("th", { class: "tot first days-k", text: "수업 일수" }),
         ...ATT_KINDS.map(k => h("th", { class: "tot", text: k })))),
@@ -3055,6 +3055,8 @@ function attMonthView() {
     attBottom(),
   ];
 }
+/* 담임 한 달 표 열 음영: 쉬는 날(이름 있는 날)과 일요일은 빨강, 토요일은 파랑(선생님 지시 2026-11-24) */
+const dayTone = (d) => { const wd = parseDate(d).getDay(); return offName(d) || wd === 0 ? "hol" : wd === 6 ? "sat" : ""; };
 /* 담임 한 달 표의 줄 높이를 남은 화면에 맞춘다(30명이 한 화면에, 선생님 지시 2026-11-24). 22~44px */
 function fitAttRows() {
   const sc = document.querySelector(".att-one .att-month-scroll"), t = sc && sc.querySelector("table");
@@ -3062,10 +3064,10 @@ function fitAttRows() {
   const n = t.tBodies[0].rows.length, head = t.tHead ? t.tHead.offsetHeight : 40;
   const px = Math.max(22, Math.min(44, Math.floor((sc.clientHeight - head - 2) / n)));
   t.style.setProperty("--att-row", px + "px");
-  // 날짜 칸 너비도 남은 폭을 날 수로 나눠(한 달이 옆으로 굴리지 않고 다 보이게). 20~44px
+  // 날짜 칸 너비도 남은 폭을 날 수로 나눠 남는 폭 없이 채운다(한 달이 옆으로 굴리지 않고 다 보이게). 28px 아래로는 안 줄인다
   const ths = [...t.tHead.rows[0].cells], days = ths.filter(c => c.classList.contains("day")).length;
   const fixed = ths.filter(c => !c.classList.contains("day") && !c.classList.contains("fill")).reduce((a, c) => a + c.offsetWidth, 0);
-  if (days) t.style.setProperty("--att-col", Math.max(20, Math.min(44, Math.floor((sc.clientWidth - fixed - 2) / days))) + "px");
+  if (days) t.style.setProperty("--att-col", Math.max(28, Math.floor((sc.clientWidth - fixed - 2) / days)) + "px");
 }
 window.addEventListener("resize", fitAttRows);
 
@@ -3585,6 +3587,7 @@ async function loadMeal() {
   renderMeal();   // mealBusy 가 아직 참이라 renderMeal 안의 loadMeal 은 곧바로 돌아간다
   mealBusy = false;
 }
+window.addEventListener("online", () => loadMeal());   // 인터넷이 돌아오면 1분을 기다리지 않고 다시 받는다
 
 
 /* ---------- 학생 ---------- */
