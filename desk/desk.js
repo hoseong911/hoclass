@@ -1734,7 +1734,7 @@ function tick() {
   if (dataKey && !keepOn && Date.now() - lastActive > state.idleMin * 60000) lockNow();
   renderNow(now);
   const mm = now.getHours() * 60 + now.getMinutes();
-  if (mm !== lastMinute) { lastMinute = mm; renderPeriods(now); renderTT(); loadWx(); }
+  if (mm !== lastMinute) { lastMinute = mm; renderPeriods(now); renderTT(); loadWx(); loadMeal(); }
 }
 
 /* ---------- 오늘 시간표 ---------- */
@@ -3541,27 +3541,29 @@ function renderMeal() {
   const list = mealToday && mealToday.day === today ? mealToday.list : null;
   // 중식 하나만 오는 날은 "중식" 글자를 뺀다. 조식, 석식까지 오면 그때만 종류를 적는다(선생님 지시 2026-11-17).
   const one = list && list.length === 1;
+  // 학교가 켤 때 말고 나중에(클라우드에서) 들어와도 여기서 받으러 간다. 받는 중이면 loadMeal 이 그냥 돌아간다.
+  if (state.neis.school && !list) loadMeal();
   box.replaceChildren(!state.neis.school ? noneLine("설정의 기본 탭에서 학교를 정하면 급식이 보입니다.")
-    : !list ? noneLine("급식을 받는 중입니다.")
+    : !list ? noneLine(mealErr ? "급식을 받지 못했습니다. 잠시 뒤 다시 받습니다." : "급식을 받는 중입니다.")
     : !list.length ? noneLine("오늘 급식이 없습니다.")
     : h("ul", { class: "meal" }, ...list.map(m => h("li", null,
         one ? null : h("span", { class: "kind", text: m.kind }),
         h("span", { class: "dish", text: m.dishes.join(", ") }),
         m.kcal ? h("span", { class: "kcal", text: m.kcal }) : null))));
 }
-/* 오늘 급식은 하루 한 번만 받는다. */
-let mealBusy = false;
+/* 오늘 급식은 받아지면 하루 한 번만 받는다. 못 받으면 남겨 두지 않아 tick 이 1분마다 다시 받는다. */
+let mealBusy = false, mealErr = false;
 async function loadMeal() {
   const day = todayKey();
   if (mealBusy || !state.neis.school || (mealToday && mealToday.day === day)) return;
   mealBusy = true;
   try {
     const list = await Neis.loadMeal(state.neis.school, day.replace(/-/g, ""), state.neis.key);
-    mealToday = { day, list };
-    renderMeal();
+    mealToday = { day, list }; mealErr = false;
   } catch (e) {
-    mealToday = { day, list: [] };
+    mealErr = true;
   }
+  renderMeal();   // mealBusy 가 아직 참이라 renderMeal 안의 loadMeal 은 곧바로 돌아간다
   mealBusy = false;
 }
 

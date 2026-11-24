@@ -146,7 +146,9 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
   w.__NEIS__ = {
     findSchools: async () => [{ name: "인천동양중학교", atpt: "E10", code: "7331219", kind: "중학교", office: "인천광역시교육청", address: "" }],
     loadSchedule: async () => [{ d: "2027-03-02", name: "입학식" }, { d: "2027-07-20", name: "여름방학식" }],
-    loadMeal: async () => [{ kind: "중식", dishes: ["흑미밥", "된장국"], kcal: "800 Kcal" }],
+    // 첫 번은 실패한다: 못 받으면 "받는 중" 에 멈추지 않고 다시 받아야 한다
+    loadMeal: async () => { if (!neisArgs.mealN) { neisArgs.mealN = 1; throw new Error("잠깐 끊김"); }
+      neisArgs.mealN++; return [{ kind: "중식", dishes: ["흑미밥", "된장국"], kcal: "800 Kcal" }]; },
     loadMyWeek: async (...a) => { neisArgs.week = a;
       const subjects = a[4] || [];
       if (!subjects.length || subjects.some(x => !x.name || !x.classes.length)) {
@@ -1406,7 +1408,8 @@ function checkWidgetMode() {
     return st && st.neis && st.neis.school && st.neis.school.code === "7331219"; }, "학교가 저장된다");
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
-  await until(() => A.$("mealBody").textContent.includes("흑미밥"), "오늘 급식이 급식 위젯에 보인다");
+  await until(() => A.$("mealBody").textContent.includes("흑미밥"), "첫 번 실패한 급식을 다시 받아 위젯에 보인다");
+  assert(neisArgs.mealN >= 2, "급식을 다시 받으러 갔다");
   assert(!A.$("mealBody").textContent.includes("중식"), "급식이 중식 하나뿐이면 종류 글자를 적지 않는다(선생님 지시 2026-11-17)");
   assert(!A.$("mealBody").querySelector(".line"), "급식은 안쪽에 또 테두리를 두지 않는다(카드 테두리가 위젯 테두리)");
 
