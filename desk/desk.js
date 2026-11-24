@@ -3061,7 +3061,11 @@ function fitAttRows() {
   if (!t || !t.tBodies[0] || !t.tBodies[0].rows.length || !sc.clientHeight) return;
   const n = t.tBodies[0].rows.length, head = t.tHead ? t.tHead.offsetHeight : 40;
   const px = Math.max(22, Math.min(44, Math.floor((sc.clientHeight - head - 2) / n)));
-  if (px > 0) t.style.setProperty("--att-row", px + "px");
+  t.style.setProperty("--att-row", px + "px");
+  // 날짜 칸 너비도 남은 폭을 날 수로 나눠(한 달이 옆으로 굴리지 않고 다 보이게). 20~44px
+  const ths = [...t.tHead.rows[0].cells], days = ths.filter(c => c.classList.contains("day")).length;
+  const fixed = ths.filter(c => !c.classList.contains("day") && !c.classList.contains("fill")).reduce((a, c) => a + c.offsetWidth, 0);
+  if (days) t.style.setProperty("--att-col", Math.max(20, Math.min(44, Math.floor((sc.clientWidth - fixed - 2) / days))) + "px");
 }
 window.addEventListener("resize", fitAttRows);
 

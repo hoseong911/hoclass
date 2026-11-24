@@ -1613,6 +1613,14 @@ table.att-month tbody > tr > * { height: var(--att-row, 44px); }
 table.att-month tbody td.m::before { inset: clamp(2px, calc((var(--att-row, 44px) - 28px) / 2), 8px) 6px; }
 /* 주말과 쉬는 날은 누를 수 없다. 이름 있는 쉬는 날은 학생 줄을 합친 한 칸에 이름을 세로로 */
 table.att-month td.off { cursor: default; }
+/* 담임 한 달 표는 옆으로도 한 화면에(2026-11-24): 날짜 칸 너비는 fitAttRows 가 --att-col 로, 번호, 이름, 합계는 좁게 */
+.att-one table.att-month :is(th.day, td:not(.fill):not(.tot)) { width: var(--att-col, 44px); min-width: var(--att-col, 44px); max-width: var(--att-col, 44px); padding: 0; overflow: hidden; }
+.att-one table.att-month thead th.day :is(.dn, .dw) { display: block; }
+.att-one table.att-month th.who-n { width: 36px; min-width: 36px; padding: 0 4px; }
+.att-one table.att-month th.who-nm { left: 36px; min-width: 64px; padding: 0 6px; }
+.att-one table.att-month .tot, .att-one table.att-month .tot.days-k, .att-one table.att-month .tot.days-tot { min-width: 40px; padding: 0 4px; }
+.att-one table.att-month thead .tot.days-k { white-space: normal; line-height: 1.2; }
+.att-one table.att-month td.m::before { inset-inline: 2px; }
 table.att-month td.offv { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 4px; color: var(--muted); font-weight: 600; font-size: var(--t3); vertical-align: middle; }
 /* 칸 글자가 두 글자가 됐다(2026-11-16 "결 지 조 과 이렇게 하지말고 두글짜씩"). 자간을 걷고 칸을 넓힌다 */
 .att-month td.m { letter-spacing: 0; white-space: nowrap; }
