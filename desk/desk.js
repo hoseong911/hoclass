@@ -4286,9 +4286,9 @@ const asPlan = (t) => ({ id: t.id, d: t.d, text: t.text, done: !!t.done, todo: t
 const dayPlans = (d) => [...openPlans().filter(p => p.d === d), ...state.todos.filter(t => t.d === d).map(asPlan)];
 const planToggle = (p) => p.todo ? todoToggle(p.todo) : planEdit(() => { p.done = !p.done; p.at = Date.now(); });
 const planDel = (p) => p.todo ? todoDel(p.todo, false) : undoable(docBack(docs.works), () => planDrop(p), "계획을 지웠습니다");
-/* 다 한 줄에만 뜨는 휴지통 단추(선생님 지시 2026-11-25 "체크 두 번 누르면 사라지니까 체크 해제가 안 되네").
+/* 다 한 줄에만 뜨는 × 단추(선생님 지시 2026-11-25 "체크 두 번 누르면 사라지니까 체크 해제가 안 되네").
    체크는 켜고 끄기만 하고, 지우기는 이 단추가 한다. 되돌리기는 undoable 이 띄운다. */
-const killBtn = (cls, run) => h("button", { class: cls, type: "button", text: "삭제", onclick: run });
+const killBtn = (cls, run) => h("button", { class: cls, type: "button", text: "×", "aria-label": "지우기", onclick: run });
 
 /* 구글 캘린더(내 다른 캘린더) 일정을 달마다 받아 둔다. 주간, 월간 칸에 보기로만 붙는다. */
 const gcalMonths = new Map();                               // "2026-11" -> [{ at, items }]
