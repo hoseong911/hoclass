@@ -628,6 +628,9 @@ body { overflow: hidden; }
 .q-day:hover { background: var(--surface); color: var(--ink); }
 .q-day svg { width: 13px; height: 13px; display: block; }
 @media (hover: none) { .q-day { opacity: 1; } }
+/* 다 한 줄에만 뜨는 지우기 단추. 체크는 켜고 끄기만 한다(선생님 지시 2026-11-25) */
+.q-kill, .todo.done .del { opacity: 1; }
+.q-kill:hover { color: var(--danger); background: var(--danger-soft); }
 .q-add { display: flex; gap: 4px; flex: none; }
 .q-add input { flex: 1; min-width: 0; padding: 4px 8px; font-size: var(--fs-sm); background: var(--surface); border-radius: 8px; }
 .q-plus {

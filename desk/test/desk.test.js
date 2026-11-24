@@ -660,14 +660,18 @@ function checkWidgetMode() {
       .some(t => t.text === "급한 공문 회신 교육청" && t.q === 3), "고친 글이 저장된다(칸은 그대로)");
   }
 
-  /* 체크 한 번이면 가로 줄, 한 번 더 누르면 지운다. 실행취소로 되돌린다(선생님 지시 2026-11-24) */
+  /* 체크는 켜고 끄기만, 지우기는 다 한 줄에 뜨는 단추로(선생님 지시 2026-11-25) */
   {
     const row = () => itemIn(qCells()[3], "급한 공문 회신 교육청");
-    assert(!row().querySelector(".del"), "× 단추는 없앴다");
+    assert(!row().querySelector(".q-kill"), "안 한 줄에는 지우기 단추가 없다");
     row().querySelector(".check").click();
-    await until(() => row() && row().classList.contains("done"), "한 번 누르면 다 했음(가로 줄)");
+    await until(() => row() && row().classList.contains("done") && row().querySelector(".q-kill"), "한 번 누르면 다 했음(가로 줄), 지우기 단추가 뜬다");
     row().querySelector(".check").click();
-    await until(() => !row(), "한 번 더 누르면 지워진다");
+    await until(() => row() && !row().classList.contains("done") && !row().querySelector(".q-kill"), "한 번 더 누르면 다시 안 한 것으로 돌아온다");
+    row().querySelector(".check").click();
+    await until(() => row() && row().querySelector(".q-kill"), "다시 다 했음");
+    row().querySelector(".q-kill").click();
+    await until(() => !row(), "지우기 단추로 지운다");
     A.$("undoBtn").click();
     await until(() => row(), "실행취소로 되돌아온다");
     // 날짜를 넣은 할 일은 주간 계획 칸에도 같이 보인다(할 일은 암호 문서가 아니라 잠금과 상관없다)
@@ -680,7 +684,7 @@ function checkWidgetMode() {
     // 할 일에서 지워도 계획 칸에는 다 한 것으로 남는다(선생님 지시 2026-11-24)
     const wpRow = () => [...wpToday().querySelectorAll("li")].find(li => li.textContent.includes("급한 공문 회신 교육청"));
     assert(row().classList.contains("done"), "되돌아온 줄은 다 했음 그대로다");
-    row().querySelector(".check").click();
+    row().querySelector(".q-kill").click();
     await until(() => !row() && wpRow() && wpRow().classList.contains("done"), "할 일에서는 걷히고 계획에는 다 한 채로 남는다");
     A.$("undoBtn").click();
     await until(() => row() && [...wpToday().querySelectorAll("li")].filter(li => li.textContent.includes("급한 공문 회신 교육청")).length === 1,
@@ -1243,7 +1247,7 @@ function checkWidgetMode() {
   await until(() => !moDay().textContent.includes("교과협의회 자료 준비"), "구글에서 지운 것은 여기서도 지운다");
   const rowOf = (t) => [...moDay().querySelectorAll(".wk-plan .todo")].find(li => li.textContent.includes(t));
   rowOf("구글에서 넣은 일정").querySelector(".check").click();
-  rowOf("구글에서 넣은 일정").querySelector(".check").click();   // 두 번째가 지우기
+  rowOf("구글에서 넣은 일정").querySelector(".del").click();     // 다 한 줄에 뜨는 지우기 단추
   rowOf("구글에서 고친 계획").querySelector(".check").click();
   await until(() => !gfake.events.has("gnew") && gOf("구글에서 고친 계획").done, "여기서 지우고 체크한 것이 구글로 간다", 8000);
   await wait(900);

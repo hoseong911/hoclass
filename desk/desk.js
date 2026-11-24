@@ -4286,8 +4286,9 @@ const asPlan = (t) => ({ id: t.id, d: t.d, text: t.text, done: !!t.done, todo: t
 const dayPlans = (d) => [...openPlans().filter(p => p.d === d), ...state.todos.filter(t => t.d === d).map(asPlan)];
 const planToggle = (p) => p.todo ? todoToggle(p.todo) : planEdit(() => { p.done = !p.done; p.at = Date.now(); });
 const planDel = (p) => p.todo ? todoDel(p.todo, false) : undoable(docBack(docs.works), () => planDrop(p), "계획을 지웠습니다");
-// 다 했음을 한 번 더 누르면 지운다(× 단추 없이, 선생님 지시 2026-11-24). 되돌리기는 undoable 이 띄운다.
-const planCheck = (p) => (p.done ? planDel(p) : planToggle(p));
+/* 다 한 줄에만 뜨는 휴지통 단추(선생님 지시 2026-11-25 "체크 두 번 누르면 사라지니까 체크 해제가 안 되네").
+   체크는 켜고 끄기만 하고, 지우기는 이 단추가 한다. 되돌리기는 undoable 이 띄운다. */
+const killBtn = (cls, run) => h("button", { class: cls, type: "button", text: "삭제", onclick: run });
 
 /* 구글 캘린더(내 다른 캘린더) 일정을 달마다 받아 둔다. 주간, 월간 칸에 보기로만 붙는다. */
 const gcalMonths = new Map();                               // "2026-11" -> [{ at, items }]
@@ -4414,12 +4415,13 @@ function dayPanel(d, label, opts = {}) {
     isEditing(d, "wk") ? planInput(d, "wk", label) : null,
     ev.length ? h("ul", { class: "wk-evs" }, ...ev) : null,
     h("ul", { class: "wk-plan" }, ...mine.map(p => {
-      const chk = h("button", { class: "check", type: "button", "aria-pressed": String(!!p.done), "aria-label": p.done ? "한 번 더 누르면 지웁니다" : "다 했음", onclick: () => planCheck(p) });
+      const chk = h("button", { class: "check", type: "button", "aria-pressed": String(!!p.done), "aria-label": p.done ? "다 했음 풀기" : "다 했음", onclick: () => planToggle(p) });
       chk.innerHTML = CHECK;
       const key = "plan:" + p.id + ":wk";
       return h("li", { class: "todo" + (p.done ? " done" : "") + (fixing(key) ? " fixing" : "") }, chk,
         fixing(key) ? h("form", { class: "wk-add", onsubmit: (e) => e.preventDefault() }, planFixInput(p, key, label))
-          : fixText("todo-text", (p.t ? p.t + " " : "") + p.text, null, key, p.text, planFixOpen));
+          : fixText("todo-text", (p.t ? p.t + " " : "") + p.text, null, key, p.text, planFixOpen),
+        p.done && !fixing(key) ? killBtn("del", () => planDel(p)) : null);
     })));
 }
 
@@ -4589,7 +4591,6 @@ const todoDel = (t, keep = true) => undoable(keep ? todoDelBack : todosBack,
 /* 네 칸에는 할 일과 「할 일」로 적은 계획이 같이 뜬다(r.plan 이 있으면 계획). 누른 것이 갈 곳만 갈라 준다. */
 const rowToggle = (r) => r.plan ? planToggle(r.plan) : todoToggle(r);
 const rowDel = (r) => r.plan ? planDel(r.plan) : todoDel(r);
-const rowCheck = (r) => (r.done ? rowDel(r) : rowToggle(r));
 function rowText(r, v) {
   if (r.plan) { planEdit(() => { r.plan.text = v; r.plan.at = Date.now(); }); return; }
   const x = state.todos.find(y => y.id === r.id); if (x) x.text = v;
@@ -4601,7 +4602,7 @@ function rowDay(r, v) {
   if (v) x.d = v; else delete x.d;
   todoSave();
 }
-/* 줄 오른쪽 날짜 단추(× 를 뺀 자리). 날짜를 넣으면 그날 주간, 월간 계획 칸에도 같이 보인다.
+/* 줄 오른쪽 날짜 단추. 날짜를 넣으면 그날 주간, 월간 계획 칸에도 같이 보인다.
    달력은 안 보이는 날짜 칸(input)이 띄운다. 달력에서 비우면 날짜가 없어진다. */
 const DAY_IC = svgIc("calendar-days", 13);
 function dayBtn(r) {
@@ -4624,7 +4625,7 @@ function renderTodos() {
       ...openPlans().filter(p => p.q === Q.q).map(p => ({ id: p.id, text: p.text, done: !!p.done, d: p.d, plan: p }))];
     const ordered = [...mine.filter(t => !t.done), ...mine.filter(t => t.done)];
     const list = h("ul", { class: "q-list" }, ...ordered.map((t) => {
-      const chk = h("button", { class: "check", type: "button", "aria-label": t.done ? "한 번 더 누르면 지웁니다" : "완료로 표시", "aria-pressed": String(!!t.done), onclick: () => rowCheck(t) });
+      const chk = h("button", { class: "check", type: "button", "aria-label": t.done ? "완료 풀기" : "완료로 표시", "aria-pressed": String(!!t.done), onclick: () => rowToggle(t) });
       chk.innerHTML = CHECK;
       const key = "todo:" + t.id;
       const tx = fixing(key)
@@ -4634,7 +4635,7 @@ function renderTodos() {
         class: "q-todo" + (t.done ? " done" : "") + (fixing(key) ? " fixing" : ""), "data-id": t.id,
         onpointerdown: (e) => todoDown(e, t.id, li),
         oncontextmenu: (e) => { if (todoDrag) e.preventDefault(); },
-      }, chk, tx, dayBtn(t));
+      }, chk, tx, dayBtn(t), t.done ? killBtn("q-day q-kill", () => rowDel(t)) : null);
       return li;
     }), h("li", { class: "q-more", "aria-hidden": "true" }));   // "외 N개". trimTodos() 가 켠다
     const inp = h("input", { type: "text", class: "q-in", "data-q": String(Q.q), maxlength: "200", autocomplete: "off", "aria-label": `${Q.name}에 할 일 더하기` });
