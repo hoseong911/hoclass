@@ -1471,6 +1471,9 @@ function clipOverflow(card) {
     const overH = el.scrollHeight - ch, overW = el.scrollWidth - cw;
     if (overH < 1 && overW < 1) continue;          // 넘치지 않으면 모양을 볼 것도 없다
     const cs = getComputedStyle(el);
+    // 안 보이는 것은 잘려도 그만이다. 날짜 단추가 띄우는 달력 칸(.q-date)은 1px 로 깔아 뒀는데도
+    // 크롬이 날짜 칸을 24x16 밑으로 줄여 주지 않아 제 안이 늘 5px 넘쳤고, 그 바람에 할 일 칸만 혼자 끝까지 줄었다(2026-11-24).
+    if (cs.opacity === "0") continue;
     const cut = (v) => v === "hidden" || v === "clip";
     if (overH >= 2 && cut(cs.overflowY)) worst = Math.max(worst, el.scrollHeight / ch);
     // 말줄임표(…)로 줄이는 곳은 일부러 자르는 것이므로 가로는 세지 않는다
