@@ -110,6 +110,11 @@ function makeFB() {
 
 /* ---------- 화면 띄우기 ---------- */
 let neisArgs = {};   // 나이스 가짜가 받은 인수를 여기 적어 둔다
+/* 이번 달 오늘보다 앞선 평일 하나를 재량휴업일로(한 달 출결 표의 세로 칸을 보려고). 그런 날이 없으면 시험을 건너뛴다 */
+const offDay = (() => { const n = new Date();
+  for (let i = 1; i < n.getDate(); i++) { const d = new Date(n.getFullYear(), n.getMonth(), i);
+    if (d.getDay() >= 1 && d.getDay() <= 5) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`; }
+  return ""; })();
 const errs = [], saved = [];
 function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있던 localStorage
   const dom = new JSDOM(fs.readFileSync(path.join(DIR, "index.html"), "utf8"), {
@@ -145,10 +150,12 @@ function device(ls = {}) {        // ls: 이 기기 브라우저에 미리 있�
   neisArgs = {};
   w.__NEIS__ = {
     findSchools: async () => [{ name: "인천동양중학교", atpt: "E10", code: "7331219", kind: "중학교", office: "인천광역시교육청", address: "" }],
-    loadSchedule: async () => [{ d: "2027-03-02", name: "입학식" }, { d: "2027-07-20", name: "여름방학식" }],
+    loadSchedule: async () => [{ d: "2027-03-02", name: "입학식" }, { d: "2027-07-20", name: "여름방학식" },
+      ...(offDay ? [{ d: offDay, name: "재량휴업일" }] : [])],
     // 첫 번은 실패한다: 못 받으면 "받는 중" 에 멈추지 않고 다시 받아야 한다
-    loadMeal: async () => { if (!neisArgs.mealN) { neisArgs.mealN = 1; throw new Error("잠깐 끊김"); }
-      neisArgs.mealN++; return [{ kind: "중식", dishes: ["흑미밥", "된장국"], kcal: "800 Kcal" }]; },
+    // 횟수는 기기(w)마다 센다. 기기 둘이 같이 세면 한 기기가 실패를 못 보고 넘어간다
+    loadMeal: async () => { if (!w.__mealN) { w.__mealN = 1; throw new Error("잠깐 끊김"); }
+      w.__mealN++; return [{ kind: "중식", dishes: ["흑미밥", "된장국"], kcal: "800 Kcal" }]; },
     loadMyWeek: async (...a) => { neisArgs.week = a;
       const subjects = a[4] || [];
       if (!subjects.length || subjects.some(x => !x.name || !x.classes.length)) {
@@ -995,6 +1002,15 @@ function checkWidgetMode() {
   await until(() => monthRows()[1].textContent.includes("결석"), "오늘 결석이 표에 찍힌다");
   assert(A.d.querySelector('#attMonth thead th[title]'), "표 머리에 날짜");
   if ([0, 6].includes(new Date().getDay())) assert(A.attCell(0).classList.contains("off"), "주말 오늘 칸은 쉬는 날 빗금");
+  // 표는 토, 일까지 그달 모든 날(선생님 지시 2026-11-24). 주말 칸은 빗금이고 눌러도 고르개가 안 열린다
+  { const n = new Date(), last = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate();
+    assert.strictEqual(A.d.querySelectorAll("#attMonth thead th.day").length, last, "한 달 표 머리는 그달 모든 날");
+    const sat = [...A.d.querySelectorAll("#attMonth thead th.day")].findIndex(th => th.textContent.includes("(토)"));
+    assert(sat >= 0, "토요일 열이 있다");
+    const cell = monthRows()[0].querySelectorAll("td")[sat];
+    assert(cell.classList.contains("off") && !cell.textContent, "주말 칸은 빗금, 빈 칸");
+    cell.click(); await wait(30);
+    assert(!A.$("attEd"), "주말 칸은 눌러도 고르개가 안 열린다"); }
   if (process.env.DUMP_CLASS) fs.writeFileSync(process.env.DUMP_CLASS + "_month.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML);
   if (prev.slice(0, 7) === day.slice(0, 7)) {
     await until(() => monthRows()[0].textContent.includes("지각"), "지난날 지각도 표에 찍힌다");
@@ -1344,6 +1360,16 @@ function checkWidgetMode() {
   await until(() => A.$("neisCal"), "학교를 정하면 업무 탭에 학사 일정 받기 단추가 생긴다");
   A.$("neisCal").click();
   await until(() => A.$("ddayList").textContent.includes("입학식"), "학사 일정이 D-day 에 들어온다");
+  /* 재량휴업일은 한 달 출결 표에서 학생 줄을 합친 한 칸에 세로로(선생님 지시 2026-11-24) */
+  if (offDay) {
+    A.$("setClose").click(); await until(() => A.$("setPanel").hidden, "설정 닫기");
+    A.go("담임"); A.sub("att");
+    await until(() => A.d.querySelector('#attMonth td.offv[data-d="' + offDay + '"]'), "재량휴업일은 세로로 합친 칸");
+    const v = A.d.querySelector('#attMonth td.offv[data-d="' + offDay + '"]');
+    assert.strictEqual(v.getAttribute("rowspan"), String(A.attRows().length), "학생 줄 전체를 합친다");
+    assert.strictEqual(v.textContent, "재량휴업일", "칸에 쉬는 날 이름");
+    assert.strictEqual(A.d.querySelectorAll('#attMonth td[data-d="' + offDay + '"]').length, 1, "다른 학생 줄에는 그날 칸이 없다");
+  }
   /* 과목 줄이 없으면 받아오지 않는다. 거를 것이 없어 첫 반이 35칸을 다 먹는다. */
   A.setTab("lesson");
   await until(() => A.$("neisTT"), "시간표 받기는 수업 탭");
@@ -1409,7 +1435,7 @@ function checkWidgetMode() {
   A.$("setClose").click();
   await until(() => A.$("setPanel").hidden, "설정 닫기");
   await until(() => A.$("mealBody").textContent.includes("흑미밥"), "첫 번 실패한 급식을 다시 받아 위젯에 보인다");
-  assert(neisArgs.mealN >= 2, "급식을 다시 받으러 갔다");
+  assert(A.w.__mealN >= 2, "급식을 다시 받으러 갔다");
   assert(!A.$("mealBody").textContent.includes("중식"), "급식이 중식 하나뿐이면 종류 글자를 적지 않는다(선생님 지시 2026-11-17)");
   assert(!A.$("mealBody").querySelector(".line"), "급식은 안쪽에 또 테두리를 두지 않는다(카드 테두리가 위젯 테두리)");
 

@@ -2991,17 +2991,22 @@ function attLegend() {
 function attMonthView() {
   const cls = picked(), list = roster(), ym = attYm || ymOf(attDate()), today = todayKey(), pickD = attDate();
   if (attLoaded !== ym + "|" + cls && !attBusy) loadMonth(ym, cls);
-  const days = monthDays(ym);
-  const classDays = days.filter(d => !attOff(d)).length;   // 그달 수업 일수(평일에서 쉬는 날을 뺀 것)
+  // 표는 토, 일까지 그달 모든 날(선생님 지시 2026-11-24). 주말은 빗금이고 누를 수 없다.
+  const days = Array.from({ length: new Date(+ym.slice(0, 4), +ym.slice(5), 0).getDate() }, (_, i) => `${ym}-${pad(i + 1)}`);
+  const classDays = days.filter(d => !attOff(d)).length;   // 그달 수업 일수(쉬는 날과 주말을 뺀 것)
   const esOf = (d, sid) => d > today ? [] : entriesOf(attValueOf(d, cls), sid);
   const [y, m] = ym.split("-").map(Number);
   const goYm = (n) => { const d = new Date(y, m - 1 + n, 1); attYm = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; renderNb(); };
-  const rows = list.map(st => {
+  const rows = list.map((st, row) => {
     const cnt = { 결석: [], 지각: [], 조퇴: [], 결과: [] };
     const cells = days.map(d => {
       const es = esOf(d, st.id);
       for (const e of es) cnt[e.k].push({ d, e });
-      const off = attOff(d);
+      const off = attOff(d), named = offName(d);
+      // 이름 있는 쉬는 날(재량휴업, 공휴일, 방학)은 학생 줄 전체를 한 칸으로 합쳐 이름을 세로로 쓴다
+      if (named) return row ? null : h("td", { "data-d": d, class: ["off", "offv", monday(d) ? "wk" : ""].filter(Boolean).join(" "),
+        rowspan: String(list.length), title: `${mdw(d)} ${named}`, text: named });
+      if (/요일$/.test(off)) return h("td", { "data-d": d, class: ["off", d === today ? "today" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "), title: `${mdw(d)} ${off}` });
       const k = es.length ? es[0].k : "";
       // 사유는 칸 모양으로: 미인정 진하게 채움, 질병 옅게 채움, 인정 테두리만(범례는 표 위)
       return h("td", { "data-d": d, class: [k ? "m " + k : "", k && es[0].r ? "r-" + es[0].r : "", es.some(e => !e.r) ? "undecided" : "", off ? "off" : "", d === today ? "today" : "", d === pickD && d !== today ? "pick" : "", monday(d) ? "wk" : ""].filter(Boolean).join(" "),
@@ -3028,6 +3033,7 @@ function attMonthView() {
   // 달 고르기, 통계, 범례, 복사를 한 줄에(선생님 지시 2026-11-16)
   const legend = attLegend();
   legend.classList.add("hd-note");
+  setTimeout(fitAttRows);   // 화면에 붙은 뒤에 잰다
   return [
     hd("h4", h("div", { class: "att-nav" },
         navBtn("앞 달", CHEV_L, () => goYm(-1)),
@@ -3049,6 +3055,15 @@ function attMonthView() {
     attBottom(),
   ];
 }
+/* 담임 한 달 표의 줄 높이를 남은 화면에 맞춘다(30명이 한 화면에, 선생님 지시 2026-11-24). 22~44px */
+function fitAttRows() {
+  const sc = document.querySelector(".att-one .att-month-scroll"), t = sc && sc.querySelector("table");
+  if (!t || !t.tBodies[0] || !t.tBodies[0].rows.length || !sc.clientHeight) return;
+  const n = t.tBodies[0].rows.length, head = t.tHead ? t.tHead.offsetHeight : 40;
+  const px = Math.max(22, Math.min(44, Math.floor((sc.clientHeight - head - 2) / n)));
+  if (px > 0) t.style.setProperty("--att-row", px + "px");
+}
+window.addEventListener("resize", fitAttRows);
 
 let colAdding = false;         // 수합 탭에서 새 수합 이름 칸을 연 때
 /* 수합은 하나마다 섹션 하나, 섹션은 2단으로 늘어선다. 섹션 안 학생은 4열이고 칸마다 두 줄(번호와 이름, 제출 여부)이다. */

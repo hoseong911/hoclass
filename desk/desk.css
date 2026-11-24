@@ -1608,6 +1608,12 @@ table.att-month td.pick { background: var(--surface-2); }
 .att-one .att-month-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .att-one .att-below { flex: none; }
 .att-one .att-month thead th { position: sticky; top: 0; z-index: 3; }
+/* 줄 높이는 desk.js fitAttRows 가 남은 화면에 맞춰 --att-row 로 준다(22~44px). 칸 무늬도 같이 줄인다 */
+table.att-month tbody > tr > * { height: var(--att-row, 44px); }
+table.att-month tbody td.m::before { inset: clamp(2px, calc((var(--att-row, 44px) - 28px) / 2), 8px) 6px; }
+/* 주말과 쉬는 날은 누를 수 없다. 이름 있는 쉬는 날은 학생 줄을 합친 한 칸에 이름을 세로로 */
+table.att-month td.off { cursor: default; }
+table.att-month td.offv { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 4px; color: var(--muted); font-weight: 600; font-size: var(--t3); vertical-align: middle; }
 /* 칸 글자가 두 글자가 됐다(2026-11-16 "결 지 조 과 이렇게 하지말고 두글짜씩"). 자간을 걷고 칸을 넓힌다 */
 .att-month td.m { letter-spacing: 0; white-space: nowrap; }
 .att-month th.day, .att-month tbody td { min-width: 42px; }
