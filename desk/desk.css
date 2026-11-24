@@ -1619,12 +1619,12 @@ table.att-month td.off { cursor: default; }
 .att-one table.att-month thead th.day { font-size: 11px; letter-spacing: -0.02em; }
 .att-one table.att-month .fill { display: none; }
 /* 토요일 파랑, 일요일과 쉬는 날 빨강 반투명 음영(빗금 대신) */
-.att-one table.att-month .sat { background: color-mix(in srgb, var(--blue) 12%, transparent) !important; }
-.att-one table.att-month .hol { background: color-mix(in srgb, var(--danger) 12%, transparent) !important; }
+.att-one table.att-month .sat { background: color-mix(in srgb, var(--blue) 5%, transparent) !important; }
+.att-one table.att-month .hol { background: color-mix(in srgb, var(--danger) 5%, transparent) !important; }
 .att-one table.att-month thead .sat { color: var(--blue); }
 .att-one table.att-month thead .hol, .att-one table.att-month td.offv { color: var(--danger); }
 .att-one table.att-month th.who-n { width: 36px; min-width: 36px; padding: 0 4px; }
-.att-one table.att-month th.who-nm { left: 36px; min-width: 64px; padding: 0 6px; }
+.att-one table.att-month th.who-nm { left: 36px; min-width: 96px; padding: 0 10px; }
 .att-one table.att-month .tot, .att-one table.att-month .tot.days-k, .att-one table.att-month .tot.days-tot { min-width: 40px; padding: 0 4px; }
 .att-one table.att-month thead .tot.days-k { white-space: normal; line-height: 1.2; }
 .att-one table.att-month td.m::before { inset-inline: 2px; }
