@@ -4261,7 +4261,7 @@ const openPlans = () => (encOpen() ? livePlans(plansOf()) : []);
 const asPlan = (t) => ({ id: t.id, d: t.d, text: t.text, done: !!t.done, todo: t });
 const dayPlans = (d) => [...openPlans().filter(p => p.d === d), ...state.todos.filter(t => t.d === d).map(asPlan)];
 const planToggle = (p) => p.todo ? todoToggle(p.todo) : planEdit(() => { p.done = !p.done; p.at = Date.now(); });
-const planDel = (p) => p.todo ? todoDel(p.todo) : undoable(docBack(docs.works), () => planDrop(p), "계획을 지웠습니다");
+const planDel = (p) => p.todo ? todoDel(p.todo, false) : undoable(docBack(docs.works), () => planDrop(p), "계획을 지웠습니다");
 // 다 했음을 한 번 더 누르면 지운다(× 단추 없이, 선생님 지시 2026-11-24). 되돌리기는 undoable 이 띄운다.
 const planCheck = (p) => (p.done ? planDel(p) : planToggle(p));
 
@@ -4553,7 +4553,15 @@ function splitDate(raw) {
 const todoSave = () => { save(); renderTodos(); renderNb(); };
 const todoToggle = (t) => { t.done = !t.done; todoSave(); };
 const todosBack = () => { const v = clone(state.todos); return () => { state.todos = v; save(); }; };
-const todoDel = (t) => undoable(todosBack, () => { state.todos = state.todos.filter(x => x.id !== t.id); todoSave(); }, "할 일을 지웠습니다");
+/* 할 일을 지워도 날짜를 넣었던 것은 계획에 다 한 것으로 남긴다(선생님 지시 2026-11-24).
+   잠겨 있으면 적을 곳이 없어 그냥 걷힌다. 계획 칸에서 지울 때는(keep 없이) 남기지 않는다. */
+const keepAsPlan = (gone) => {
+  const keep = gone.filter(t => t.d && t.text);
+  if (keep.length && encOpen()) planEdit(() => { for (const t of keep) plansOf().push({ id: uid(), d: t.d, text: t.text.slice(0, 100), done: true, at: Date.now() }); });
+};
+const todoDelBack = () => { const un = todosBack(), doc = encOpen() ? docBack(docs.works)() : null; return () => { un(); if (doc) doc(); }; };
+const todoDel = (t, keep = true) => undoable(keep ? todoDelBack : todosBack,
+  () => { state.todos = state.todos.filter(x => x.id !== t.id); todoSave(); if (keep) keepAsPlan([t]); }, "할 일을 지웠습니다");
 /* 네 칸에는 할 일과 「할 일」로 적은 계획이 같이 뜬다(r.plan 이 있으면 계획). 누른 것이 갈 곳만 갈라 준다. */
 const rowToggle = (r) => r.plan ? planToggle(r.plan) : todoToggle(r);
 const rowDel = (r) => r.plan ? planDel(r.plan) : todoDel(r);
@@ -4702,7 +4710,10 @@ const wpGo = (n) => { const s = n ? addDaysIso(wpSun || thisSunday(), n * 7) : "
 $("wplanPrev").addEventListener("click", () => wpGo(-1));
 $("wplanNext").addEventListener("click", () => wpGo(1));
 $("wplanThis").addEventListener("click", () => wpGo(0));
-$("clearDone").addEventListener("click", () => undoable(todosBack, () => { state.todos = state.todos.filter(t => !t.done); todoSave(); }, "다 한 할 일을 지웠습니다"));
+$("clearDone").addEventListener("click", () => undoable(todoDelBack, () => {
+  const gone = state.todos.filter(t => t.done);
+  state.todos = state.todos.filter(t => !t.done); todoSave(); keepAsPlan(gone);
+}, "다 한 할 일을 지웠습니다"));
 
 /* ---------- D-day ---------- */
 function parseDate(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }

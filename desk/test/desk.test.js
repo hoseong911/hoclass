@@ -668,6 +668,14 @@ function checkWidgetMode() {
     dayIn.dispatchEvent(new A.w.Event("change", { bubbles: true }));
     await until(() => wpToday().textContent.includes("급한 공문 회신 교육청"), "날짜를 넣으면 주간 계획 칸에 같이 보인다");
     assert(row().querySelector(".q-day").textContent.includes("."), "할 일 줄에 날짜가 적힌다");
+    // 할 일에서 지워도 계획 칸에는 다 한 것으로 남는다(선생님 지시 2026-11-24)
+    const wpRow = () => [...wpToday().querySelectorAll("li")].find(li => li.textContent.includes("급한 공문 회신 교육청"));
+    assert(row().classList.contains("done"), "되돌아온 줄은 다 했음 그대로다");
+    row().querySelector(".check").click();
+    await until(() => !row() && wpRow() && wpRow().classList.contains("done"), "할 일에서는 걷히고 계획에는 다 한 채로 남는다");
+    A.$("undoBtn").click();
+    await until(() => row() && [...wpToday().querySelectorAll("li")].filter(li => li.textContent.includes("급한 공문 회신 교육청")).length === 1,
+      "실행취소하면 남긴 계획도 같이 걷힌다");
   }
 
   /* ---------- 구글 캘린더 위젯 ---------- */
