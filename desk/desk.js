@@ -3060,14 +3060,24 @@ const dayTone = (d) => { const wd = parseDate(d).getDay(); return offName(d) || 
 /* 담임 한 달 표의 줄 높이를 남은 화면에 맞춘다(30명이 한 화면에, 선생님 지시 2026-11-24). 22~44px */
 function fitAttRows() {
   const sc = document.querySelector(".att-one .att-month-scroll"), t = sc && sc.querySelector("table");
-  if (!t || !t.tBodies[0] || !t.tBodies[0].rows.length || !sc.clientHeight) return;
+  if (!t || !t.tBodies[0] || !t.tBodies[0].rows.length) return;
+  sc.classList.remove("hug"); sc.style.height = "";   // 지난번에 맞춘 높이를 걷고, 늘어난 상태에서 다시 잰다
+  if (!sc.clientHeight) return;
   const n = t.tBodies[0].rows.length, head = t.tHead ? t.tHead.offsetHeight : 40;
   const px = Math.max(22, Math.min(44, Math.floor((sc.clientHeight - head - 2) / n)));
   t.style.setProperty("--att-row", px + "px");
   // 날짜 칸 너비도 남은 폭을 날 수로 나눠 남는 폭 없이 채운다(한 달이 옆으로 굴리지 않고 다 보이게). 28px 아래로는 안 줄인다
   const ths = [...t.tHead.rows[0].cells], days = ths.filter(c => c.classList.contains("day")).length;
   const fixed = ths.filter(c => !c.classList.contains("day") && !c.classList.contains("fill")).reduce((a, c) => a + c.offsetWidth, 0);
-  if (days) t.style.setProperty("--att-col", Math.max(28, Math.floor((sc.clientWidth - fixed - 2) / days)) + "px");
+  if (days) {
+    const col = Math.max(28, Math.floor((sc.clientWidth - fixed - 2) / days));
+    t.style.setProperty("--att-col", col + "px");
+    t.classList.toggle("no-dw", col < 32);   // 칸이 좁으면 요일 "(토)"는 떼고 날짜만 보인다(선생님 지시 2026-11-25)
+  }
+  // 줄이 적으면 표 밑에 빈 띠와 테두리가 남았다 → 상자를 표 높이에 딱 맞춘다(선생님 지시 2026-11-25)
+  const chrome = sc.offsetHeight - sc.clientHeight;   // 테두리 2px + 옆으로 굴리는 띠가 있으면 그 높이
+  sc.style.height = Math.min(sc.offsetHeight, t.offsetHeight + chrome) + "px";
+  sc.classList.add("hug");
 }
 window.addEventListener("resize", fitAttRows);
 

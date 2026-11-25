@@ -1621,6 +1621,10 @@ table.att-month td.off { cursor: default; }
 /* 날짜 머리는 "19(토)" 한 줄, 글씨를 줄여 좁은 칸에도 들어가게. 남는 폭은 날짜 칸이 다 먹으니 빈 칸(.fill)은 없앤다 */
 .att-one table.att-month thead th.day { font-size: 11px; letter-spacing: -0.02em; }
 .att-one table.att-month .fill { display: none; }
+/* 칸이 좁으면 요일은 떼고 날짜만(선생님 지시 2026-11-25). no-dw 는 desk.js fitAttRows 가 붙인다 */
+.att-one table.att-month.no-dw thead th.day .dw { display: none; }
+/* 줄이 적을 때 표 밑에 빈 띠가 남지 않게 상자 높이를 표에 맞춘다. 높이는 fitAttRows 가 준다 */
+.att-one .att-month-scroll.hug { flex: 0 1 auto; }
 /* 토요일 파랑, 일요일과 쉬는 날 빨강 반투명 음영(빗금 대신) */
 .att-one table.att-month .sat { background: color-mix(in srgb, var(--blue) 5%, transparent) !important; }
 .att-one table.att-month .hol { background: color-mix(in srgb, var(--danger) 5%, transparent) !important; }
