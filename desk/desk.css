@@ -1630,6 +1630,13 @@ table.att-month td.off { cursor: default; }
 .att-one table.att-month .hol { background: color-mix(in srgb, var(--danger) 5%, transparent) !important; }
 .att-one table.att-month thead .sat { color: var(--blue); }
 .att-one table.att-month thead .hol, .att-one table.att-month td.offv { color: var(--danger); }
+/* 오늘도 빨강 음영이라 쉬는 날과 구분이 안 갔다(선생님 지적 2026-11-25). 색을 걷고 네이비 테두리로 열을 두른다 */
+.att-one table.att-month tbody td.today:not(.sat):not(.hol) { background: var(--surface) !important; }
+.att-one table.att-month thead th.today:not(.sat):not(.hol) { background: var(--surface-2) !important; }
+.att-one table.att-month :is(thead th.today, tbody td.today) { box-shadow: inset 1px 0 0 var(--navy), inset -1px 0 0 var(--navy); }
+.att-one table.att-month thead th.today { color: var(--navy); box-shadow: inset 1px 2px 0 var(--navy), inset -1px 0 0 var(--navy); }
+.att-one table.att-month thead th.today :is(.dn, .dw) { color: var(--navy); font-weight: 800; }
+.att-one table.att-month tbody tr:last-child td.today { box-shadow: inset 1px 0 0 var(--navy), inset -1px -2px 0 var(--navy); }
 .att-one table.att-month th.who-n { width: 36px; min-width: 36px; padding: 0 4px; }
 .att-one table.att-month th.who-nm { left: 36px; min-width: 96px; padding: 0 10px; }
 .att-one table.att-month .tot, .att-one table.att-month .tot.days-k, .att-one table.att-month .tot.days-tot { min-width: 40px; padding: 0 4px; }
