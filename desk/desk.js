@@ -1975,8 +1975,9 @@ function linksSection() {
       h("button", { class: "btn small", type: "submit", form: "linkForm", text: linkDraft.id ? "저장" : "추가" }),
       linkDraft.id ? h("button", { class: "btn small secondary", type: "button", text: "그만두기",
         onclick: () => { resetDraft(); renderSet(); } }) : null,
-      linkDraft.mode === "favicon" ? h("p", { class: "set-state", text: "사이트가 쓰는 그림을 가져옵니다. 그림이 없는 사이트는 첫 글자가 나옵니다." }) : null,
-      linkDraft.mode === "none" ? h("p", { class: "set-state", text: "이름의 첫 글자가 나옵니다." }) : null], [
+      // 안내는 셋 중 하나를 늘 둔다(생겼다 사라지면 아래 넣는 칸이 밀린다, 선생님 지시 2026-11-26)
+      h("p", { class: "set-state", text: linkDraft.mode === "favicon" ? "사이트가 쓰는 그림을 가져옵니다. 그림이 없으면 첫 글자가 나옵니다."
+        : linkDraft.mode === "none" ? "이름의 첫 글자가 나옵니다." : "아래 그림 중에서 고릅니다." })], [
       h("form", { class: "set-form", id: "linkForm", onsubmit: (e) => {
         e.preventDefault();
         const url = normalizeUrl($("linkUrl").value);
@@ -2096,7 +2097,6 @@ function renderSet() {
 const ROOM_MAX = 12;           // 반 수를 아직 못 받았을 때(내년 학년도처럼 나이스에 없을 때)
 const pickGrade = {};          // 고르개마다 지금 펼친 학년(다시 그려도 남게)
 let homeOn = false;            // 담임을 눌렀지만 반은 아직 안 고른 때
-let schoolEdit = false;        // 정한 학교를 바꾸려고 찾기 칸을 연 때
 const roomTried = new Set();   // 반 수를 한 번 물어본 학교와 학년도(실패해도 되풀이하지 않게)
 const byClass = (a, b) => a.localeCompare(b, "ko", { numeric: true });
 
@@ -2201,7 +2201,7 @@ function yearSection(part) {
         class: "cpick", type: "button", text: s.name + " (" + s.office.replace("교육청", "") + ")",
         onclick: () => {
           state.neis = { ...state.neis, school: { name: s.name, atpt: s.atpt, code: s.code, kind: s.kind } };
-          schoolEdit = false;
+          closeModal("schoolModal");
           save(true); renderSet();
           mealToday = null; loadMeal();
           toast(s.name + "으로 정했습니다");
@@ -2210,9 +2210,13 @@ function yearSection(part) {
     finally { findBtn.disabled = false; }
   } });
   findIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); findBtn.click(); } });
-  const schoolVal = school && !schoolEdit
+  /* 학교를 아직 안 정했으면 찾는 칸이 그대로 있고(처음 설정), 바꿀 때는 창으로 연다
+     (선생님 지시 2026-11-26: 「고치기」를 누르면 찾은 결과가 아래로 펼쳐져 학년도, 반 줄이 다 밀렸다). */
+  const schoolVal = school
     ? [h("div", { class: "set-row" }, h("span", { class: "set-now", text: school.name }),
-       h("button", { class: "text-btn", type: "button", id: "schoolEdit", text: "고치기", "aria-label": "학교 바꾸기", onclick: () => { schoolEdit = true; renderSet(); } }))]
+       h("button", { class: "text-btn", type: "button", id: "schoolEdit", text: "고치기", "aria-label": "학교 바꾸기",
+         onclick: () => openModal({ id: "schoolModal", title: "학교 찾기", closeId: "schoolClose", action: findBtn, err,
+           form: h("div", { class: "set-form" }, h("div", { class: "set-row" }, findIn), found) }) }))]
     : [h("div", { class: "set-row" }, findIn, findBtn), found];
 
   /* 학년도: 고르기, 다음 학년도 추가 */
@@ -2594,26 +2598,26 @@ function rosterSec(kind) {
   const b = rosterBlock(kind, classes);
   return setSec(["학생 명단", ...b.head], b.body);
 }
-/* 반 하나 손으로 고치기(전에는 교무수첩 장의 「명단 편집」). 한 줄에 한 명, 앞 번호는 떼어 낸다. */
-let rsEdit = "";
-function rosterEditor(cls) {
+/* 반 하나 손으로 고치기(전에는 교무수첩 장의 「명단 편집」). 한 줄에 한 명, 앞 번호는 떼어 낸다.
+   창으로 연다(선생님 지시 2026-11-26): 전에는 그 반 줄 아래에 끼어들어 다음 반 줄과 그 아래가 다 밀렸다. */
+function openRosterEdit(cls) {
   const list = rosterOf(cls), lines = [];
   for (const s of list) lines[s.n - 1] = s.name;
   const cntIn = h("input", { type: "number", id: "rCount", value: String(list.length ? Math.max(...list.map(s => s.n)) : 28), min: "1", max: "60", "aria-label": "학생 수" });
   const ta = h("textarea", { id: "rNames", "aria-label": "학생 이름, 한 줄에 한 명", value: Array.from(lines, x => x || "").join("\n") });
-  return h("div", { class: "roster-editor rs-edit" },
+  const save = h("button", { class: "btn small", type: "button", id: "rSave", text: "저장", "aria-label": "저장", onclick: () => {
+    const names = ta.value.split(/\r?\n/).map(s => s.replace(/^\s*\d+[.)\s]*/, "").trim());
+    while (names.length && !names[names.length - 1]) names.pop();
+    const count = Math.max(1, Math.min(60, Math.max(Number(cntIn.value) || 1, names.length)));
+    saveRoster(names.slice(0, 60), count, cls);
+    closeModal("rsModal"); renderSet(); renderClass(); renderBook(); toast(classLabel(cls) + " 명단을 저장했습니다");
+  } });
+  const box = h("div", { class: "roster-editor", id: "rsEditBox" },
     h("div", { class: "set-row" },
       h("label", { class: "rs-cnt" }, "학생 수", cntIn),
-      h("span", { class: "set-state", text: "한 줄에 한 명" }),
-      h("button", { class: "btn small", type: "button", id: "rSave", text: "저장", onclick: () => {
-        const names = ta.value.split(/\r?\n/).map(s => s.replace(/^\s*\d+[.)\s]*/, "").trim());
-        while (names.length && !names[names.length - 1]) names.pop();
-        const count = Math.max(1, Math.min(60, Math.max(Number(cntIn.value) || 1, names.length)));
-        saveRoster(names.slice(0, 60), count, cls);
-        rsEdit = ""; renderSet(); renderClass(); renderBook(); toast(classLabel(cls) + " 명단을 저장했습니다");
-      } }),
-      h("button", { class: "btn small secondary", type: "button", text: "취소", onclick: () => { rsEdit = ""; renderSet(); } })),
+      h("span", { class: "set-state", text: "한 줄에 한 명" })),
     ta);
+  openModal({ id: "rsModal", title: classLabel(cls) + " 명단", form: box, action: save, closeId: "rsClose" });
 }
 function rosterBlock(kind, classes) {
   const open = keyStateNow() === "open" && docs.roster && docs.roster.ready;
@@ -2621,16 +2625,13 @@ function rosterBlock(kind, classes) {
   const mine = classes.filter(c => !hcHas(c));
   const err = h("p", { class: "form-err", role: "alert", text: rosterErr });
   const fail = (e) => { rosterErr = (e && e.message) || "처리하지 못했습니다."; err.textContent = rosterErr; };
-  if (rsEdit && !mine.includes(rsEdit)) rsEdit = "";
-  const lines = h("div", { class: "rs-list", id: "rsList" }, ...classes.flatMap(c => {
+  const lines = h("div", { class: "rs-list", id: "rsList" }, ...classes.map(c => {
     const n = rosterOf(c).length;
-    const row = h("div", { class: "rs-row", "data-cls": c },
+    return h("div", { class: "rs-row", "data-cls": c },
       h("b", { text: classLabel(c) }),
       h("span", { text: hcHas(c) ? `호클래스 강의실 ${n}명` : n ? n + "명" : "비어 있음" }),
       hcHas(c) ? h("span") : h("button", { class: "btn small secondary", type: "button", text: "편집",
-        "aria-label": classLabel(c) + " 명단 편집", "aria-pressed": String(rsEdit === c),
-        onclick: () => { rsEdit = rsEdit === c ? "" : c; renderSet(); } }));
-    return rsEdit === c ? [row, rosterEditor(c)] : [row];
+        "aria-label": classLabel(c) + " 명단 편집", onclick: () => openRosterEdit(c) }));
   }));
   const fileIn = h("input", { type: "file", id: "rsFile", accept: ".xlsx,.xls,.csv", hidden: true, onchange: async () => {
     const f = fileIn.files && fileIn.files[0];
@@ -3093,32 +3094,31 @@ function fitAttRows() {
 }
 window.addEventListener("resize", fitAttRows);
 
-let colAdding = false;         // 수합 탭에서 새 수합 이름 칸을 연 때
-/* 수합은 하나마다 섹션 하나, 섹션은 2단으로 늘어선다. 섹션 안 학생은 4열이고 칸마다 두 줄(번호와 이름, 제출 여부)이다. */
-function collectView() {
-  const D = docs.collects;
-  stampCls(D);
-  const list = roster(), items = D.value.items, ours = mine(items);
-  const myLessons = lessonsOf(picked());
+/* 새 수합은 창으로 연다(선생님 지시 2026-11-26 "액션버튼 눌렀을 때 아래 메뉴 뜨면 그 밑에 것이 다 밀린다").
+   전에는 수합 칸들 맨 앞에 넣는 칸이 끼어들어 아래 수합이 모두 내려갔다. D-day 추가와 같은 창이다. */
+function openColAdd() {
+  const D = docs.collects, items = D.value.items, myLessons = lessonsOf(picked());
   const colCl = h("select", { id: "colCl", "aria-label": "호클래스 차시" }, h("option", { value: "", text: "손으로 걷기" }),
     ...myLessons.map(x => h("option", { value: x.clId, text: `${x.order}차시 ${x.title || ""}`.trim() })));
   const colPart = h("select", { id: "colPart", "aria-label": "걷을 것" },
     h("option", { value: "mission", text: "미션 활동" }),
     h("option", { value: "question", text: "오늘의 질문" }),
     h("option", { value: "formative", text: "형성평가" }));
-  const adding = colAdding || !ours.length;
-  const addSec = adding ? h("section", { class: "panel col-sec" },
-    hd("h3", "새 수합", [
-      h("button", { class: "btn small", type: "submit", form: "colForm", text: "추가", "aria-label": "수합 추가" }),
-      ours.length ? h("button", { class: "text-btn", type: "button", text: "취소", onclick: () => { colAdding = false; renderClass(); } }) : null]),
-    h("form", { class: "col-add", id: "colForm", onsubmit: (e) => {
-      e.preventDefault();
-      const t = $("colName").value.trim(); if (!t) return;
-      items.unshift({ id: uid(), title: t.slice(0, 40), got: [], cls: picked(), clId: colCl.value || "", part: colPart.value || "" });
-      colAdding = false; saveEnc(D); renderClass();
-    } },
-      h("label", { class: "field grow" }, "새 수합 이름", h("input", { type: "text", id: "colName", maxlength: "40", autocomplete: "off" })),
-      myLessons.length ? colCl : null, myLessons.length ? colPart : null)) : null;
+  const form = h("form", { class: "col-add", id: "colForm", onsubmit: (e) => {
+    e.preventDefault();
+    const t = $("colName").value.trim(); if (!t) return;
+    items.unshift({ id: uid(), title: t.slice(0, 40), got: [], cls: picked(), clId: colCl.value || "", part: colPart.value || "" });
+    closeModal("colModal"); saveEnc(D); renderClass();
+  } },
+    h("label", { class: "field grow" }, "새 수합 이름", h("input", { type: "text", id: "colName", maxlength: "40", autocomplete: "off" })),
+    myLessons.length ? colCl : null, myLessons.length ? colPart : null);
+  openModal({ id: "colModal", title: "새 수합", form, saveLabel: "수합 추가", saveId: "colSave", closeId: "colClose" });
+}
+/* 수합은 하나마다 섹션 하나, 섹션은 2단으로 늘어선다. 섹션 안 학생은 4열이고 칸마다 두 줄(번호와 이름, 제출 여부)이다. */
+function collectView() {
+  const D = docs.collects;
+  stampCls(D);
+  const list = roster(), items = D.value.items, ours = mine(items);
   const section = (c) => {
     const linked = !!c.clId;
     if (linked) wantSubs(c.clId);
@@ -3153,8 +3153,9 @@ function collectView() {
       h("div", { class: "col-list" }, ...cells));
   };
   return [
-    hd("h4", "수합", [adding ? null : iconBtn("새 수합", "plus", () => { colAdding = true; renderClass(); }, { id: "colNew" })]),
-    h("div", { class: "col-grid" }, addSec, ...ours.map(section)),
+    hd("h4", "수합", [iconBtn("새 수합", "plus", openColAdd, { id: "colNew" })]),
+    ours.length ? h("div", { class: "col-grid" }, ...ours.map(section))
+      : noneLine("걷을 것이 없습니다. 머리줄의 ＋ 로 새 수합을 만들어 주세요."),
   ];
 }
 
@@ -4224,14 +4225,14 @@ async function doSend() {
 /* ---------- 창(모달) ----------
    머리줄 한 줄 = 제목 | 오류 | 추가(아이콘), 닫기(아이콘). 그 아래 넣는 칸. 바깥을 누르거나 ESC 로 닫는다. */
 function closeModal(id) { const m = id ? $(id) : document.querySelector(".modal-back"); if (m) m.remove(); }
-function openModal({ id, title, form, err, saveLabel, saveId, closeId }) {
+function openModal({ id, title, form, err, saveLabel, saveId, closeId, action }) {
   closeModal();
   const back = h("div", { class: "modal-back", id,
     onclick: (e) => { if (e.target === back) closeModal(id); },
     onkeydown: (e) => { if (e.key === "Escape") closeModal(id); } },
     h("section", { class: "modal-card", role: "dialog", "aria-modal": "true", "aria-label": title },
       hd("h3", title, [err,
-        h("button", { class: "btn small", type: "submit", form: form.id, id: saveId, text: "추가", "aria-label": saveLabel }),
+        action !== undefined ? action : h("button", { class: "btn small", type: "submit", form: form.id, id: saveId, text: "추가", "aria-label": saveLabel }),
         iconBtn("닫기", "x", () => closeModal(id), { id: closeId })]),
       form));
   document.body.append(back);

@@ -923,7 +923,9 @@ function checkWidgetMode() {
   A.btn("#classBody", "설정 열기").click();
   await until(() => A.$("rsList") && A.d.querySelector('#setPanel .set-tab[data-tab="home"][aria-pressed="true"]'), "담임 탭 학생 명단으로 바로 간다");
   A.btn("#rsList", "3학년 9반 명단 편집").click();
-  await until(() => A.$("rNames"), "3-9 명단 편집");
+  await until(() => A.$("rsModal") && A.$("rNames"), "3-9 명단 편집 창");
+  /* 명단 편집은 창이다(2026-11-26). 전에는 반 줄 아래에 끼어들어 다음 반 줄과 그 아래가 다 밀렸다. */
+  assert(!A.$("rsList").contains(A.$("rNames")), "편집 칸이 반 목록 안으로 끼어들지 않는다");
   assert(A.$("rSave").classList.contains("icon-btn") && A.$("rSave").getAttribute("aria-label") === "저장" && A.$("rSave").querySelector("svg"),
     "저장은 SVG 아이콘 단추");
   A.fill("rCount", "2"); A.fill("rNames", "담임하나\n담임둘");
@@ -1058,11 +1060,16 @@ function checkWidgetMode() {
 
   /* 수합: 수합 하나가 섹션 하나이고 섹션은 2단, 섹션 안 학생은 4열, 칸은 두 줄(선생님 지시 2026-11-18) */
   A.sub("col");
-  await until(() => A.$("colName"), "새 수합 이름 칸");
-  A.fill("colName", "가정통신문 회신"); A.submit("colForm");
-  await until(() => A.$("colNew"), "수합 하나");
+  /* 새 수합은 창으로 연다(2026-11-26). 전에는 수합 칸 맨 앞에 끼어들어 아래 수합이 다 밀렸다. */
+  await until(() => A.$("colNew"), "머리줄의 새 수합 단추");
+  assert(!A.$("colName"), "누르기 전에는 넣는 칸이 없다");
   A.$("colNew").click();
-  await until(() => A.$("colName"), "새 수합 이름 칸 다시");
+  await until(() => A.$("colModal") && A.$("colName"), "새 수합 창");
+  assert(!A.d.querySelector("#classBody #colName"), "넣는 칸이 수합 칸들 사이로 끼어들지 않는다");
+  A.fill("colName", "가정통신문 회신"); A.submit("colForm");
+  await until(() => !A.$("colModal") && A.$("colNew"), "저장하면 창이 닫힌다");
+  A.$("colNew").click();
+  await until(() => A.$("colName"), "새 수합 창 다시");
   A.fill("colName", "수련회 동의서"); A.submit("colForm");
   await until(() => A.d.querySelectorAll("#classBody .col-grid > .col-sec[data-col]").length === 2, "수합 둘이 섹션 둘");
   assert(!A.d.querySelector("#classBody .ctab"), "수합을 고르는 탭은 없다(섹션이 다 보인다)");
@@ -1367,6 +1374,12 @@ function checkWidgetMode() {
   await until(() => A.d.querySelector("#neisFound .cpick"), "학교를 찾아 보여 준다");
   A.d.querySelector("#neisFound .cpick").click();
   await until(() => A.$("schoolEdit") && A.$("setForm").textContent.includes("인천동양중학교"), "정한 학교가 보인다");
+  /* 학교 바꾸기도 창이다(2026-11-26). 전에는 찾은 결과가 아래로 펼쳐져 학년도, 반 줄이 다 밀렸다. */
+  A.$("schoolEdit").click();
+  await until(() => A.$("schoolModal") && A.$("neisFind"), "학교 찾기 창");
+  assert(!A.$("setForm").contains(A.$("neisFound")), "찾은 결과가 설정 줄 사이로 끼어들지 않는다");
+  A.$("schoolClose").click();
+  await until(() => !A.$("schoolModal"), "창을 닫는다");
   // 눈으로 볼 때: DUMP_SET=파일 npm test 하면 학교를 정한 뒤 기본 탭을 떠 둔다. 브라우저로 찍어 본다.
   if (process.env.DUMP_SET) fs.writeFileSync(process.env.DUMP_SET, A.$("setPanel").outerHTML);
   A.setTab("work");

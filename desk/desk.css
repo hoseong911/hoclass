@@ -1270,8 +1270,8 @@ body.set-on .pagebar, body.set-on .tools { display: none; }
 .hd-acts { margin-left: auto; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .hd > input, .hd > select { width: auto; }
 
-/* 설정 학생 명단: 반 줄 아래 펼치는 편집 칸 */
-.rs-list .rs-edit { border-radius: 0; border-top: 1px solid var(--line); }
+/* 설정 학생 명단: 편집은 창으로 연다(2026-11-26). 창 안에서는 상자 모양을 벗는다 */
+.modal-card .roster-editor { padding: 0; background: none; }
 .rs-cnt { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); }
 .rs-cnt input { width: 72px; }
 .calpaste textarea, #calText { min-height: 120px; }
