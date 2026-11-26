@@ -2139,28 +2139,32 @@ function roomPicker(id, picked, onPick) {
 const setLine = (label, ...kids) => h("div", { class: "set-line" },
   h("span", { class: "set-label", text: label }), h("div", { class: "set-val" }, ...kids.filter(Boolean)));
 
-let keepAsk = false;           // 잠그지 않기를 켜려고 비밀번호 칸을 연 때
-function keepLine() {
+/* 잠그지 않기를 켤 때 묻는 비밀번호는 창으로 받는다(선생님 지시 2026-11-26).
+   전에는 체크하면 비밀번호 칸이 줄 사이에 끼어들어 안내와 자동 잠금 줄, 아래 섹션이 다 밀렸다.
+   체크는 켜지는 순간 되돌려 둔다. 비밀번호가 맞아 열쇠를 둔 뒤에야 켜진 것으로 보인다. */
+function openKeepAsk() {
   const err = h("p", { class: "form-err", role: "alert" });
-  const box = h("input", { type: "checkbox", id: "keepOpen", checked: keepOn || keepAsk ? true : null,
-    onchange: (e) => {
-      if (e.target.checked) { keepAsk = true; renderSet(); return; }
-      keepAsk = false; forgetKeep(); renderSet(); toast("이 기기에서도 교무수첩을 잠급니다");
-    } });
   const passIn = h("input", { type: "password", id: "keepPass", autocomplete: "current-password", "aria-label": "교무수첩 비밀번호" });
   const go = h("button", { class: "btn small", type: "button", id: "keepGo", text: "켜기", onclick: async () => {
     err.textContent = ""; go.disabled = true;
-    try { await keepWith(passIn.value); keepAsk = false; renderSet(); renderNb(); toast("이 기기에서는 교무수첩을 잠그지 않습니다"); }
+    try { await keepWith(passIn.value); closeModal("keepModal"); renderSet(); renderNb(); toast("이 기기에서는 교무수첩을 잠그지 않습니다"); }
     catch (x) { err.textContent = (x && x.message) || "켜지 못했습니다."; go.disabled = false; }
   } });
   passIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go.click(); } });
+  openModal({ id: "keepModal", title: "잠그지 않기", err, action: go, closeId: "keepClose",
+    form: h("div", { class: "set-form" }, h("div", { class: "set-row" }, passIn),
+      h("p", { class: "set-state", text: "교무수첩 비밀번호를 한 번 넣으면 켜집니다. 혼자 쓰는 PC에서만 켜 주세요." })) });
+}
+function keepLine() {
+  const box = h("input", { type: "checkbox", id: "keepOpen", checked: keepOn ? true : null,
+    onchange: (e) => {
+      if (e.target.checked) { e.target.checked = false; openKeepAsk(); return; }
+      forgetKeep(); renderSet(); toast("이 기기에서도 교무수첩을 잠급니다");
+    } });
   return setLine("잠금",
     h("label", { class: "check-row" }, box, "이 기기에서는 교무수첩을 잠그지 않기"),
-    keepAsk && !keepOn ? h("div", { class: "set-row" }, passIn, go) : null,
-    err,
     h("p", { class: "set-state", text: keepOn
       ? "이 브라우저에 열쇠를 두었습니다. 비밀번호를 묻지 않고, 한참 안 써도 잠그지 않습니다. 나가기를 누르면 지웁니다."
-      : keepAsk ? "교무수첩 비밀번호를 한 번 넣으면 켜집니다. 혼자 쓰는 PC에서만 켜 주세요."
       : "끄면 열 때마다 비밀번호를 묻고, 아래 시간 동안 안 쓰면 잠급니다." }));
 }
 

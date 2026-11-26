@@ -551,9 +551,12 @@ function checkWidgetMode() {
   const kept = () => { try { return JSON.parse(A.w.localStorage.getItem("my-desk-v3:keepKey")); } catch (e) { return null; } };
   assert(!A.$("keepOpen").checked && A.$("setIdle"), "처음에는 꺼져 있고 자동 잠금 칸이 있다");
   A.$("keepOpen").click();
-  await until(() => A.$("keepPass"), "켜려면 비밀번호 칸이 열린다");
+  await until(() => A.$("keepModal") && A.$("keepPass"), "켜려면 비밀번호 창이 열린다");
+  /* 비밀번호 칸은 창이다(2026-11-26). 전에는 줄 사이에 끼어들어 아래 안내와 자동 잠금 줄이 다 밀렸다. */
+  assert(!A.$("setPanel").contains(A.$("keepPass")), "비밀번호 칸이 설정 줄 사이로 끼어들지 않는다");
+  assert(!A.$("keepOpen").checked, "비밀번호를 넣기 전에는 체크가 켜지지 않는다");
   A.fill("keepPass", "틀린비밀번호"); A.$("keepGo").click();
-  await until(() => A.$("setPanel").textContent.includes("비밀번호가 맞지 않습니다"), "틀린 비밀번호는 거부");
+  await until(() => A.$("keepModal").textContent.includes("비밀번호가 맞지 않습니다"), "틀린 비밀번호는 거부");
   assert(!kept(), "틀리면 열쇠를 두지 않는다");
   A.fill("keepPass", PASS); A.$("keepGo").click();
   await until(() => kept() && A.$("keepOpen").checked && !A.$("setIdle"), "켜면 이 브라우저에 열쇠를 두고 자동 잠금 칸을 숨긴다");
