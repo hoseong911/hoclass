@@ -383,6 +383,9 @@ function checkAttOneScreen() {
     assert(css.includes(rule), "desk.css 에 이 규칙이 있어야 한다(없으면 아래 칸이 화면 밖으로 밀린다): " + rule);
   const js = fs.readFileSync(path.join(DIR, "desk.js"), "utf8");
   assert(!/ATT_ABBR/.test(js), "칸 글자는 종류 두 글자 그대로다. 한 글자 줄임말 표를 되살리지 않는다");
+  /* 줄 높이와 열 너비를 렌더마다 다시 재면, 아래 칸에서 무엇이 열리고 닫힐 때마다 표 전체가 흔들린다(선생님 지적 2026-11-26) */
+  assert(/key !== attFit.key/.test(js),
+    "fitAttRows 는 창 크기, 학생 수, 날 수가 바뀔 때만 다시 재야 한다(아래 칸 높이에 따라 다시 재면 화면이 흔들린다)");
 }
 function checkHiddenRule() {
   const css = fs.readFileSync(path.join(DIR, "desk.css"), "utf8");
@@ -940,7 +943,13 @@ function checkWidgetMode() {
   await until(() => A.$("attEd"), "고르개를 다시 연다");
   A.d.querySelector('#attEd .att-k [data-v="결과"]').click(); A.d.querySelector('#attEd .att-p [data-v="5"]').click();
   if (process.env.DUMP_CLASS) { for (const i of A.d.querySelectorAll("#nb input")) i.setAttribute("value", i.value); fs.writeFileSync(process.env.DUMP_CLASS + "_ed.html", A.$("nb").outerHTML + A.$("pagebar").outerHTML); }
-  A.d.querySelector('#attEd .att-k [data-v="결석"]').click();
+  /* 종류를 바꿔도 고르개 줄 수는 넷 그대로다(줄이 생기고 사라지면 한 달 표가 다시 맞춰져 화면이 흔들렸다, 2026-11-26) */
+  for (const k of ["지각", "조퇴", "결과", "결석"]) {
+    A.d.querySelector('#attEd .att-k [data-v="' + k + '"]').click();
+    assert.strictEqual(A.d.querySelectorAll("#attEd .att-ed-row").length, 4, k + " 일 때도 줄은 종류, 사유, 교시, 메모 넷이다");
+  }
+  assert(A.d.querySelector("#attEd .att-ed-row.off .att-pick button").disabled,
+    "결석일 때 교시 줄은 자리만 지키고 꺼 둔다(없애면 아래 칸 높이가 바뀐다)");
   const edText = () => A.$("attEd").textContent;
   assert(edText().includes("미인정결과(2교시, 3교시, 보건실)"), "결과는 빠진 교시 여럿과 메모를 괄호에: " + edText());
   assert(edText().includes("질병조퇴(6교시부터)"), "조퇴는 몇 교시부터");

@@ -2895,8 +2895,9 @@ function attEditor(st, A, day = attDate(), cls = picked()) {
   if (d.i >= list.length) d.i = -1;                  // 다른 기기에서 그 건이 지워졌다
   const fixingOne = d.i >= 0;
   const multi = d.k === "결과", noP = d.k === "결석";
-  const pick = (cls, items, cur, on) => h("div", { class: "seg att-pick " + cls }, ...items.map(([v, t]) => h("button", {
-    type: "button", "data-v": String(v), "aria-pressed": String(cur(v)), text: t, onclick: () => { on(v); renderNb(); } })));
+  const pick = (cls, items, cur, on, off) => h("div", { class: "seg att-pick " + cls }, ...items.map(([v, t]) => h("button", {
+    type: "button", "data-v": String(v), "aria-pressed": String(cur(v)), text: t, disabled: off ? true : null,
+    onclick: off ? null : () => { on(v); renderNb(); } })));
   const err = h("p", { class: "form-err", role: "alert" });
   const memoIn = h("input", { type: "text", id: "attMemo", maxlength: "60", autocomplete: "off", value: d.memo, "aria-label": "메모",
     oninput: (e) => { d.memo = e.target.value; } });
@@ -2930,10 +2931,11 @@ function attEditor(st, A, day = attDate(), cls = picked()) {
       pick("att-k", ATT_KINDS.map(k => [k, k]), v => d.k === v, v => { d.k = v; d.p = []; })),
     h("div", { class: "att-ed-row" }, h("span", { class: "lbl", text: "사유" }),
       pick("att-r", ATT_REASONS, v => d.r === v, v => { d.r = v; })),
-    noP ? null : h("div", { class: "att-ed-row" },
-      h("span", { class: "lbl", text: d.k === "지각" ? "언제까지" : d.k === "조퇴" ? "언제부터" : "빠진 교시" }),
+    // 결석은 교시를 안 고르지만 줄은 비우지 않고 꺼 둔다(줄이 사라지면 아래 칸 높이가 바뀌어 한 달 표가 흔들렸다)
+    h("div", { class: "att-ed-row" + (noP ? " off" : "") },
+      h("span", { class: "lbl", text: noP ? "교시" : d.k === "지각" ? "언제까지" : d.k === "조퇴" ? "언제부터" : "빠진 교시" }),
       pick("att-p", PERIOD_NAMES.map((t, i) => [i, t.replace("교시", "")]), v => d.p.includes(v),
-        v => { d.p = multi ? (d.p.includes(v) ? d.p.filter(x => x !== v) : [...d.p, v]) : [v]; })),
+        v => { d.p = multi ? (d.p.includes(v) ? d.p.filter(x => x !== v) : [...d.p, v]) : [v]; }, noP)),
     h("div", { class: "att-ed-row" }, h("span", { class: "lbl", text: "메모" }), memoIn));
 }
 /* 표 아래 칸(선생님 지시 2026-11-16 "하루짜리랑 1달짜리를 아예 하나로 합쳐, 카드 명단은 없애고 칸 클릭하면 아래에서 체크"):
@@ -3057,22 +3059,32 @@ function attMonthView() {
 }
 /* 담임 한 달 표 열 음영: 쉬는 날(이름 있는 날)과 일요일은 빨강, 토요일은 파랑(선생님 지시 2026-11-24) */
 const dayTone = (d) => { const wd = parseDate(d).getDay(); return offName(d) || wd === 0 ? "hol" : wd === 6 ? "sat" : ""; };
-/* 담임 한 달 표의 줄 높이를 남은 화면에 맞춘다(30명이 한 화면에, 선생님 지시 2026-11-24). 22~44px */
+/* 담임 한 달 표의 줄 높이를 남은 화면에 맞춘다(30명이 한 화면에, 선생님 지시 2026-11-24). 22~44px
+   줄 높이와 열 너비는 창 크기, 학생 수, 날 수가 바뀔 때만 다시 잰다(선생님 지시 2026-11-26 "화면이 막 흔들린다").
+   아래 칸에서 무엇이 열리고 닫히든(고르개 줄, 안내, 오류, 기록 목록) 표의 글자 크기는 그대로 둔다. */
+let attFit = { key: "", row: 0, col: 0 };
 function fitAttRows() {
   const sc = document.querySelector(".att-one .att-month-scroll"), t = sc && sc.querySelector("table");
   if (!t || !t.tBodies[0] || !t.tBodies[0].rows.length) return;
   sc.classList.remove("hug"); sc.style.height = "";   // 지난번에 맞춘 높이를 걷고, 늘어난 상태에서 다시 잰다
   if (!sc.clientHeight) return;
   const n = t.tBodies[0].rows.length, head = t.tHead ? t.tHead.offsetHeight : 40;
-  const px = Math.max(22, Math.min(44, Math.floor((sc.clientHeight - head - 2) / n)));
-  t.style.setProperty("--att-row", px + "px");
-  // 날짜 칸 너비도 남은 폭을 날 수로 나눠 남는 폭 없이 채운다(한 달이 옆으로 굴리지 않고 다 보이게). 28px 아래로는 안 줄인다
   const ths = [...t.tHead.rows[0].cells], days = ths.filter(c => c.classList.contains("day")).length;
-  const fixed = ths.filter(c => !c.classList.contains("day") && !c.classList.contains("fill")).reduce((a, c) => a + c.offsetWidth, 0);
-  if (days) {
-    const col = Math.max(28, Math.floor((sc.clientWidth - fixed - 2) / days));
-    t.style.setProperty("--att-col", col + "px");
-    t.classList.toggle("no-dw", col < 32);   // 칸이 좁으면 요일 "(토)"는 떼고 날짜만 보인다(선생님 지시 2026-11-25)
+  const key = [window.innerWidth, window.innerHeight, n, days].join("|");
+  if (key !== attFit.key) {
+    // 날짜 칸 너비도 남은 폭을 날 수로 나눠 남는 폭 없이 채운다(한 달이 옆으로 굴리지 않고 다 보이게). 28px 아래로는 안 줄인다
+    const fixed = ths.filter(c => !c.classList.contains("day") && !c.classList.contains("fill")).reduce((a, c) => a + c.offsetWidth, 0);
+    attFit = {
+      key,
+      row: Math.max(22, Math.min(44, Math.floor((sc.clientHeight - head - 2) / n))),
+      col: days ? Math.max(28, Math.floor((sc.clientWidth - fixed - 2) / days)) : 0,
+    };
+  }
+  // 표는 렌더마다 새로 만들어지니 잰 값을 다시 입힌다
+  t.style.setProperty("--att-row", attFit.row + "px");
+  if (attFit.col) {
+    t.style.setProperty("--att-col", attFit.col + "px");
+    t.classList.toggle("no-dw", attFit.col < 32);   // 칸이 좁으면 요일 "(토)"는 떼고 날짜만 보인다(선생님 지시 2026-11-25)
   }
   // 줄이 적으면 표 밑에 빈 띠와 테두리가 남았다 → 상자를 표 높이에 딱 맞춘다(선생님 지시 2026-11-25)
   const chrome = sc.offsetHeight - sc.clientHeight;   // 테두리 2px + 옆으로 굴리는 띠가 있으면 그 높이

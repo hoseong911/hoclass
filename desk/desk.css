@@ -242,7 +242,10 @@ table.prog { width: 100%; border-collapse: collapse; font-size: 14px; }
 .att-ed-head .hd-t { font-size: 15px; }
 .att-ed .muted { color: var(--muted); font-size: 13px; }
 .att-ed-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.att-ed-row .lbl { flex: 0 0 64px; font-size: 13px; color: var(--muted); }
+.att-ed-row .lbl { flex: 0 0 72px; font-size: 13px; color: var(--muted); }   /* 72px: "빠진 교시"로 바뀌어도 단추가 안 밀리게 */
+/* 결석은 교시를 안 고른다. 줄은 자리를 지키고 꺼 둔 것만 보인다(줄을 없애면 화면이 흔들렸다) */
+.att-ed-row.off .lbl, .att-ed-row.off .att-pick { opacity: .4; }
+.att-pick button:disabled { cursor: default; }
 .att-ed-row > input { flex: 1 1 200px; min-width: 0; }
 .att-pick button { padding: 5px 12px; }
 /* 고른 것이 흰 바탕만으로는 잘 안 보여 칠한다 */
